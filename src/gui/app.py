@@ -9,7 +9,7 @@ import streamlit.components.v1 as components
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from src.gui.utils import _dag_levels, _highlight_term
+from src.gui.utils import _highlight_term
 
 try:
     from src.config import load_app_config
@@ -28,49 +28,134 @@ if HAS_SRC:
 def _inject_css():
     st.markdown("""
     <style>
+    /* ── high-contrast base ── */
+    html {
+        --kf-text: #212121;
+        --kf-bg: #fafafa;
+        --kf-border: #616161;
+        --kf-accent: #1565c0;
+        --kf-success: #2e7d32;
+        --kf-error: #c62828;
+        --kf-muted: #757575;
+        --kf-shadow: rgba(0,0,0,0.18);
+    }
+    body {
+        color: var(--kf-text) !important;
+    }
+    p, li, caption, span, label, .stMarkdown, .stText {
+        color: var(--kf-text) !important;
+    }
+    h1, h2, h3, h4 {
+        color: var(--kf-text) !important;
+        font-weight: 600 !important;
+    }
+    hr, [data-testid="stDivider"] {
+        border-color: var(--kf-border) !important;
+    }
+
+    /* ── sticky title + tabs ── */
     [data-testid="stAppViewContainer"] > .main h1:first-of-type {
         font-size: 1.05rem !important;
-        padding-top: 0.15rem !important;
-        padding-bottom: 0.15rem !important;
-        position: sticky;
-        top: 0;
-        z-index: 100;
+        padding: 0.15rem 1rem !important;
+        position: sticky; top: 0; z-index: 100;
         margin-bottom: 0 !important;
-        background: var(--background-color);
+        background: var(--kf-bg);
+        border-bottom: 1px solid var(--kf-border);
     }
     [data-testid="stTabs"] > div:first-child {
-        position: sticky;
-        top: 38px;
-        z-index: 100;
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-        background: var(--background-color);
+        position: sticky; top: 42px; z-index: 100;
+        padding-top: 2px !important; padding-bottom: 2px !important;
+        background: var(--kf-bg);
+        border-bottom: 1px solid var(--kf-border);
     }
     button[data-testid="stBaseButton-headerNoPadding"] {
         font-size: 0.78rem !important;
         padding: 0.15rem 0.5rem !important;
-        min-height: 26px !important;
+        min-height: 28px !important;
     }
-    h2 {
-        font-size: 0.95rem !important;
-    }
-    h3 {
-        font-size: 0.85rem !important;
-    }
+    h2 { font-size: 0.95rem !important; color: var(--kf-text) !important; }
+    h3 { font-size: 0.85rem !important; color: var(--kf-text) !important; }
+
+    /* ── chat layout ── */
     .chat-controls-row [data-testid="stVerticalBlock"] {
         align-items: flex-end !important;
     }
-    @media (max-width: 640px) {
-        [data-testid="stSidebar"] {
-            display: none !important;
-        }
-        [data-testid="stTabs"] > div:first-child {
-            flex-wrap: wrap !important;
-        }
+
+    /* ── popover high contrast ── */
+    section[data-testid="stPopover"] {
+        border: 2px solid var(--kf-border) !important;
+        border-radius: 8px !important;
+        box-shadow: 0 6px 20px var(--kf-shadow) !important;
+        background: var(--kf-bg) !important;
+        color: var(--kf-text) !important;
+    }
+    section[data-testid="stPopover"] * {
+        color: var(--kf-text) !important;
+    }
+    section[data-testid="stPopover"] button {
+        border: 1px solid var(--kf-border) !important;
+    }
+
+    /* ── expander high contrast ── */
+    [data-testid="stExpander"] details {
+        border: 1px solid var(--kf-border) !important;
+        border-radius: 6px !important;
+    }
+    [data-testid="stExpander"] summary {
+        font-weight: 600 !important;
+        color: var(--kf-text) !important;
+    }
+
+    /* ── sidebar ── */
+    [data-testid="stSidebar"] {
+        background: var(--kf-bg) !important;
+        border-right: 1px solid var(--kf-border) !important;
+    }
+
+    /* ── buttons ── */
+    .stButton > button, .stDownloadButton > button {
+        border: 1px solid var(--kf-border) !important;
+        font-weight: 500 !important;
+        color: var(--kf-text) !important;
+    }
+    .stButton > button:hover, .stDownloadButton > button:hover {
+        border-color: var(--kf-accent) !important;
+        color: var(--kf-accent) !important;
+    }
+
+    /* ── checkboxes / inputs ── */
+    [data-testid="stCheckbox"] label {
+        color: var(--kf-text) !important;
+    }
+    input, textarea, select {
+        border: 1px solid var(--kf-border) !important;
+        color: var(--kf-text) !important;
+    }
+
+    /* ── mermaid / flow chart container ── */
+    .mermaid-box {
+        border: 1px solid var(--kf-border);
+        border-radius: 8px;
+        padding: 12px;
+        margin: 8px 0;
+        background: var(--kf-bg);
+        overflow-x: auto;
+    }
+
+    /* ── responsive ── */
+    @media (max-width: 768px) {
+        [data-testid="stSidebar"] { display: none !important; }
+        [data-testid="stTabs"] > div:first-child { flex-wrap: wrap !important; }
         button[data-testid="stBaseButton-headerNoPadding"] {
             font-size: 0.7rem !important;
-            padding: 0.1rem 0.3rem !important;
+            padding: 0.1rem 0.3rem !important; min-height: 24px !important;
         }
+        h1 { font-size: 0.95rem !important; }
+        .mermaid-box { padding: 8px; }
+    }
+
+    @media (min-width: 769px) and (max-width: 1024px) {
+        [data-testid="stSidebar"] { width: 200px !important; }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -151,97 +236,98 @@ def _pretty_display(text: str, max_len: int = 5000):
     st.text(text[:max_len])
 
 
-def _render_dag_nodes(nodes: list[dict], product_name: str):
-    """Render DAG topology for a workflow as grouped clickable nodes."""
-    from collections import deque
+def _render_mermaid(chart_def: str, height: int = 260):
+    """Render a mermaid.js diagram via st.components.html."""
+    rid = f"mermaid_{abs(hash(chart_def)) % 1000000}"
+    components.html(f"""
+    <div class="mermaid-box"><div class="mermaid" id="{rid}">
+{chart_def}
+    </div></div>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+    mermaid.initialize({{ startOnLoad: true, theme: 'default',
+        flowchart: {{ useMaxWidth: true, htmlLabels: true, curve: 'basis' }} }});
+    </script>
+    """, height=height + 40)
 
-    adj: dict[str, list[str]] = {}
-    node_map: dict[str, dict] = {}
+
+def _build_mermaid_dag(nodes: list[dict], node_colors: dict[str, str] | None = None) -> str:
+    """Build a mermaid flowchart definition from a DAG node list.
+
+    Args:
+        nodes: workflow node definitions with name/next_type/next
+        node_colors: optional dict mapping node_name → CSS color.
+                      If None, default colors are used.
+    """
+    if not nodes:
+        return "graph TD\n  empty[no nodes]"
+
+    lines = ["graph TD"]
+    shapes: dict[str, str] = {}
+    class_defs: list[str] = []
+
     for n in nodes:
         name = n["name"]
-        node_map[name] = n
-        adj[name] = []
+        nt = n.get("next_type", "one")
+        if nt in ("if-then", "switch"):
+            shapes[name] = f"{name}{{{name}}}"
+        else:
+            shapes[name] = f"{name}[{name}]"
+
+    for n in nodes:
+        src = n["name"]
         nt = n.get("next_type", "one")
         nxt = n.get("next", "")
         if nt == "one" and nxt:
-            adj[name].append(nxt)
+            lines.append(f"    {shapes.get(src, src)} --> {shapes.get(nxt, nxt)}")
         elif nt in ("if-then", "switch") and isinstance(nxt, list):
-            for b in nxt:
-                adj[name].append(b)
+            for tgt in nxt:
+                lines.append(f"    {shapes.get(src, src)} --> {shapes.get(tgt, tgt)}")
 
-    has_parent: set[str] = set()
-    for targets in adj.values():
-        has_parent.update(targets)
-    roots = [n["name"] for n in nodes if n["name"] not in has_parent]
-    if not roots and nodes:
-        roots = [nodes[0]["name"]]
-
-    levels: dict[str, int] = {}
-    queue = deque((r, 0) for r in roots)
-    while queue:
-        node, lv = queue.popleft()
-        if node in levels:
-            continue
-        levels[node] = lv
-        for nb in adj.get(node, []):
-            if nb not in levels:
-                queue.append((nb, lv + 1))
-
-    for n in nodes:
-        if n["name"] not in levels:
-            levels[n["name"]] = max(levels.values(), default=0) + 1
-
-    max_lv = max(levels.values()) if levels else 0
-    level_groups: list[list[str]] = [[] for _ in range(max(max_lv, 1))]
-    for node, lv in levels.items():
-        while lv >= len(level_groups):
-            level_groups.append([])
-        level_groups[lv].append(node)
-
-    app_cfg = load_app_config()
-
-    for lv, group in enumerate(level_groups):
-        if not group:
-            continue
-        cols = st.columns(len(group))
-        for i, node_name in enumerate(group):
-            nd = node_map.get(node_name, {})
-            nt = nd.get("next_type", "one")
-            badge = ""
-            if nt == "if-then":
-                badge = "  ⇢"
-            elif nt == "switch":
-                badge = "  ⇉"
-            is_first = node_name == roots[0] if roots else False
-            is_last = not adj.get(node_name, [])
-            if is_first:
-                label = f"▶ {node_name}{badge}"
-            elif is_last:
-                label = f"▪ {node_name}{badge}"
-            else:
-                label = f"● {node_name}{badge}"
-
-            with cols[i]:
-                with st.popover(label, use_container_width=True):
-                    st.caption(f"**节点名：** `{node_name}`")
-                    st.caption(f"**路由类型：** `{nt}`")
-                    if nd.get("next"):
-                        st.caption(f"**下一节点：** `{nd['next']}`")
-                    if nt == "switch" and nd.get("parallel"):
-                        st.caption("**并行执行：** 是")
-                    node_key = f"{product_name}:{node_name}"
-                    cfg_data = app_cfg.nodes.get(node_key)
-                    if cfg_data:
-                        st.markdown("**节点配置 (YAML)：**")
-                        st.json(cfg_data)
-                    else:
-                        st.caption("（无独立节点配置文件）")
-
-        if lv < len(level_groups) - 1 and any(level_groups[lv + 1]):
-            st.markdown(
-                "<p style='text-align:center;margin:0;color:#888;font-size:1.2rem'>⬇</p>",
-                unsafe_allow_html=True,
+    if node_colors:
+        for node_name, color in node_colors.items():
+            cls = f"node_{node_name.replace('-', '_')}"
+            class_defs.append(
+                f"    classDef {cls} fill:{color},stroke:#424242,"
+                "color:#fff,stroke-width:2px"
             )
+            lines.append(f"    class {node_name} {cls}")
+
+    if class_defs:
+        lines.extend(class_defs)
+
+    return "\n".join(lines)
+
+
+def _render_dag_nodes(nodes: list[dict], product_name: str):
+    """Render DAG as mermaid flow chart with clickable nodes below."""
+    if not nodes:
+        st.caption("_无节点_")
+        return
+
+    _render_mermaid(_build_mermaid_dag(nodes), height=180 + len(nodes) * 14)
+
+    st.markdown("**点击节点查看配置：**")
+    app_cfg = load_app_config()
+    cols = st.columns(min(len(nodes), 6))
+    for i, n in enumerate(nodes):
+        node_name = n["name"]
+        nt = n.get("next_type", "one")
+        badge = " ⇢" if nt == "if-then" else (" ⇉" if nt == "switch" else "")
+        with cols[i % len(cols)]:
+            with st.popover(f"{node_name}{badge}", use_container_width=True):
+                st.caption(f"**路由类型：** `{nt}`")
+                if n.get("next"):
+                    st.caption(f"**下一节点：** `{n['next']}`")
+                if nt == "switch" and n.get("parallel"):
+                    st.caption("**并行：** 是")
+                node_key = f"{product_name}:{node_name}"
+                cfg_data = app_cfg.nodes.get(node_key)
+                if cfg_data:
+                    st.markdown("**YAML 配置：**")
+                    st.json(cfg_data)
+                else:
+                    st.caption("（无独立节点配置文件）")
 
 with tabs[0]:
     chat_header = st.container()
@@ -804,82 +890,78 @@ with tabs[4]:
 
                     if wf_nodes:
                         st.markdown("**DAG 执行状态：**")
-                        level_groups = _dag_levels(wf_nodes)
-                        for lv, group in enumerate(level_groups):
-                            if not group:
-                                continue
-                            cols = st.columns(len(group))
-                            for i, node_name in enumerate(group):
-                                nd = node_by_name.get(node_name)
-                                nd_def = next(
-                                    (n for n in wf_nodes if n["name"] == node_name), {}
+                        colors: dict[str, str] = {}
+                        for n in wf_nodes:
+                            if n["name"] in node_by_name:
+                                nd = node_by_name[n["name"]]
+                                colors[n["name"]] = (
+                                    "#c62828" if nd.get("status", "ok") != "ok"
+                                    else "#2e7d32"
                                 )
-                                nt = nd_def.get("next_type", "one")
-                                if nt == "if-then":
-                                    badge = " ⇢"
-                                elif nt == "switch":
-                                    badge = " ⇉"
+                            else:
+                                colors[n["name"]] = "#bdbdbd"
+                        _render_mermaid(
+                            _build_mermaid_dag(wf_nodes, colors),
+                            height=180 + len(wf_nodes) * 14,
+                        )
+                        st.markdown("**节点详情：**")
+                        nc2 = st.columns(min(len(wf_nodes), 6))
+                        for i, n in enumerate(wf_nodes):
+                            node_name = n["name"]
+                            nd = node_by_name.get(node_name)
+                            with nc2[i % len(nc2)]:
+                                if nd:
+                                    icon = (
+                                        "✅" if nd.get("status", "ok") == "ok"
+                                        else "❌"
+                                    )
+                                    dur = nd.get("duration_ms") or 0
+                                    tool = nd.get("tool_name") or "—"
+                                    label = f"{icon} {node_name} ({dur:.0f}ms)"
+                                    with st.popover(label, use_container_width=True):
+                                        inp = nd.get("input_data") or ""
+                                        out = nd.get("output_text") or ""
+                                        if inp:
+                                            st.markdown("**输入：**")
+                                            _pretty_display(inp)
+                                        if out:
+                                            st.markdown("**输出：**")
+                                            _pretty_display(out)
+                                        err = nd.get("error_message")
+                                        if err:
+                                            st.error(err)
+                                        nid = nd["node_log_id"]
+                                        try:
+                                            tools = ms.query_node_tools(nid)
+                                        except Exception:
+                                            tools = []
+                                        if tools:
+                                            st.markdown("---")
+                                            for tlog in tools:
+                                                tdur = tlog.get("duration_ms") or 0
+                                                ts_icon = (
+                                                    "✅"
+                                                    if tlog.get("status", "ok") == "ok"
+                                                    else "❌"
+                                                )
+                                                tname = tlog["tool_name"]
+                                                st.markdown(
+                                                    f"🔧 **`{tname}`** {ts_icon} ({tdur:.0f}ms)"
+                                                )
+                                                params = tlog.get("input_params") or ""
+                                                result = tlog.get("output_result") or ""
+                                                if params:
+                                                    st.caption("参数：")
+                                                    _pretty_display(params)
+                                                if result:
+                                                    st.caption("结果：")
+                                                    _pretty_display(result)
                                 else:
-                                    badge = ""
+                                    st.markdown(
+                                        f"<span style='color:#9e9e9e'>⚪ {node_name}</span>",
+                                        unsafe_allow_html=True,
+                                    )
 
-                                with cols[i]:
-                                    if nd:
-                                        icon = (
-                                            "✅" if nd.get("status", "ok") == "ok" else "❌"
-                                        )
-                                        dur = nd.get("duration_ms") or 0
-                                        tool = nd.get("tool_name") or "—"
-                                        label = f"{icon} {node_name}{badge} ({dur:.0f}ms)"
-                                        with st.popover(label, use_container_width=True):
-                                            inp = nd.get("input_data") or ""
-                                            out = nd.get("output_text") or ""
-                                            if inp:
-                                                st.markdown("**输入：**")
-                                                _pretty_display(inp)
-                                            if out:
-                                                st.markdown("**输出：**")
-                                                _pretty_display(out)
-                                            err = nd.get("error_message")
-                                            if err:
-                                                st.error(err)
-                                            nid = nd["node_log_id"]
-                                            try:
-                                                tools = ms.query_node_tools(nid)
-                                            except Exception:
-                                                tools = []
-                                            if tools:
-                                                st.markdown("---")
-                                                for tlog in tools:
-                                                    tdur = tlog.get("duration_ms") or 0
-                                                    ts_icon = (
-                                                        "✅" if tlog.get("status", "ok") == "ok"
-                                                        else "❌"
-                                                    )
-                                                    tname = tlog["tool_name"]
-                                                    st.markdown(
-                                                        f"🔧 **`{tname}`** {ts_icon} ({tdur:.0f}ms)"
-                                                    )
-                                                    params = tlog.get("input_params") or ""
-                                                    result = tlog.get("output_result") or ""
-                                                    if params:
-                                                        st.caption("参数：")
-                                                        _pretty_display(params)
-                                                    if result:
-                                                        st.caption("结果：")
-                                                        _pretty_display(result)
-                                    else:
-                                        gray = (
-                                            f"<span style='color:#999'>⚪ {node_name}"
-                                            f"{badge} (未执行)</span>"
-                                        )
-                                        st.markdown(gray, unsafe_allow_html=True)
-
-                            if lv < len(level_groups) - 1:
-                                arrow_html = (
-                                    "<p style='text-align:center;margin:0;"
-                                    "color:#aaa;font-size:0.8rem'>⬇</p>"
-                                )
-                                st.markdown(arrow_html, unsafe_allow_html=True)
                     else:
                         for node in nodes:
                             node_name = node["node_name"]
