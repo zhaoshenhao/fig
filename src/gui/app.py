@@ -28,130 +28,42 @@ if HAS_SRC:
 def _inject_css():
     st.markdown("""
     <style>
-    /* ── high-contrast base ── */
-    html {
-        --kf-text: #212121;
-        --kf-bg: #fafafa;
-        --kf-border: #616161;
-        --kf-accent: #1565c0;
-        --kf-success: #2e7d32;
-        --kf-error: #c62828;
-        --kf-muted: #757575;
-        --kf-shadow: rgba(0,0,0,0.18);
-    }
-    body {
-        color: var(--kf-text) !important;
-    }
-    p, li, caption, span, label, .stMarkdown, .stText {
-        color: var(--kf-text) !important;
-    }
-    h1, h2, h3, h4 {
-        color: var(--kf-text) !important;
-        font-weight: 600 !important;
-    }
-    hr, [data-testid="stDivider"] {
-        border-color: var(--kf-border) !important;
-    }
-
-    /* ── sticky title + tabs ── */
     [data-testid="stAppViewContainer"] > .main h1:first-of-type {
         font-size: 1.05rem !important;
         padding: 0.15rem 1rem !important;
         position: sticky; top: 0; z-index: 100;
         margin-bottom: 0 !important;
-        background: var(--kf-bg);
-        border-bottom: 1px solid var(--kf-border);
     }
     [data-testid="stTabs"] > div:first-child {
         position: sticky; top: 42px; z-index: 100;
         padding-top: 2px !important; padding-bottom: 2px !important;
-        background: var(--kf-bg);
-        border-bottom: 1px solid var(--kf-border);
     }
     button[data-testid="stBaseButton-headerNoPadding"] {
         font-size: 0.78rem !important;
         padding: 0.15rem 0.5rem !important;
         min-height: 28px !important;
     }
-    h2 { font-size: 0.95rem !important; color: var(--kf-text) !important; }
-    h3 { font-size: 0.85rem !important; color: var(--kf-text) !important; }
+    h2 { font-size: 0.95rem !important; }
+    h3 { font-size: 0.85rem !important; }
 
-    /* ── chat layout ── */
     .chat-controls-row [data-testid="stVerticalBlock"] {
         align-items: flex-end !important;
     }
 
-    /* ── popover high contrast ── */
-    section[data-testid="stPopover"] {
-        border: 2px solid var(--kf-border) !important;
-        border-radius: 8px !important;
-        box-shadow: 0 6px 20px var(--kf-shadow) !important;
-        background: var(--kf-bg) !important;
-        color: var(--kf-text) !important;
-    }
-    section[data-testid="stPopover"] * {
-        color: var(--kf-text) !important;
-    }
-    section[data-testid="stPopover"] button {
-        border: 1px solid var(--kf-border) !important;
-    }
-
-    /* ── expander high contrast ── */
-    [data-testid="stExpander"] details {
-        border: 1px solid var(--kf-border) !important;
-        border-radius: 6px !important;
-    }
-    [data-testid="stExpander"] summary {
-        font-weight: 600 !important;
-        color: var(--kf-text) !important;
-    }
-
-    /* ── sidebar ── */
-    [data-testid="stSidebar"] {
-        background: var(--kf-bg) !important;
-        border-right: 1px solid var(--kf-border) !important;
-    }
-
-    /* ── buttons ── */
-    .stButton > button, .stDownloadButton > button {
-        border: 1px solid var(--kf-border) !important;
-        font-weight: 500 !important;
-        color: var(--kf-text) !important;
-    }
-    .stButton > button:hover, .stDownloadButton > button:hover {
-        border-color: var(--kf-accent) !important;
-        color: var(--kf-accent) !important;
-    }
-
-    /* ── checkboxes / inputs ── */
-    [data-testid="stCheckbox"] label {
-        color: var(--kf-text) !important;
-    }
-    input, textarea, select {
-        border: 1px solid var(--kf-border) !important;
-        color: var(--kf-text) !important;
-    }
-
-    /* ── mermaid / flow chart container ── */
     .mermaid-box {
-        border: 1px solid var(--kf-border);
-        border-radius: 8px;
-        padding: 12px;
-        margin: 8px 0;
-        background: var(--kf-bg);
+        padding: 8px 0;
+        margin: 4px 0;
         overflow-x: auto;
     }
 
-    /* ── responsive ── */
     @media (max-width: 768px) {
         [data-testid="stSidebar"] { display: none !important; }
         [data-testid="stTabs"] > div:first-child { flex-wrap: wrap !important; }
         button[data-testid="stBaseButton-headerNoPadding"] {
-            font-size: 0.7rem !important;
-            padding: 0.1rem 0.3rem !important; min-height: 24px !important;
+            font-size: 0.7rem !important; padding: 0.1rem 0.3rem !important;
+            min-height: 24px !important;
         }
         h1 { font-size: 0.95rem !important; }
-        .mermaid-box { padding: 8px; }
     }
 
     @media (min-width: 769px) and (max-width: 1024px) {
