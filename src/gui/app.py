@@ -29,14 +29,16 @@ def _inject_css():
     st.markdown("""
     <style>
     [data-testid="stAppViewContainer"] > .main h1:first-of-type {
-        font-size: 1.05rem !important;
-        padding: 0.15rem 1rem !important;
+        font-size: 0.63rem !important;
+        padding: 0.1rem 1rem !important;
         position: sticky; top: 0; z-index: 100;
         margin-bottom: 0 !important;
+        background: inherit;
     }
     [data-testid="stTabs"] > div:first-child {
-        position: sticky; top: 42px; z-index: 100;
+        position: sticky; top: 28px; z-index: 100;
         padding-top: 2px !important; padding-bottom: 2px !important;
+        background: inherit;
     }
     button[data-testid="stBaseButton-headerNoPadding"] {
         font-size: 0.78rem !important;
