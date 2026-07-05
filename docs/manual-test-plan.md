@@ -247,6 +247,16 @@ New-Item -ItemType Directory -Force -Path "data\documents"
 | 3.7 | 跨 workflow chat_id | 用 default 的 chat_id 请求 customer_service | 同上 | 400, 提示 session 属于 default |
 | 3.8 | 不存在的 chat_id | `curl -X POST ... -d '{"query":"test","chat_id":"deadbeef"}' http://$WIN_IP:9000/workflows/default/run` | `Invoke-RestMethod ... -Body '{"query":"test","chat_id":"deadbeef"}'` | 404 |
 
+### 🆕 流式回复（新增）
+
+> 依赖: Layer 3 | 目标: 验证 SSE streaming + 原有阻塞模式共存
+
+| # | 测试点 | Linux / WSL | PowerShell | 预期结果 |
+|---|--------|-------------|------------|----------|
+| 3.9 🆕 | 流式 SSE 请求 | `curl -X POST -H "Content-Type: application/json" -d '{"query":"你好"}' "http://$WIN_IP:9000/workflows/default/run?stream=true"` | `Invoke-RestMethod -Uri "http://$WIN_IP:9000/workflows/default/run?stream=true" -Method Post -ContentType "application/json; charset=utf-8" -Body '{"query":"你好"}'` | `text/event-stream`，含 `event: "token"` + 多行 `data:`，最后 `event: "done"` 含 chat_id/turn_id/reply |
+| 3.10 🆕 | 流式 vs 阻塞 reply 一致 | 同一 query 分别发 stream=true 和 stream=false | 同左 | 两个请求的 reply 文本一致 |
+| 3.11 🆕 | 流式多轮续接 | 用 3.1 的 chat_id：`curl ... -d '{"query":"继续","chat_id":"<id>"}' "http://$WIN_IP:9000/workflows/default/run?stream=true"` | 同左 | reply 含上下文，`done` 事件中 turn_id 递增 |
+
 ---
 
 ## Layer 4: 多节点工作流 (customer_service)
@@ -284,6 +294,24 @@ New-Item -ItemType Directory -Force -Path "data\documents"
 | 5.12 | /sessions/{id} 轮次列表 | 用 5.11 拿到的 chat_id：`curl http://$WIN_IP:9000/sessions/<id>` | `Invoke-RestMethod -Uri http://$WIN_IP:9000/sessions/<id>` | `{"chat_id":"...","turns":[...]}` 含 query/reply/duration |
 | 5.13 | /sessions/{id}/turns/{n} 节点列表 | `curl http://$WIN_IP:9000/sessions/<id>/turns/0` | `Invoke-RestMethod -Uri http://$WIN_IP:9000/sessions/<id>/turns/0` | 含 run 详情 + nodes 列表 |
 | 5.14 | /sessions/{id}/turns/{n}/nodes/{name} 工具调用 | `curl http://$WIN_IP:9000/sessions/<id>/turns/0/nodes/retrieve` | `Invoke-RestMethod -Uri http://$WIN_IP:9000/sessions/<id>/turns/0/nodes/retrieve` | 含 node 详情 + tools 列表 (入参/返回/耗时) |
+
+### 🆕 GUI 新功能验证（新增）
+
+> 依赖: Layer 5 | 目标: 验证 GUI 布局翻新 + 流式切换 + 导出 + DAG 可视化
+
+| # | 测试点 | 操作 | 预期结果 |
+|---|--------|------|----------|
+| 5.15 🆕 | **流式输出开关** | 聊天 Tab → 勾选"流式输出"复选框 → 发消息 | 回复正常显示；取消勾选再发消息，同样正常（客户端自行选择模式） |
+| 5.16 🆕 | **对话导出** | 发几条消息 → 展开"导出对话" → 点击"下载 JSON" | 下载 `chat_history.json`，内容为 `[{role, content, timestamp}, ...]` 数组 |
+| 5.17 🆕 | **对话导出 CSV** | 同上 → 点击"下载 CSV" | 下载 `chat_history.csv`，含 role / content / timestamp 列 |
+| 5.18 🆕 | **DAG 拓扑可视化** | 工作流状态 Tab → 展开 default → 查看节点 DAG | 节点按层级排列（retrieve → generate），节点可点击弹出 YAML 配置；展开 customer_service → 5 节点含 if-then 分支 badge |
+| 5.19 🆕 | **运行指标 DAG 执行状态** | 先发几条消息 → 运行指标 Tab → 展开一个 session → 展开一个 Turn | **DAG 执行状态**区：已执行节点 ✅ (绿色可点击) 显示耗时，未执行节点 ⚪ (灰色) 显示"未执行"；层级间 ⬇ 分隔；点击已执行节点弹出输入/输出/工具调用详情 |
+| 5.20 🆕 | **文档上传扩展格式** | 文档管理 Tab → 上传 .pdf / .docx / .csv / .xlsx 文件 | 文件被接受，提示"选择文件（.txt / .md / .pdf / .docx / .csv / .xlsx）" |
+| 5.21 🆕 | **知识库搜索高亮** | 知识库浏览 Tab → 选择集合 → 在搜索框输入"退款" | 搜索结果中"退款"两字被 `<mark>` 标签高亮（黄色背景） |
+| 5.22 🆕 | **侧边栏精简** | 打开页面 | 侧边栏：API Key 输入框 + 彩色圆点状态（● 绿色=已连接 / 红色=已断开）；会话信息默认折叠（展开才看到 Chat ID） |
+| 5.23 🆕 | **顶栏 sticky** | 打开页面 → 滚动鼠标 | 标题"智能客服 - Knowledge Forge"和 5 个 Tab 标签始终固定在窗口顶部，仅内容区滚动 |
+| 5.24 🆕 | **聊天贴底滚动** | 聊天 Tab → 发多条消息使消息区超出可视范围 | 消息区可独立滚动，输入框始终贴着窗口底部，选择工作流+清空会话始终在内容区顶部 |
+| 5.25 🆕 | **会话指标 CSV 导出** | 运行指标 Tab → 点"下载会话 CSV" | 下载 `sessions.csv`，含 chat_id / turns / total_duration_ms / first_at / last_at |
 
 ---
 
