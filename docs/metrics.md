@@ -102,10 +102,17 @@ curl http://$WIN_IP:9000/sessions/chat_abc123/turns/0/nodes/retrieve
 
 ## GUI 查看
 
-Streamlit GUI → "会话追踪" Tab：
-- 会话列表 → 展开 → 轮次列表 (含 query/reply/耗时)
-- 轮次展开 → 节点列表 (含 输入/输出/耗时)
-- 节点展开 → 工具调用列表 (含 入参/返回/耗时)
+Streamlit GUI → "运行指标" Tab：
+
+**会话列表** — 每个会话一行，含轮次/总耗时/时间范围，支持 CSV 导出。
+
+**DAG 执行状态** — 每个 Turn 内按工作流 DAG 拓扑层级组织节点：
+- ✅ 已执行节点（绿色）— 点击弹出 popover 显示输入/输出/工具调用详情
+- ⚪ 未执行节点（灰色）— 仅显示节点名和路由类型标签（if-then / switch）
+- 层级间用 ⬇ 箭头连接，展示节点依赖关系
+- Fallback：当工作流配置不可用时，退化为展开式节点列表（输入/输出/耗时）
+
+**自动刷新** — 1/5/10/15 分钟间隔可选（默认 5 分钟），通过 JS sessionStorage 实现。
 
 ## Prometheus 指标
 

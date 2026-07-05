@@ -6,7 +6,7 @@
 
 ## 1. llm — LLM 调用
 
-**功能**: 调用 LLM 生成回复。注入对话历史、上下文和 session 变量。
+**功能**: 调用 LLM 生成回复。注入对话历史、上下文和 session 变量。支持流式输出（SSE）。
 
 **调用格式**: `tool: llm`
 
@@ -23,6 +23,8 @@
 |------|------|------|
 | `text` | str | LLM 生成的文本 |
 | `model` | str | 使用的模型名 |
+
+**流式输出**: 当 session 对象设置 `stream_callback` 属性时，llm_tool 会调用 `LLMClient.stream_chat()` 逐 token 推送文本。回调签名为 `fn(token: str) -> None`。非流式模式仍使用 `LLMClient.chat()` 阻塞调用。
 
 **node 配置示例**:
 ```yaml

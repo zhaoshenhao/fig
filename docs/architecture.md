@@ -152,6 +152,9 @@ kf/
 │  ┌──────────┬──────────┬──────────────────┐ │
 │  │   Auth   │  Logger  │     Metrics      │ │  ← 横切中间件
 │  └──────────┴──────────┴──────────────────┘ │
+│  ┌────────────────────────────────────────┐  │
+│  │  JSON (sync)  │  SSE streaming        │  │  ← 双模式响应 (?stream=true)
+│  └────────────────────────────────────────┘  │
 ├─────────────────────────────────────────────┤
 │                DAG Engine                    │  ← 工作流引擎 (拓扑遍历 + 并行)
 │  ┌──────────────────────────────────────┐   │
@@ -189,5 +192,24 @@ kf/
          MetricsStore (SQLite) + Prometheus 指标
                 │
                 ▼
-         {chat_id, turn_id, reply}
+          {chat_id, turn_id, reply}
+
+流式模式 (?stream=true)：
+
+```
+用户输入 → /workflows/{name}/run?stream=true
+                 │
+                 ▼
+          DAGEngine.run()  background thread
+          └── llm_tool → LLMClient.stream_chat()
+                 │
+                 ▼
+          queue.Queue ──→ asyncio.to_thread
+                 │              │
+                 ▼              ▼
+          SSE text/event-stream  →  逐 token 推送
+                 │
+                 ▼
+          {event: "done", chat_id, turn_id, reply}
+```
 ```
