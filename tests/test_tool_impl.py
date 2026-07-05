@@ -125,6 +125,45 @@ class TestLLMTool:
         result = llm_tool(config, session)
         assert "text" in result
 
+    def test_llm_tool_stream_callback(self, mocker, temp_config_dir):
+        sse_lines = [
+            'data: {"choices":[{"delta":{"content":"Hello"}}]}',
+            'data: {"choices":[{"delta":{"content":" Stream"}}]}',
+            "data: [DONE]",
+        ]
+
+        mock_response = mocker.MagicMock()
+        mock_response.status_code = 200
+        mock_response.iter_lines.return_value = sse_lines
+        mock_response.raise_for_status = mocker.MagicMock()
+
+        mock_client = mocker.MagicMock()
+        mock_client.post.return_value = mock_response
+        mocker.patch("httpx2.Client", return_value=mock_client)
+
+        mocker.patch.dict("src.engine.tools.llm_tool._llm_clients", clear=True)
+
+        from src.config import load_app_config
+        from src.engine.tools.llm_tool import llm_tool
+        from src.session.data import SessionData
+
+        load_app_config(temp_config_dir)
+
+        config = {"llm_provider": "test_llm", "system_prompt": "prompt"}
+        session = SessionData()
+        session.nodes = [{"name": "input", "data": {"text": "hi"}}]
+
+        tokens: list[str] = []
+
+        def _recv(token):
+            tokens.append(token)
+
+        session.stream_callback = _recv
+
+        result = llm_tool(config, session)
+        assert tokens == ["Hello", " Stream"]
+        assert result["text"] == "Hello Stream"
+
 
 class TestLLMToolHistory:
     def test_injects_history_messages(self, mocker, temp_config_dir):

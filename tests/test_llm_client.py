@@ -317,3 +317,162 @@ class TestLLMClientStreaming:
         ))
 
         assert tokens == ["Bonjour", "!"]
+
+    def test_stream_openai_skips_non_data_lines(self, mocker):
+        sse_lines = [
+            'data: {"choices":[{"delta":{"content":"Hi"}}]}',
+            ': heartbeat',
+            "data: [DONE]",
+        ]
+
+        mock_response = mocker.MagicMock()
+        mock_response.status_code = 200
+        mock_response.iter_lines.return_value = sse_lines
+        mock_response.raise_for_status = mocker.MagicMock()
+
+        mock_client_ctx = mocker.MagicMock()
+        mock_client_ctx.post.return_value = mock_response
+        mock_client_ctx.__enter__.return_value = mock_client_ctx
+        mock_client_ctx.__exit__.return_value = None
+
+        mocker.patch("httpx2.Client").return_value = mock_client_ctx
+
+        from src.llm.client import LLMClient
+
+        client = LLMClient(base_url="https://api.example.com/v1")
+        tokens = list(client.stream_chat("m", [{"role": "user", "content": "x"}]))
+        assert tokens == ["Hi"]
+
+    def test_stream_openai_invalid_json(self, mocker):
+        sse_lines = [
+            'data: {"choices":[{"delta":{"content":"A"}}]}',
+            "data: NOT_VALID_JSON{{{",
+            'data: {"choices":[{"delta":{"content":"B"}}]}',
+            "data: [DONE]",
+        ]
+
+        mock_response = mocker.MagicMock()
+        mock_response.status_code = 200
+        mock_response.iter_lines.return_value = sse_lines
+        mock_response.raise_for_status = mocker.MagicMock()
+
+        mock_client_ctx = mocker.MagicMock()
+        mock_client_ctx.post.return_value = mock_response
+        mock_client_ctx.__enter__.return_value = mock_client_ctx
+        mock_client_ctx.__exit__.return_value = None
+
+        mocker.patch("httpx2.Client").return_value = mock_client_ctx
+
+        from src.llm.client import LLMClient
+
+        client = LLMClient(base_url="https://api.example.com/v1")
+        tokens = list(client.stream_chat("m", [{"role": "user", "content": "x"}]))
+        assert tokens == ["A", "B"]
+
+    def test_stream_anthropic_with_system_msg(self, mocker):
+        sse_lines = [
+            'data: {"type":"message_start"}',
+            'data: {"type":"content_block_delta","delta":{"text":"OK"}}',
+            'data: {"type":"message_stop"}',
+        ]
+
+        mock_response = mocker.MagicMock()
+        mock_response.status_code = 200
+        mock_response.iter_lines.return_value = sse_lines
+        mock_response.raise_for_status = mocker.MagicMock()
+
+        mock_client_ctx = mocker.MagicMock()
+        mock_client_ctx.post.return_value = mock_response
+        mock_client_ctx.__enter__.return_value = mock_client_ctx
+        mock_client_ctx.__exit__.return_value = None
+
+        mocker.patch("httpx2.Client").return_value = mock_client_ctx
+
+        from src.llm.client import LLMClient
+
+        client = LLMClient(
+            base_url="https://api.anthropic.com/v1",
+            api_key="sk-ant-test",
+            provider_type="anthropic",
+        )
+        tokens = list(client.stream_chat(
+            "claude-v1",
+            [
+                {"role": "system", "content": "be helpful"},
+                {"role": "user", "content": "hi"},
+            ],
+        ))
+        assert tokens == ["OK"]
+
+    def test_stream_anthropic_skips_non_data_lines(self, mocker):
+        sse_lines = [
+            'data: {"type":"message_start"}',
+            ": heartbeat",
+            'data: {"type":"content_block_delta","delta":{"text":"X"}}',
+            'data: {"type":"message_stop"}',
+        ]
+
+        mock_response = mocker.MagicMock()
+        mock_response.status_code = 200
+        mock_response.iter_lines.return_value = sse_lines
+        mock_response.raise_for_status = mocker.MagicMock()
+
+        mock_client_ctx = mocker.MagicMock()
+        mock_client_ctx.post.return_value = mock_response
+        mock_client_ctx.__enter__.return_value = mock_client_ctx
+        mock_client_ctx.__exit__.return_value = None
+
+        mocker.patch("httpx2.Client").return_value = mock_client_ctx
+
+        from src.llm.client import LLMClient
+
+        client = LLMClient(
+            base_url="https://api.anthropic.com/v1",
+            api_key="sk-ant-test",
+            provider_type="anthropic",
+        )
+        tokens = list(client.stream_chat("claude-v1", [{"role": "user", "content": "x"}]))
+        assert tokens == ["X"]
+
+    def test_stream_anthropic_invalid_json(self, mocker):
+        sse_lines = [
+            'data: {"type":"message_start"}',
+            "data: BAD_JSON{{{",
+            'data: {"type":"content_block_delta","delta":{"text":"Y"}}',
+            'data: {"type":"message_stop"}',
+        ]
+
+        mock_response = mocker.MagicMock()
+        mock_response.status_code = 200
+        mock_response.iter_lines.return_value = sse_lines
+        mock_response.raise_for_status = mocker.MagicMock()
+
+        mock_client_ctx = mocker.MagicMock()
+        mock_client_ctx.post.return_value = mock_response
+        mock_client_ctx.__enter__.return_value = mock_client_ctx
+        mock_client_ctx.__exit__.return_value = None
+
+        mocker.patch("httpx2.Client").return_value = mock_client_ctx
+
+        from src.llm.client import LLMClient
+
+        client = LLMClient(
+            base_url="https://api.anthropic.com/v1",
+            api_key="sk-ant-test",
+            provider_type="anthropic",
+        )
+        tokens = list(client.stream_chat("claude-v1", [{"role": "user", "content": "x"}]))
+        assert tokens == ["Y"]
+
+    def test_close_disposes_client(self, mocker):
+        mock_client_ctx = mocker.MagicMock()
+        mock_client_ctx.__enter__.return_value = mock_client_ctx
+        mock_client_ctx.__exit__.return_value = None
+
+        mocker.patch("httpx2.Client").return_value = mock_client_ctx
+
+        from src.llm.client import LLMClient
+
+        client = LLMClient(base_url="https://api.example.com/v1")
+        client.close()
+        mock_client_ctx.close.assert_called_once()

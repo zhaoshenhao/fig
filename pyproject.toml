@@ -45,6 +45,7 @@ omit = [
     "src/*/__init__.py",
     "src/api/main.py",
     "src/cli/build.py",
+    "src/cli/manage.py",
 ]
 
 [tool.coverage.report]
