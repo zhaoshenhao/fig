@@ -1,0 +1,26 @@
+store: memory
+
+max_age: 3600
+
+max_turns: 100
+
+max_chars: 100000
+
+keep: 20
+
+compress_max_words: 1000
+
+cleanup_interval: 300
+
+memory:
+  max_sessions: 2000
+
+redis:
+  url: redis://localhost:6379/0
+  prefix: "kf:sess:"
+
+summary:
+  base_url: "https://api.deepseek.com/v1"
+  api_key: "${DEEPSEEK_KEY}"
+  model: "deepseek-v4-flash"
+  system_prompt: "请将以下对话压缩为{max_words}字以内的摘要，保留关键信息、用户意图和已确认的事实。"

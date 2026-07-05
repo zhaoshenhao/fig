@@ -1,0 +1,3 @@
+level: ${LOG_LEVEL:INFO}
+format: json
+output: stdout

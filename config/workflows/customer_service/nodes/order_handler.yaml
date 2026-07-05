@@ -1,0 +1,7 @@
+tool: api_call
+url: "https://api.example.com/v1/orders/{{query}}"
+method: GET
+timeout: 10
+headers:
+  Authorization: "Bearer {{API_KEY}}"
+  Content-Type: "application/json"

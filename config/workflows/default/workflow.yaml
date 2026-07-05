@@ -1,0 +1,19 @@
+name: default
+description: "默认智能客服"
+collections:
+  - l2_auto
+return_mode: full
+
+conversation:
+  max_turns: null
+
+nodes:
+  - name: retrieve
+    next_type: one
+    next: generate
+    metrics: true
+
+  - name: generate
+    next_type: one
+    next: ""
+    metrics: true

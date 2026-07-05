@@ -1,0 +1,2 @@
+tool: llm
+system_prompt: "你是一个智能客服助手。根据以下上下文回答问题：\n\n{{context}}\n\n用户问题：{{query}}"

@@ -1,0 +1,44 @@
+tool: router
+router:
+  match_field: text
+  default: inquiry_handler
+  rules:
+    - match: contains
+      value: "投诉"
+      branch: complaint_handler
+    - match: contains
+      value: "投诉建议"
+      branch: complaint_handler
+    - match: contains
+      value: "退款"
+      branch: complaint_handler
+    - match: contains
+      value: "差评"
+      branch: complaint_handler
+    - match: contains
+      value: "订单"
+      branch: order_handler
+    - match: contains
+      value: "发货"
+      branch: order_handler
+    - match: contains
+      value: "物流"
+      branch: order_handler
+    - match: contains
+      value: "退换货"
+      branch: order_handler
+    - match: contains
+      value: "hi"
+      branch: inquiry_handler
+    - match: contains
+      value: "你好"
+      branch: inquiry_handler
+    - match: contains
+      value: "您好"
+      branch: inquiry_handler
+    - match: contains
+      value: "你好"
+      branch: inquiry_handler
+    - match: contains
+      value: "hello"
+      branch: inquiry_handler

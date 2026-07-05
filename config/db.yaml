@@ -1,0 +1,20 @@
+default: mysql_main
+
+pools:
+  mysql_main:
+    type: mysql
+    host: localhost
+    port: 3306
+    user: root
+    password: ${MYSQL_PASSWORD:}
+    database: kf
+    pool_size: 5
+
+  pg_analytics:
+    type: postgresql
+    host: localhost
+    port: 5432
+    user: postgres
+    password: ${PG_PASSWORD:}
+    database: analytics
+    pool_size: 3

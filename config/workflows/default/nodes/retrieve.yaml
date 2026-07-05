@@ -1,0 +1,4 @@
+tool: rag_search
+limit: 10
+score_threshold: 0.4
+prefetch_limit: 10

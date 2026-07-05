@@ -1,0 +1,37 @@
+# LLM 供应商配置（聊天）
+# type: openai     → /v1/chat/completions, Authorization: Bearer
+# type: anthropic  → /v1/messages, x-api-key 头
+# api_key 支持 ${ENV_VAR} 环境变量占位符
+
+default: deepseek
+
+providers:
+  ollama:
+    type: openai
+    base_url: http://localhost:11434/v1
+    api_key: ""
+    model: qwen3-8b
+
+  openai:
+    type: openai
+    base_url: https://api.openai.com/v1
+    api_key: ${OPENAI_API_KEY}
+    model: gpt-4o
+
+  deepseek:
+    type: openai
+    base_url: https://api.deepseek.com/v1
+    api_key: ${DEEPSEEK_API_KEY}
+    model: deepseek-v4-flash
+
+  anthropic:
+    type: anthropic
+    base_url: https://api.anthropic.com/v1
+    api_key: ${ANTHROPIC_API_KEY}
+    model: claude-sonnet-4-20250514
+
+  lmstudio:
+    type: openai
+    base_url: http://localhost:1234/v1
+    api_key: ""
+    model: local-model

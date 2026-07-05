@@ -1,0 +1,38 @@
+name: customer_service
+description: "客服工作流 — 意图分发 + 多分支处理"
+collections:
+  - faq_kb
+  - order_kb
+return_mode: full
+
+conversation:
+  max_turns: null
+
+nodes:
+  - name: intent_classify
+    next_type: if-then
+    next:
+      - inquiry_handler
+      - complaint_handler
+      - order_handler
+    metrics: true
+
+  - name: inquiry_handler
+    next_type: one
+    next: final_merge
+    metrics: true
+
+  - name: complaint_handler
+    next_type: one
+    next: final_merge
+    metrics: true
+
+  - name: order_handler
+    next_type: one
+    next: final_merge
+    metrics: true
+
+  - name: final_merge
+    next_type: one
+    next: ""
+    metrics: true

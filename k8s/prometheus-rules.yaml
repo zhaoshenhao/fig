@@ -1,0 +1,94 @@
+groups:
+  - name: kf_api_alerts
+    rules:
+      - alert: KFHighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: critical
+          team: kf
+        annotations:
+          summary: "KF API 错误率 > 5%"
+          description: "{{ $labels.path }} 5xx 占比 {{ $value | humanizePercentage }}"
+
+      - alert: KFHighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          team: kf
+        annotations:
+          summary: "KF API P95 延迟 > 2s"
+          description: "{{ $labels.path }} P95 延迟 {{ $value }}s"
+
+      - alert: KFLLMHighErrorRate
+        expr: rate(llm_calls_total{status="error"}[10m]) / rate(llm_calls_total[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: kf
+        annotations:
+          summary: "LLM 调用错误率 > 10%"
+          description: "LLM 错误率 {{ $value | humanizePercentage }}"
+
+      - alert: KFRAGSlowQuery
+        expr: histogram_quantile(0.99, rate(rag_search_duration_ms_bucket[5m])) > 5000
+        for: 5m
+        labels:
+          severity: warning
+          team: kf
+        annotations:
+          summary: "RAG 检索 P99 > 5000ms"
+          description: "RAG 检索 P99 延迟 {{ $value }}ms"
+
+      - alert: KFInstanceDown
+        expr: up{job="kf-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: kf
+        annotations:
+          summary: "KF API 实例下线"
+          description: "实例 {{ $labels.instance }} 无响应"
+
+      - alert: KFSessionBuildUp
+        expr: rate(kf_sessions_total[15m]) > 100
+        for: 10m
+        labels:
+          severity: warning
+          team: kf
+        annotations:
+          summary: "会话创建速率 > 100/min"
+          description: "当前速率 {{ $value }}/min，可能存在异常流量"
+
+  - name: kf_infra_alerts
+    rules:
+      - alert: KFOllamaDown
+        expr: kf_ollama_health != 1
+        for: 2m
+        labels:
+          severity: critical
+          team: kf
+        annotations:
+          summary: "Ollama 服务不可用"
+          description: "Ollama 健康检查失败"
+
+      - alert: KFQdrantDown
+        expr: kf_qdrant_health != 1
+        for: 2m
+        labels:
+          severity: critical
+          team: kf
+        annotations:
+          summary: "Qdrant 服务不可用"
+          description: "Qdrant 健康检查失败"
+
+      - alert: KFMemorySessionHigh
+        expr: kf_memory_sessions_active > 1800
+        for: 5m
+        labels:
+          severity: warning
+          team: kf
+        annotations:
+          summary: "内存会话数 > 1800"
+          description: "当前 {{ $value }} 个会话，接近上限"
