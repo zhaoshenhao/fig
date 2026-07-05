@@ -222,3 +222,98 @@ class TestLLMClient:
 
         url = mock_client_ctx.post.call_args[0][0]
         assert url == "https://api.example.com/v1/chat/completions"
+
+
+class TestLLMClientStreaming:
+    def test_stream_chat_openai(self, mocker):
+        sse_lines = [
+            'data: {"choices":[{"delta":{"content":"Hello"}}]}',
+            'data: {"choices":[{"delta":{"content":" "}}]}',
+            'data: {"choices":[{"delta":{"content":"World"}}]}',
+            "data: [DONE]",
+        ]
+
+        mock_response = mocker.MagicMock()
+        mock_response.status_code = 200
+        mock_response.iter_lines.return_value = sse_lines
+        mock_response.raise_for_status = mocker.MagicMock()
+
+        mock_client_ctx = mocker.MagicMock()
+        mock_client_ctx.post.return_value = mock_response
+        mock_client_ctx.__enter__.return_value = mock_client_ctx
+        mock_client_ctx.__exit__.return_value = None
+
+        mocker.patch("httpx2.Client").return_value = mock_client_ctx
+
+        from src.llm.client import LLMClient
+
+        client = LLMClient(
+            base_url="https://api.example.com/v1",
+            api_key="sk-test",
+            provider_type="openai",
+        )
+        tokens = list(client.stream_chat(
+            "gpt-4",
+            [{"role": "user", "content": "Hi!"}],
+        ))
+
+        assert tokens == ["Hello", " ", "World"]
+
+    def test_stream_chat_openai_empty_content(self, mocker):
+        sse_lines = [
+            'data: {"choices":[{"delta":{"content":""}}]}',
+            'data: {"choices":[{"delta":{"content":"Hi"}}]}',
+            "data: [DONE]",
+        ]
+
+        mock_response = mocker.MagicMock()
+        mock_response.status_code = 200
+        mock_response.iter_lines.return_value = sse_lines
+        mock_response.raise_for_status = mocker.MagicMock()
+
+        mock_client_ctx = mocker.MagicMock()
+        mock_client_ctx.post.return_value = mock_response
+        mock_client_ctx.__enter__.return_value = mock_client_ctx
+        mock_client_ctx.__exit__.return_value = None
+
+        mocker.patch("httpx2.Client").return_value = mock_client_ctx
+
+        from src.llm.client import LLMClient
+
+        client = LLMClient(base_url="https://api.example.com/v1")
+        tokens = list(client.stream_chat("m", [{"role": "user", "content": "hi"}]))
+        assert tokens == ["Hi"]
+
+    def test_stream_chat_anthropic(self, mocker):
+        sse_lines = [
+            'data: {"type":"message_start"}',
+            'data: {"type":"content_block_delta","delta":{"text":"Bonjour"}}',
+            'data: {"type":"content_block_delta","delta":{"text":"!"}}',
+            'data: {"type":"message_stop"}',
+        ]
+
+        mock_response = mocker.MagicMock()
+        mock_response.status_code = 200
+        mock_response.iter_lines.return_value = sse_lines
+        mock_response.raise_for_status = mocker.MagicMock()
+
+        mock_client_ctx = mocker.MagicMock()
+        mock_client_ctx.post.return_value = mock_response
+        mock_client_ctx.__enter__.return_value = mock_client_ctx
+        mock_client_ctx.__exit__.return_value = None
+
+        mocker.patch("httpx2.Client").return_value = mock_client_ctx
+
+        from src.llm.client import LLMClient
+
+        client = LLMClient(
+            base_url="https://api.anthropic.com/v1",
+            api_key="sk-ant-test",
+            provider_type="anthropic",
+        )
+        tokens = list(client.stream_chat(
+            "claude-v1",
+            [{"role": "user", "content": "Bonjour"}],
+        ))
+
+        assert tokens == ["Bonjour", "!"]

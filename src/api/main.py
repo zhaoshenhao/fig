@@ -1,12 +1,14 @@
 import asyncio
+import json as _json
+import queue
 import threading
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from src.api.auth import AuthMiddleware
@@ -229,7 +231,9 @@ async def get_workflow(name: str):
 
 
 @app.post("/workflows/{name}/run")
-async def run_workflow(name: str, req: RunRequest):
+async def run_workflow(
+    name: str, req: RunRequest, stream: bool = Query(False),
+):
     wf = _app_config.workflows.get(name)
     if not wf:
         raise HTTPException(status_code=404, detail=f"workflow '{name}' not found")
@@ -240,6 +244,7 @@ async def run_workflow(name: str, req: RunRequest):
             "request_id": get_request_id(),
             "workflow": name,
             "chat_id": req.chat_id or "",
+            "stream": stream,
         },
     )
 
@@ -264,14 +269,83 @@ async def run_workflow(name: str, req: RunRequest):
     if req.long_mem_data and req.long_mem_data.strip():
         session.long_mem_data = req.long_mem_data
 
-    await asyncio.to_thread(
-        _dag_engine.run, name, {"query": req.query}, session
+    if not stream:
+        await asyncio.to_thread(
+            _dag_engine.run, name, {"query": req.query}, session
+        )
+        session.nodes.clear()
+        _session_store.save(session)
+        return _build_response(session)
+
+    return StreamingResponse(
+        _stream_workflow_events(name, req, session, wf),
+        media_type="text/event-stream",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
+
+
+async def _stream_workflow_events(
+    workflow_name: str, req: RunRequest, session: SessionData, wf: dict,
+):
+    event_queue: queue.Queue[str | None] = queue.Queue()
+
+    def _on_token(token: str):
+        event_queue.put(token)
+
+    session.stream_callback = _on_token
+
+    finish_evt: dict[str, object] = {}
+
+    def _run_blocking():
+        try:
+            _dag_engine.run(workflow_name, {"query": req.query}, session)
+        except Exception as exc:
+            finish_evt["error"] = str(exc)
+        finally:
+            event_queue.put(None)
+
+    t = threading.Thread(target=_run_blocking, daemon=True)
+    t.start()
+
+    sent_node_start = False
+    while True:
+        token = await asyncio.to_thread(event_queue.get)
+        if token is None:
+            if sent_node_start:
+                yield "event: node_end\n\n"
+            break
+        if not sent_node_start:
+            yield "data: {}\n\n".format(
+                _json.dumps(
+                    {"event": "status", "node": "start", "workflow": workflow_name},
+                    ensure_ascii=False,
+                )
+            )
+            yield "event: node_start\n\n"
+            sent_node_start = True
+        yield "data: {}\n\n".format(
+            _json.dumps({"event": "token", "data": token}, ensure_ascii=False)
+        )
 
     session.nodes.clear()
     _session_store.save(session)
 
-    return _build_response(session)
+    if finish_evt.get("error"):
+        yield "data: {}\n\n".format(
+            _json.dumps(
+                {"event": "error", "data": str(finish_evt["error"])},
+                ensure_ascii=False,
+            )
+        )
+        return
+
+    reply = _build_response(session)
+    yield "data: {}\n\n".format(
+        _json.dumps(
+            {"event": "done", **reply},
+            ensure_ascii=False,
+        )
+    )
 
 
 @app.delete("/sessions/{chat_id}")

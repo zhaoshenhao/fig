@@ -255,13 +255,19 @@ with tabs[0]:
         else:
             with chat_header:
                 st.markdown('<div class="chat-controls-row">', unsafe_allow_html=True)
-                col_a, col_b = st.columns([2, 1])
+                col_a, col_b, col_c = st.columns([2, 1, 1])
                 with col_a:
                     wf_choice = st.selectbox(
                         "选择工作流", wf_names, key="chat_wf",
                         label_visibility="collapsed",
                     )
                 with col_b:
+                    if "use_stream" not in st.session_state:
+                        st.session_state.use_stream = False
+                    st.session_state.use_stream = st.checkbox(
+                        "流式输出", key="stream_toggle",
+                    )
+                with col_c:
                     if st.button("清空会话", key="chat_clear"):
                         cid = st.session_state.get("chat_id", "")
                         if cid:
@@ -311,34 +317,51 @@ with tabs[0]:
 
                     _headers = {"X-API-Key": api_key} if api_key else {}
                     reply_ts = datetime.now().strftime("%H:%M:%S")
+                    use_stream = st.session_state.get("use_stream", False)
 
                     try:
-                        resp = httpx2.post(
-                            f"{API_BASE}/workflows/{wf_choice}/run",
-                            json=payload,
-                            headers=_headers,
-                            timeout=60,
-                        )
-                        if resp.status_code == 200:
-                            data = resp.json()
-                            reply = data.get("reply", "")
-                            st.session_state.chat_id = data.get("chat_id", "")
-                            st.session_state.chat_turn = data.get("turn_id", 0)
-                            st.session_state.chat_messages.append(
-                                {"role": "assistant", "content": reply, "timestamp": reply_ts}
+                        if use_stream:
+                            resp = httpx2.post(
+                                f"{API_BASE}/workflows/{wf_choice}/run?stream=true",
+                                json=payload, headers=_headers, timeout=120,
                             )
+                            reply = ""
+                            cid = ""
+                            tid = 0
+                            for line in resp.iter_lines():
+                                if line.startswith("data: "):
+                                    evt = json.loads(line[6:])
+                                    if evt.get("event") == "done":
+                                        reply = evt.get("reply", "")
+                                        cid = evt.get("chat_id", "")
+                                        tid = evt.get("turn_id", 0)
+                                    elif evt.get("event") == "error":
+                                        reply = f"**错误**\n\n{evt['data']}"
+                                        break
+                            st.session_state.chat_id = cid
+                            st.session_state.chat_turn = tid
                         else:
-                            st.session_state.chat_messages.append(
-                                {"role": "assistant",
-                                 "content": f"**错误 {resp.status_code}**\n\n{resp.text}",
-                                 "timestamp": reply_ts}
+                            resp = httpx2.post(
+                                f"{API_BASE}/workflows/{wf_choice}/run",
+                                json=payload, headers=_headers, timeout=60,
                             )
+                            if resp.status_code == 200:
+                                data = resp.json()
+                                reply = data.get("reply", "")
+                                st.session_state.chat_id = data.get("chat_id", "")
+                                st.session_state.chat_turn = data.get("turn_id", 0)
+                            else:
+                                reply = f"**错误 {resp.status_code}**\n\n{resp.text}"
+
+                        st.session_state.chat_messages.append(
+                            {"role": "assistant", "content": reply, "timestamp": reply_ts}
+                        )
                     except Exception as e:
                         st.session_state.chat_messages.append(
                             {"role": "assistant",
                              "content": f"**连接失败**\n\n{str(e)}",
                              "timestamp": reply_ts}
-                            )
+                        )
 
                 st.session_state._focus_input = True
                 st.rerun()

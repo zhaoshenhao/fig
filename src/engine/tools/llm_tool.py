@@ -93,11 +93,17 @@ def llm_tool(config: dict, session: SessionData) -> dict:
     messages.append({"role": "user", "content": query})
 
     client = _get_llm_client(provider)
-    # 调用模型进行对话，传入模型名称和消息列表
-    response = client.chat(provider.model, messages)
-    # 从 OpenAI 兼容格式的响应中提取文本内容
-    # 响应结构: {"choices": [{"message": {"content": "..."}}]}
-    content = response["choices"][0]["message"]["content"]
+
+    stream_cb = getattr(session, "stream_callback", None)
+    if stream_cb:
+        full_text_parts: list[str] = []
+        for token in client.stream_chat(provider.model, messages):
+            full_text_parts.append(token)
+            stream_cb(token)
+        content = "".join(full_text_parts)
+    else:
+        response = client.chat(provider.model, messages)
+        content = response["choices"][0]["message"]["content"]
 
     # 增加 LLM 调用计数器（Prometheus 指标），按模型名打标签
     llm_calls_total.inc({"model": provider.model})
