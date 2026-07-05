@@ -1,3 +1,9 @@
 level: ${LOG_LEVEL:INFO}
 format: json
 output: stdout
+
+file:
+  enabled: true
+  dir: logs
+  rotation: daily
+  keep: 7

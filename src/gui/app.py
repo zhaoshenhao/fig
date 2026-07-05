@@ -20,6 +20,10 @@ except ImportError:
 
 st.set_page_config(page_title="KF - 智能客服", layout="wide")
 
+if HAS_SRC:
+    from src.logger import init_logging
+    init_logging(app_name="gui")
+
 
 def _inject_css():
     st.markdown("""

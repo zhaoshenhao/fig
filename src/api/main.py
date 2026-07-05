@@ -53,7 +53,7 @@ class WorkflowList(BaseModel):
 
 
 _app_config = load_app_config()
-init_logging(_app_config.logging.level)
+init_logging(_app_config.logging.level, app_name="fastapi")
 _metrics_store = MetricsStore()
 _registry = ToolRegistry()
 _registry.register("llm", llm_tool)

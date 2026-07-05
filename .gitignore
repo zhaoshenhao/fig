@@ -31,6 +31,10 @@ data/*
 # Database files
 *.db
 
+# Log files
+logs/
+*.log
+
 # Environment
 .env
 .env.*

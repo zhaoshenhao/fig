@@ -147,11 +147,20 @@ class AuthConfig:
 
 
 @dataclass
+class FileLogConfig:
+    enabled: bool = False
+    dir: str = "logs"
+    rotation: str = "daily"
+    keep: int = 7
+
+
+@dataclass
 class LoggingConfig:
-    """日志配置，控制日志级别、格式和输出目标。"""
+    """日志配置，控制日志级别、格式、输出目标和文件存储。"""
     level: str = "INFO"
     format: str = "json"
     output: str = "stdout"
+    file: FileLogConfig = field(default_factory=FileLogConfig)
 
 
 @dataclass
@@ -458,10 +467,17 @@ def _load_auth_config(config_dir: Path) -> AuthConfig:
 def _load_logging_config(config_dir: Path) -> LoggingConfig:
     """解析 config/logging.yaml 为 LoggingConfig 对象。"""
     data = _load_yaml(config_dir / "logging.yaml")
+    file_data = data.get("file") or {}
     return LoggingConfig(
         level=data.get("level", "INFO"),
         format=data.get("format", "json"),
         output=data.get("output", "stdout"),
+        file=FileLogConfig(
+            enabled=file_data.get("enabled", False),
+            dir=file_data.get("dir", "logs"),
+            rotation=file_data.get("rotation", "daily"),
+            keep=file_data.get("keep", 7),
+        ),
     )
 
 
