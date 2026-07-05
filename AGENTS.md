@@ -52,8 +52,14 @@
 - 独立构建脚本，与应用分离
 
 ### Streamlit GUI
-- 只读 RAG 浏览（翻页 + 搜索 + 排序）
-- 所有查询委托给 Qdrant 层（offset+limit），不在内存全量加载
+- 5-tab layout: 聊天 / 知识库浏览 / 工作流状态 / 文档管理 / 运行指标
+- Global CSS: sticky title+tab bar, reduced font sizes, dark-mode compatible, mobile responsive
+- Chat: scrollable messages area with sticky header and bottom input; JSON/CSV export
+- Knowledge Browser: paginated browsing + semantic search + term highlighting
+- Workflow Status: DAG topology visualization (clickable nodes with YAML config popover)
+- Document Management: upload .txt/.md/.pdf/.docx/.csv/.xlsx (chunk_size 800 chars)
+- Metrics Explorer: DAG-aware execution trace (non-traversed nodes grayed, click for details)
+- Pure utilities in `src/gui/utils.py`: `_dag_levels`, `_highlight_term`, `_pretty_display_json`
 
 ### LLM 多供应商
 - 通过 httpx2 REST API 直连各供应商
