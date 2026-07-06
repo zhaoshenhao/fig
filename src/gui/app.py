@@ -2,6 +2,7 @@ import json
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 
 import httpx2
 import streamlit as st
@@ -9,7 +10,7 @@ import streamlit.components.v1 as components
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from src.gui.utils import _highlight_term
+from src.gui.utils import _dag_levels, _highlight_term
 
 try:
     from src.config import load_app_config
@@ -52,13 +53,36 @@ def _inject_css():
         align-items: flex-end !important;
     }
 
-    .cy-container {
-        width: 100%; border: 1px solid #ddd;
-        border-radius: 6px; background: #fff;
+    .dag-flow { display: flex; flex-direction: column; gap: 2px; }
+    .dag-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+    .dag-card {
+        display: inline-flex; flex-direction: column;
+        border-radius: 8px; padding: 3px 12px;
+        min-width: 110px; text-align: center;
+        cursor: default; position: relative;
     }
-    .cy-modal-close {
-        border: none; background: #eee; border-radius: 4px;
-        padding: 4px 10px; cursor: pointer;
+    .dag-card .card-name { font-size: 0.85rem; font-weight: 600; }
+    .dag-card .card-sub { font-size: 0.65rem; opacity: 0.75; margin-top: 1px; }
+    .dag-card:hover::after {
+        content: attr(data-tip);
+        position: absolute; bottom: calc(100% + 6px); left: 50%;
+        transform: translateX(-50%);
+        background: #333; color: #fff; font-size: 0.7rem;
+        padding: 3px 8px; border-radius: 4px;
+        white-space: nowrap; z-index: 100; pointer-events: none;
+    }
+    .dag-card.c-ok { border: 1.5px solid #4caf50; background: #e8f5e9; color: #2e7d32; }
+    .dag-card.c-fail { border: 1.5px solid #f44336; background: #ffebee; color: #c62828; }
+    .dag-card.c-skip { border: 1.5px solid #ccc; background: #f5f5f5; color: #888; }
+    .dag-card.c-info { border: 1.5px solid #64b5f6; background: #e3f2fd; color: #1565c0; }
+    .dag-arrow { font-size: 1rem; color: #bbb; flex-shrink: 0; }
+    .dag-branch {
+        margin-left: 24px; border-left: 2px dashed #ccc;
+        padding-left: 10px; display: flex; flex-direction: column; gap: 4px;
+    }
+    .dag-parallel {
+        margin-left: 24px; border-left: 2px solid #bbb;
+        padding-left: 10px; display: flex; flex-wrap: wrap; gap: 8px;
     }
 
     @media (max-width: 768px) {
@@ -153,12 +177,11 @@ def _pretty_display(text: str, max_len: int = 5000):
     st.text(text[:max_len])
 
 
-def _render_dag_flow(nodes: list[dict], node_data: dict | None = None, height: int = 280):
-    """Render a DAG using cytoscape.js + dagre — interactive, responsive.
+def _render_dag_flow(nodes: list[dict], node_data: dict | None = None):
+    """Render a DAG as pure HTML/CSS card flow — zero JS dependencies.
 
-    Nodes: rounded-rectangle, name only (truncated).
-    Hover: floating tooltip with full name + tool + duration.
-    Click: modal popup with full details.
+    Cards are rounded rectangles with name + tool + duration.
+    Color-coded by status; hover tooltips; click handled by popovers below.
     """
     if not nodes:
         st.caption("_无节点_")
@@ -167,151 +190,91 @@ def _render_dag_flow(nodes: list[dict], node_data: dict | None = None, height: i
     if node_data is None:
         node_data = {}
 
-    import json as _json
-
-    elements: list[dict] = []
-    node_info: dict[str, dict] = {}
-    for n in nodes:
-        name = n["name"]
+    def _card(name: str) -> str:
         nd = node_data.get(name, {})
         status = nd.get("status", "no-status") if nd else "no-status"
+        cls_map = {
+            "executed": "c-ok", "failed": "c-fail",
+            "skipped": "c-skip", "no-status": "c-info",
+        }
+        css_cls = cls_map.get(status, "c-info")
         tool = nd.get("tool", "") if nd else ""
         dur = nd.get("duration_ms", 0) if nd else 0
-        label = name[:20] + "…" if len(name) > 20 else name
-        full_name = name
-        elements.append({
-            "data": {
-                "id": name, "label": label,
-                "status": status, "fullName": full_name,
-                "tool": tool, "dur": f"{dur:.0f}ms" if dur else "",
-            },
-        })
-        node_info[name] = {"name": full_name, "tool": tool, "dur": dur, "status": status}
+        sub = ""
+        if tool:
+            sub += tool
+        if dur:
+            sub += f"  {dur:.0f}ms" if sub else f"{dur:.0f}ms"
+        tip = name
+        if tool:
+            tip += f" · {tool}"
+        if dur:
+            tip += f" · {dur:.0f}ms"
+        label = name[:24] + "…" if len(name) > 24 else name
+        sub_html = f'<div class="card-sub">{sub}</div>' if sub else ""
+        return (
+            f'<div class="dag-card {css_cls}" data-tip="{tip}">'
+            f'<div class="card-name">{label}</div>{sub_html}</div>'
+        )
+
+    levels = _dag_levels(nodes)
+    if not levels or not any(levels):
+        return
+
+    adj: dict[str, list[str]] = {}
+    node_map: dict[str, dict] = {n["name"]: n for n in nodes}
+    for n in nodes:
+        adj[n["name"]] = []
         nt = n.get("next_type", "one")
         nxt = n.get("next", "")
         if nt == "one" and nxt:
-            elements.append({"data": {"id": f"{name}→{nxt}", "source": name, "target": nxt}})
+            adj[n["name"]].append(nxt)
         elif nt in ("if-then", "switch") and isinstance(nxt, list):
-            for b in nxt:
-                elements.append({"data": {"id": f"{name}→{b}", "source": name, "target": b}})
+            adj[n["name"]] = list(nxt)
 
-    rid = f"cy_{abs(hash(_json.dumps(list(node_info.keys()), sort_keys=True))) % 1000000}"
-    cy_json = _json.dumps(elements, ensure_ascii=False)
-    info_json = _json.dumps(node_info, ensure_ascii=False)
+    html_parts = ['<div class="dag-flow">']
+    for lv, group in enumerate(levels):
+        if not group:
+            continue
+        prev_children: set[str] = set()
+        for node_name in group:
+            prev_children.update(adj.get(node_name, []))
+        row_parts: list[str] = []
+        for node_name in group:
+            row_parts.append(_card(node_name))
+            children = adj.get(node_name, [])
+            nt = node_map.get(node_name, {}).get("next_type", "one")
+            if children:
+                is_parallel = nt == "switch" and node_map.get(node_name, {}).get("parallel")
+                is_branch = nt in ("if-then", "switch") and not is_parallel
+                if is_parallel:
+                    sub_cards = []
+                    for ch in children:
+                        sub_cards.append(_card(ch))
+                        for gc in adj.get(ch, []):
+                            sub_cards.append(f'<span class="dag-arrow">→</span>{_card(gc)}')
+                    row_parts.append(
+                        f'<div class="dag-parallel"><div class="dag-row">'
+                        f'{"".join(sub_cards)}</div></div>'
+                    )
+                elif is_branch:
+                    sub_cards = []
+                    for ch in children:
+                        sub_cards.append(f'<div class="dag-row">{_card(ch)}'
+                                         + ''.join(f'<span class="dag-arrow">→</span>{_card(gc)}'
+                                                   for gc in adj.get(ch, []))
+                                         + '</div>')
+                    row_parts.append(
+                        f'<div class="dag-branch">{"".join(sub_cards)}</div>'
+                    )
+                else:
+                    for ch in children:
+                        row_parts.append(f'<span class="dag-arrow">→</span>{_card(ch)}')
 
-    components.html(f"""
-    <div id="{rid}" class="cy-container" style="height:{height}px;position:relative"></div>
-    <div id="{rid}_tip"
-         style="display:none;position:fixed;z-index:9999;
-                background:#333;color:#fff;padding:6px 10px;
-                border-radius:6px;font-size:12px;pointer-events:none;
-                max-width:260px;white-space:pre-line;line-height:1.4;
-                box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>
-    <div id="{rid}_modal" style="display:none;position:fixed;top:10vh;left:10vw;
-         width:80vw;max-width:540px;z-index:10000;
-         background:#fff;border:2px solid #555;border-radius:10px;
-         padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.3);
-         font-family:monospace;font-size:13px;color:#333;max-height:80vh;overflow:auto">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <b id="{rid}_modal_title" style="font-size:15px"></b>
-        <button id="{rid}_modal_close" class="cy-modal-close">✕</button>
-      </div>
-      <pre id="{rid}_modal_body" style="white-space:pre-wrap;margin:0"></pre>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30/dist/cytoscape.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dagre@0.8/dist/dagre.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5/cytoscape-dagre.js"></script>
-    <script>
-    (function() {{
-        var infoMap = {info_json};
-        var tip = document.getElementById('{rid}_tip');
-        var modal = document.getElementById('{rid}_modal');
-        var modalTitle = document.getElementById('{rid}_modal_title');
-        var modalBody = document.getElementById('{rid}_modal_body');
+        html_parts.append(f'<div class="dag-row">{"".join(row_parts)}</div>')
 
-        var NODE_STYLE = {{
-            'border-width': 2,
-            'label': 'data(label)',
-            'font-size': '12px',
-            'text-valign': 'center',
-            'text-halign': 'center',
-            'text-wrap': 'ellipsis',
-            'text-max-width': '115px',
-            'width': 120,
-            'height': 40,
-            'shape': 'round-rectangle',
-            'padding': '2px',
-        }};
-        var styles = [
-            {{ selector: 'node.executed',
-               style: Object.assign({{}}, NODE_STYLE, {{
-                   'background-color': '#e8f5e9', 'border-color': '#4caf50', 'color': '#2e7d32' }})
-            }},
-            {{ selector: 'node.failed',
-               style: Object.assign({{}}, NODE_STYLE, {{
-                   'background-color': '#ffebee', 'border-color': '#f44336', 'color': '#c62828' }})
-            }},
-            {{ selector: 'node.skipped',
-               style: Object.assign({{}}, NODE_STYLE, {{
-                    'background-color': '#f5f5f5', 'border-color': '#ccc', 'color': '#666' }})
-            }},
-            {{ selector: 'node.no-status',
-               style: Object.assign({{}}, NODE_STYLE, {{
-                   'background-color': '#e3f2fd', 'border-color': '#64b5f6', 'color': '#1565c0' }})
-            }},
-            {{ selector: 'edge',
-               style: {{ 'width': 2.5, 'line-color': '#bbb',
-                        'curve-style': 'bezier',
-                        'control-point-step-size': 55,
-                        'target-arrow-shape': 'none' }} }}
-        ];
-
-        var cy = cytoscape({{
-            container: document.getElementById('{rid}'),
-            elements: {cy_json},
-            style: styles,
-            layout: {{ name: 'dagre', rankDir: 'LR', nodeSep: 30, rankSep: 70, edgeSep: 15 }},
-            wheelSensitivity: 0.3,
-            minZoom: 0.4, maxZoom: 2,
-        }});
-
-        document.getElementById('{rid}_modal_close').onclick = function() {{
-            document.getElementById('{rid}_modal').style.display = 'none';
-        }};
-
-        cy.on('mouseover', 'node', function(evt) {{
-            var node = evt.target;
-            var d = node.data();
-            var info = infoMap[d.id] || {{}};
-            var lines = ['<b>' + (info.name || d.id) + '</b>'];
-            if (info.tool) lines.push('Tool: ' + info.tool);
-            if (info.dur) lines.push('Duration: ' + info.dur + 'ms');
-            tip.innerHTML = lines.join('<br>');
-            tip.style.display = 'block';
-        }});
-        cy.on('mousemove', 'node', function(evt) {{
-            tip.style.left = (evt.originalEvent.clientX + 14) + 'px';
-            tip.style.top = (evt.originalEvent.clientY + 14) + 'px';
-        }});
-        cy.on('mouseout', 'node', function() {{ tip.style.display = 'none'; }});
-        cy.on('tap', 'node', function(evt) {{
-            var node = evt.target;
-            var d = node.data();
-            var info = infoMap[d.id] || {{}};
-            modalTitle.textContent = '◉ ' + (info.name || d.id);
-            var body = [];
-            if (info.tool) body.push('Tool:  ' + info.tool);
-            if (info.dur) body.push('Duration:  ' + info.dur + 'ms');
-            body.push('Status:  ' + (d.status || '—'));
-            modalBody.textContent = body.join('\\n');
-            modal.style.display = 'block';
-        }});
-
-        setTimeout(function() {{ cy.fit(cy.elements(), 20); }}, 100);
-        window.addEventListener('resize', function() {{ cy.resize(); cy.fit(cy.elements(), 20); }});
-    }})();
-    </script>
-    """, height=height + 30)
+    html_parts.append("</div>")
+    st.markdown("\n".join(html_parts), unsafe_allow_html=True)
 
 
 def _render_dag_nodes(nodes: list[dict], product_name: str):
@@ -320,7 +283,7 @@ def _render_dag_nodes(nodes: list[dict], product_name: str):
         st.caption("_无节点_")
         return
 
-    _render_dag_flow(nodes, height=220 + len(nodes) * 12)
+    _render_dag_flow(nodes)
 
     st.markdown("**节点配置：**")
     app_cfg = load_app_config()
