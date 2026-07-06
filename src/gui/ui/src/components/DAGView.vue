@@ -8,11 +8,11 @@
       </defs>
       <path v-for="(e,i) in edges" :key="'e'+i" :d="e.d" stroke="#94a3b8" stroke-width="1.2" fill="none" marker-end="url(#dag-arrow)" />
       <g v-for="(n,i) in layoutNodes" :key="'n'+i" @click.stop="select(n)" style="cursor:pointer">
-        <rect :x="n.x-n.w/2" :y="n.y-n.h/2" :width="n.w" :height="n.h" rx="8" :fill="n.bg" :stroke="n.color" stroke-width="1.5" />
-        <rect :x="n.x-n.w/2" :y="n.y-n.h/2" :width="n.w" :height="26" rx="8" :fill="n.color" />
-        <rect :x="n.x-n.w/2" :y="n.y-n.h/2+16" :width="n.w" :height="10" :fill="n.color" />
-        <text :x="n.x" :y="n.y-n.h/2+18" text-anchor="middle" fill="#fff" font-size="14" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
-        <text :x="n.x" :y="n.y+5" text-anchor="middle" :fill="n.subColor" font-size="12" style="pointer-events:none">{{ n.sub }}</text>
+        <rect :x="n.x-n.w/2" :y="n.y-n.h/2" :width="n.w" :height="n.h" rx="6" :fill="n.bg" :stroke="n.color" stroke-width="1.5" />
+        <rect :x="n.x-n.w/2" :y="n.y-n.h/2" :width="n.w" :height="22" rx="6" :fill="n.color" />
+        <rect :x="n.x-n.w/2" :y="n.y-n.h/2+13" :width="n.w" :height="9" :fill="n.color" />
+        <text :x="n.x" :y="n.y-n.h/2+15" text-anchor="middle" fill="#fff" font-size="14" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
+        <text :x="n.x" :y="n.y+4" text-anchor="middle" :fill="n.subColor" font-size="12" style="pointer-events:none">{{ n.sub }}</text>
       </g>
     </svg>
     <div v-if="sel" class="dag-card">
@@ -73,7 +73,7 @@ function doLayout() {
   const hasData = ndData && Object.keys(ndData).length > 0;
   const nameSet = new Set(props.nodes.map(n => n.name));
 
-  for (const n of props.nodes) g.setNode(n.name, { width: 200, height: 66 });
+  for (const n of props.nodes) g.setNode(n.name, { width: 160, height: 55 });
 
   for (const n of props.nodes) {
     const nt = n.next_type || "one";
@@ -89,6 +89,7 @@ function doLayout() {
   dagre.layout(g);
 
   const ns = [];
+  const BASE_HEAD = 14, BASE_SUB = 12;
   for (const n of props.nodes) {
     const nd = ndData[n.name] || {};
     const st = nd.status || "pending";
@@ -112,7 +113,7 @@ function doLayout() {
       bg = "var(--bg)";
     }
 
-    ns.push({ name: n.name, x: d.x, y: d.y, w: 200, h: 66, color, head, sub, subColor, bg, tool, dur, status: st, next: Array.isArray(n.next) ? n.next : (n.next ? [n.next] : []) });
+    ns.push({ name: n.name, x: d.x, y: d.y, w: 160, h: 55, color, head, sub, subColor, bg, tool, dur, status: st, next: Array.isArray(n.next) ? n.next : (n.next ? [n.next] : []) });
   }
 
   const es = [];
@@ -132,10 +133,22 @@ function doLayout() {
 
   layoutNodes.value = ns;
   edges.value = es;
-  const gw = g.graph().width + 80;
-  const gh = g.graph().height + 80;
-  vw.value = Math.max(gw, 800);
+  const gw = g.graph().width + 40;
+  const gh = g.graph().height + 40;
+  vw.value = gw;
   vh.value = Math.max(gh, props.height);
+
+  nextTick(() => {
+    if (!svgEl.value || !wrap.value) return;
+    const rect = wrap.value.getBoundingClientRect();
+    const scale = Math.max(rect.width, 400) / vw.value;
+    const fontScale = 1 / Math.max(scale, 0.25);
+    const texts = svgEl.value.querySelectorAll("text");
+    texts.forEach((t) => {
+      const fs = parseFloat(t.getAttribute("font-size") || "12");
+      t.setAttribute("font-size", String(Math.round(fs * fontScale)));
+    });
+  });
 }
 
 function select(n) {
