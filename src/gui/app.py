@@ -52,59 +52,9 @@ def _inject_css():
         align-items: flex-end !important;
     }
 
-    .dag-flow {
-        display: flex; flex-direction: column;
-        gap: 0; padding: 4px 0;
-    }
-    .dag-row {
-        display: flex; align-items: center; gap: 6px;
-        padding: 2px 0; flex-wrap: wrap;
-    }
-    .dag-card {
-        display: inline-flex; flex-direction: column;
-        border-radius: 6px;
-        padding: 4px 10px;
-        min-width: 90px;
-        text-align: center;
-        font-family: monospace;
-    }
-    .dag-card .node-name {
-        font-size: 0.82rem; font-weight: 600;
-    }
-    .dag-card .node-tool {
-        font-size: 0.65rem; opacity: 0.7;
-    }
-    .dag-card .node-dur {
-        font-size: 0.6rem; opacity: 0.6;
-    }
-    .dag-card.executed {
-        border: 1.5px solid #4caf50; background: #e8f5e9;
-    }
-    .dag-card.failed {
-        border: 1.5px solid #f44336; background: #ffebee;
-    }
-    .dag-card.skipped {
-        border: 1.5px solid #bdbdbd; background: #f5f5f5; opacity: 0.6;
-    }
-    .dag-card.no-status {
-        border: 1.5px solid #90caf9; background: #e3f2fd;
-    }
-    .dag-arrow {
-        font-size: 1.1rem; color: #999;
-        flex-shrink: 0;
-    }
-    .dag-branch-label {
-        font-size: 0.65rem; color: #888;
-        margin-right: 4px;
-    }
-    .dag-branch {
-        margin-left: 18px; border-left: 2px dashed #ccc;
-        padding-left: 10px;
-    }
-    .dag-parallel {
-        display: flex; gap: 12px; flex-wrap: wrap;
-        margin-left: 18px; border-left: 2px solid #90caf9;
-        padding-left: 10px;
+    .cy-container {
+        width: 100%; border: 1px solid #ddd;
+        border-radius: 6px; background: #fff;
     }
 
     @media (max-width: 768px) {
@@ -199,30 +149,12 @@ def _pretty_display(text: str, max_len: int = 5000):
     st.text(text[:max_len])
 
 
-def _dag_card_html(
-    node_name: str,
-    status: str = "no-status",
-    tool: str = "",
-    duration_ms: float = 0,
-) -> str:
-    """Render a single DAG node as a Dify-style card HTML snippet."""
-    dur_text = f"<div class='node-dur'>{duration_ms:.0f}ms</div>" if duration_ms else ""
-    tool_text = f"<div class='node-tool'>{tool}</div>" if tool else ""
-    return (
-        f"<div class='dag-card {status}'>"
-        f"<div class='node-name'>{node_name}</div>"
-        f"{tool_text}{dur_text}"
-        f"</div>"
-    )
-
-
-def _render_dag_flow(nodes: list[dict], node_data: dict | None = None):
-    """Render a DAG workflow as a Dify-style card flow (HTML).
+def _render_dag_flow(nodes: list[dict], node_data: dict | None = None, height: int = 280):
+    """Render a DAG using cytoscape.js with dagre layout.
 
     Args:
         nodes: workflow node definitions (name, next_type, next)
-        node_data: optional dict {node_name: {status, tool, duration_ms}}
-                   If provided, cards are colored by execution status.
+        node_data: optional {node_name: {status, tool, duration_ms}}
     """
     if not nodes:
         st.caption("_无节点_")
@@ -231,117 +163,95 @@ def _render_dag_flow(nodes: list[dict], node_data: dict | None = None):
     if node_data is None:
         node_data = {}
 
-    def _card(name):
+    import json as _json
+
+    elements: list[dict] = []
+    for n in nodes:
+        name = n["name"]
         nd = node_data.get(name, {})
         status = nd.get("status", "no-status") if nd else "no-status"
         tool = nd.get("tool", "") if nd else ""
         dur = nd.get("duration_ms", 0) if nd else 0
-        return _dag_card_html(name, status=status, tool=tool, duration_ms=dur)
-
-    adj: dict[str, list[str]] = {}
-    levels: dict[str, int] = {}
-    for n in nodes:
-        adj[n["name"]] = []
+        label = name
+        if tool:
+            label += f"\\n{tool}"
+        if dur:
+            label += f"\\n{dur:.0f}ms"
+        elements.append({"data": {"id": name, "label": label, "status": status}})
         nt = n.get("next_type", "one")
         nxt = n.get("next", "")
         if nt == "one" and nxt:
-            adj[n["name"]].append(nxt)
+            elements.append({"data": {"id": f"{name}→{nxt}", "source": name, "target": nxt}})
         elif nt in ("if-then", "switch") and isinstance(nxt, list):
             for b in nxt:
-                adj[n["name"]].append(b)
+                elements.append({"data": {"id": f"{name}→{b}", "source": name, "target": b}})
 
-    has_parent = {t for v in adj.values() for t in v}
-    roots = [n["name"] for n in nodes if n["name"] not in has_parent]
-    if not roots:
-        roots = [nodes[0]["name"]]
+    rid = f"cy_{abs(hash(_json.dumps(elements, sort_keys=True))) % 1000000}"
+    cy_json = _json.dumps(elements, ensure_ascii=False)
 
-    from collections import deque
-    q = deque((r, 0) for r in roots)
-    while q:
-        name, lv = q.popleft()
-        if name in levels:
-            continue
-        levels[name] = lv
-        for nb in adj.get(name, []):
-            if nb not in levels:
-                q.append((nb, lv + 1))
-    for n in nodes:
-        if n["name"] not in levels:
-            levels[n["name"]] = max(levels.values(), default=0) + 1
-
-    max_lv = max(levels.values()) if levels else 0
-    groups: list[list[str]] = [[] for _ in range(max_lv + 1)]
-    for node_name, lv in levels.items():
-        groups[lv].append(node_name)
-
-    node_map = {n["name"]: n for n in nodes}
-
-    html_parts = ['<div class="dag-flow">']
-
-    for lv, group in enumerate(groups):
-        if not group:
-            continue
-        row_parts = []
-        for node_name in group:
-            row_parts.append(_card(node_name))
-            children = adj.get(node_name, [])
-            nt = node_map.get(node_name, {}).get("next_type", "one")
-            if children:
-                if nt == "switch" and node_map.get(node_name, {}).get("parallel"):
-                    row_parts.append("<div class='dag-parallel'>")
-                    for ch in children:
-                        row_parts.append(
-                            f"<div class='dag-row'>"
-                            f"{_card(ch)}"
-                            f"</div>"
-                        )
-                        for gc in adj.get(ch, []):
-                            row_parts.append(
-                                f"<div class='dag-row'>"
-                                f"<span class='dag-arrow'> →</span>"
-                                f"{_card(gc)}"
-                                f"</div>"
-                            )
-                    row_parts.append("</div>")
-                elif nt == "if-then":
-                    row_parts.append("<div class='dag-branch'>")
-                    row_parts.append(
-                        '<div class="dag-row">'
-                        '<span class="dag-branch-label">branches:</span>'
-                        '</div>'
-                    )
-                    for ch in children:
-                        row_parts.append(
-                            f"<div class='dag-row'>"
-                            f"{_card(ch)}"
-                            f"</div>"
-                        )
-                        for gc in adj.get(ch, []):
-                            row_parts.append(
-                                f"<div class='dag-row'>"
-                                f"<span class='dag-arrow'> →</span>"
-                                f"{_card(gc)}"
-                                f"</div>"
-                            )
-                    row_parts.append("</div>")
-                else:
-                    for ch in children:
-                        row_parts.append("<span class='dag-arrow'>→</span>")
-                        row_parts.append(_card(ch))
-
-        html_parts.append(f'<div class="dag-row">{"".join(row_parts)}</div>')
-
-    html_parts.append("</div>")
-    st.markdown("\n".join(html_parts), unsafe_allow_html=True)
+    components.html(f"""
+    <div id="{rid}" class="cy-container" style="height:{height}px"></div>
+    <script src="https://unpkg.com/cytoscape@3.30/dist/cytoscape.min.js"></script>
+    <script src="https://unpkg.com/dagre@0.8/dist/dagre.min.js"></script>
+    <script src="https://unpkg.com/cytoscape-dagre@2.5/cytoscape-dagre.js"></script>
+    <script>
+    (function() {{
+        var cy = cytoscape({{
+            container: document.getElementById('{rid}'),
+            elements: {cy_json},
+            style: [
+                {{ selector: 'node.executed',
+                   style: {{ 'background-color': '#4caf50', 'border-color': '#2e7d32',
+                            'border-width': 2, 'label': 'data(label)',
+                            'color': '#333', 'font-size': '11px',
+                            'text-valign': 'center', 'text-halign': 'center',
+                            'text-wrap': 'wrap', 'text-max-width': '120px',
+                            'width': 80, 'height': 80, 'shape': 'round-rectangle' }} }},
+                {{ selector: 'node.failed',
+                   style: {{ 'background-color': '#f44336', 'border-color': '#c62828',
+                            'border-width': 2, 'label': 'data(label)',
+                            'color': '#fff', 'font-size': '11px',
+                            'text-valign': 'center', 'text-halign': 'center',
+                            'text-wrap': 'wrap', 'text-max-width': '120px',
+                            'width': 80, 'height': 80, 'shape': 'round-rectangle' }} }},
+                {{ selector: 'node.skipped',
+                   style: {{ 'background-color': '#e0e0e0', 'border-color': '#bdbdbd',
+                            'border-width': 1, 'label': 'data(label)',
+                            'color': '#999', 'font-size': '11px',
+                            'text-valign': 'center', 'text-halign': 'center',
+                            'text-wrap': 'wrap', 'text-max-width': '120px',
+                            'width': 80, 'height': 80, 'shape': 'round-rectangle' }} }},
+                {{ selector: 'node.no-status',
+                   style: {{ 'background-color': '#e3f2fd', 'border-color': '#90caf9',
+                            'border-width': 2, 'label': 'data(label)',
+                            'color': '#1565c0', 'font-size': '11px',
+                            'text-valign': 'center', 'text-halign': 'center',
+                            'text-wrap': 'wrap', 'text-max-width': '120px',
+                            'width': 80, 'height': 80, 'shape': 'round-rectangle' }} }},
+                {{ selector: 'edge',
+                   style: {{ 'width': 1.5, 'line-color': '#999',
+                            'target-arrow-color': '#999',
+                            'target-arrow-shape': 'triangle',
+                            'curve-style': 'bezier' }} }}
+            ],
+            layout: {{ name: 'dagre', rankDir: 'LR', nodeSep: 30, rankSep: 60, edgeSep: 15 }},
+            wheelSensitivity: 0.3,
+            minZoom: 0.4, maxZoom: 2,
+        }});
+        setTimeout(function() {{ cy.fit(cy.elements(), 20); }}, 100);
+        window.addEventListener('resize', function() {{ cy.resize(); cy.fit(cy.elements(), 20); }});
+    }})();
+    </script>
+    """, height=height + 30)
 
 
 def _render_dag_nodes(nodes: list[dict], product_name: str):
-    """Render DAG as Dify-style card flow with clickable node configs below."""
+    """Render DAG as cytoscape graph with clickable node configs below."""
     if not nodes:
         st.caption("_无节点_")
         return
 
-    _render_dag_flow(nodes)
+    _render_dag_flow(nodes, height=220 + len(nodes) * 12)
 
     st.markdown("**节点配置：**")
     app_cfg = load_app_config()
