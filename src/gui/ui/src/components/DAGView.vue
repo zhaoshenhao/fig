@@ -9,10 +9,10 @@
       <path v-for="(e,i) in edges" :key="'e'+i" :d="e.d" stroke="#94a3b8" stroke-width="1.2" fill="none" marker-end="url(#dag-arrow)" />
       <g v-for="(n,i) in layoutNodes" :key="'n'+i" @click.stop="select(n)" style="cursor:pointer">
         <rect :x="n.x-n.w/2" :y="n.y-n.h/2" :width="n.w" :height="n.h" rx="8" :fill="n.bg" :stroke="n.color" stroke-width="1.5" />
-        <rect :x="n.x-n.w/2" :y="n.y-n.h/2" :width="n.w" :height="40" rx="8" :fill="n.color" />
-        <rect :x="n.x-n.w/2" :y="n.y-n.h/2+24" :width="n.w" :height="16" :fill="n.color" />
-        <text :x="n.x" :y="n.y-n.h/2+28" text-anchor="middle" fill="#fff" font-size="20" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
-        <text :x="n.x" :y="n.y+8" text-anchor="middle" :fill="n.subColor" font-size="18" style="pointer-events:none">{{ n.sub }}</text>
+        <rect :x="n.x-n.w/2" :y="n.y-n.h/2" :width="n.w" :height="26" rx="8" :fill="n.color" />
+        <rect :x="n.x-n.w/2" :y="n.y-n.h/2+16" :width="n.w" :height="10" :fill="n.color" />
+        <text :x="n.x" :y="n.y-n.h/2+18" text-anchor="middle" fill="#fff" font-size="14" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
+        <text :x="n.x" :y="n.y+5" text-anchor="middle" :fill="n.subColor" font-size="12" style="pointer-events:none">{{ n.sub }}</text>
       </g>
     </svg>
     <div v-if="sel" class="dag-card">
@@ -37,6 +37,8 @@ const props = defineProps({
   nodeData: { type: Object, default: null },
   height: { type: Number, default: 400 },
 });
+
+const emit = defineEmits(["selectNode"]);
 
 const TOOL_COLORS = {
   llm: "#10b981", rag_search: "#3b82f6", router: "#8b5cf6", merge: "#f59e0b",
@@ -71,7 +73,7 @@ function doLayout() {
   const hasData = ndData && Object.keys(ndData).length > 0;
   const nameSet = new Set(props.nodes.map(n => n.name));
 
-  for (const n of props.nodes) g.setNode(n.name, { width: 300, height: 100 });
+  for (const n of props.nodes) g.setNode(n.name, { width: 200, height: 66 });
 
   for (const n of props.nodes) {
     const nt = n.next_type || "one";
@@ -110,7 +112,7 @@ function doLayout() {
       bg = "var(--bg)";
     }
 
-    ns.push({ name: n.name, x: d.x, y: d.y, w: 300, h: 100, color, head, sub, subColor, bg, tool, dur, status: st, next: Array.isArray(n.next) ? n.next : (n.next ? [n.next] : []) });
+    ns.push({ name: n.name, x: d.x, y: d.y, w: 200, h: 66, color, head, sub, subColor, bg, tool, dur, status: st, next: Array.isArray(n.next) ? n.next : (n.next ? [n.next] : []) });
   }
 
   const es = [];
@@ -137,7 +139,9 @@ function doLayout() {
 }
 
 function select(n) {
-  sel.value = { name: n.name, tool: n.tool, dur: n.dur, status: n.status, next: n.next || [], desc: n.desc || "" };
+  const data = { name: n.name, tool: n.tool, dur: n.dur, status: n.status, next: n.next || [], desc: n.desc || "" };
+  sel.value = data;
+  emit("selectNode", data);
 }
 
 let panning = false, px = 0, py = 0;
