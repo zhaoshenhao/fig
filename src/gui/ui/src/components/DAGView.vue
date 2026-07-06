@@ -1,30 +1,34 @@
 <template>
   <div ref="wrap" class="dag-wrap" :style="{ height: h + 'px' }">
-    <svg ref="svgEl" :viewBox="`${vx} ${vy} ${vw} ${vh}`" style="width:100%;height:100%">
+    <svg
+      ref="svgEl"
+      :width="graphW"
+      :height="graphH"
+      :style="{ transform: `translate(${-vx}px, ${-vy}px)`, transition: panning ? 'none' : 'transform .2s' }"
+    >
       <defs>
-        <marker id="dag-arrow" markerWidth="8" markerHeight="7" refX="8" refY="3.5" orient="auto">
-          <polygon points="0 0, 8 3.5, 0 7" fill="#94a3b8" />
+        <marker id="dag-arrow" markerWidth="7" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 7 3, 0 6" fill="#94a3b8" />
         </marker>
       </defs>
-      <path v-for="(e,i) in edges" :key="'e'+i" :d="e.d" stroke="#94a3b8" stroke-width="2.5" fill="none" marker-end="url(#dag-arrow)" />
+      <path v-for="(e,i) in edges" :key="'e'+i" :d="e.d" stroke="#94a3b8" stroke-width="2" fill="none" marker-end="url(#dag-arrow)" />
       <g v-for="(n,i) in layoutNodes" :key="'n'+i" @click.stop="select(n)" style="cursor:pointer">
-        <rect :x="n.x-n.w/2" :y="n.y-n.h/2" :width="n.w" :height="n.h" rx="6" :fill="n.bg" :stroke="n.color" stroke-width="3" />
-        <rect :x="n.x-n.w/2" :y="n.y-n.h/2" :width="n.w" :height="66" rx="6" :fill="n.color" />
-        <rect :x="n.x-n.w/2" :y="n.y-n.h/2+39" :width="n.w" :height="27" :fill="n.color" />
-        <text :x="n.x" :y="n.y-n.h/2+45" text-anchor="middle" fill="#fff" font-size="42" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
-        <text :x="n.x" :y="n.y+12" text-anchor="middle" :fill="n.subColor" font-size="36" style="pointer-events:none">{{ n.sub }}</text>
+        <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="8" :fill="n.bg" :stroke="n.color" stroke-width="2.5" />
+        <rect :x="n.x" :y="n.y" :width="n.w" :height="44" rx="8" :fill="n.color" />
+        <rect :x="n.x" :y="n.y+26" :width="n.w" :height="18" :fill="n.color" />
+        <text :x="n.x+n.w/2" :y="n.y+30" text-anchor="middle" fill="#fff" font-size="28" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
+        <text :x="n.x+n.w/2" :y="n.y+56" text-anchor="middle" :fill="n.subColor" font-size="24" style="pointer-events:none">{{ n.sub }}</text>
       </g>
     </svg>
     <div v-if="sel" class="dag-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <b style="font-size:0.82rem">◉ {{ sel.name }}</b>
+      <div class="dag-card-hd">
+        <b>◉ {{ sel.name }}</b>
         <button class="dag-close" @click="sel=null">✕</button>
       </div>
       <div class="dag-row"><span>工具</span> {{ sel.tool || "-" }}</div>
       <div class="dag-row" v-if="sel.dur !== undefined"><span>耗时</span> {{ sel.dur }}ms</div>
       <div class="dag-row"><span>状态</span> {{ sel.status || "-" }}</div>
       <div class="dag-row" v-if="sel.next.length"><span>后继</span> {{ sel.next.join(", ") }}</div>
-      <div class="dag-row" v-if="sel.desc"><span>描述</span> {{ sel.desc }}</div>
     </div>
   </div>
 </template>
@@ -37,7 +41,6 @@ const props = defineProps({
   nodeData: { type: Object, default: null },
   height: { type: Number, default: 400 },
 });
-
 const emit = defineEmits(["selectNode"]);
 
 const TOOL_COLORS = {
@@ -50,30 +53,32 @@ const STATUS_COLORS = {
   skipped: "#9e9e9e", pending: "#64b5f6",
 };
 
+const NW = 320, NH = 70;
+const BASE_HEAD = "28", BASE_SUB = "24";
+
 const wrap = ref(null);
 const svgEl = ref(null);
 const h = ref(props.height);
-const vx = ref(0), vy = ref(0), vw = ref(1200), vh = ref(props.height);
+const vx = ref(0), vy = ref(0);
+const graphW = ref(800), graphH = ref(400);
 const layoutNodes = ref([]);
 const edges = ref([]);
 const sel = ref(null);
+const panning = ref(false);
 
 let dagre = null;
-
-function toolColor(tool) { return TOOL_COLORS[tool] || "#6b7280"; }
-function statusColor(st) { return STATUS_COLORS[st] || "#64b5f6"; }
 
 function doLayout() {
   if (!dagre || !props.nodes.length) return;
   const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "LR", nodesep: 120, ranksep: 200, edgesep: 40, marginx: 40, marginy: 40 });
+  g.setGraph({ rankdir: "LR", nodesep: 80, ranksep: 140, edgesep: 30, marginx: 50, marginy: 50 });
   g.setDefaultEdgeLabel(() => ({}));
 
   const ndData = props.nodeData || {};
   const hasData = ndData && Object.keys(ndData).length > 0;
   const nameSet = new Set(props.nodes.map(n => n.name));
 
-  for (const n of props.nodes) g.setNode(n.name, { width: 480, height: 165 });
+  for (const n of props.nodes) g.setNode(n.name, { width: NW, height: NH });
 
   for (const n of props.nodes) {
     const nt = n.next_type || "one";
@@ -89,7 +94,6 @@ function doLayout() {
   dagre.layout(g);
 
   const ns = [];
-  const BASE_HEAD = 14, BASE_SUB = 12;
   for (const n of props.nodes) {
     const nd = ndData[n.name] || {};
     const st = nd.status || "pending";
@@ -99,13 +103,13 @@ function doLayout() {
 
     let color, head, sub, subColor, bg;
     if (hasData) {
-      color = statusColor(st);
+      color = STATUS_COLORS[st] || "#64b5f6";
       head = n.name.length > 14 ? n.name.slice(0, 13) + "…" : n.name;
       sub = st === "skipped" ? "-" : (tool || "-");
       subColor = st === "skipped" ? "var(--text3)" : "var(--text2)";
       bg = st === "skipped" ? "var(--bg3)" : "var(--bg)";
     } else {
-      color = toolColor(tool);
+      color = TOOL_COLORS[tool] || "#6b7280";
       head = tool ? tool.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : n.name;
       head = head.length > 14 ? head.slice(0, 13) + "…" : head;
       sub = n.name.length > 18 ? n.name.slice(0, 17) + "…" : n.name;
@@ -113,7 +117,9 @@ function doLayout() {
       bg = "var(--bg)";
     }
 
-    ns.push({ name: n.name, x: d.x, y: d.y, w: 480, h: 165, color, head, sub, subColor, bg, tool, dur, status: st, next: Array.isArray(n.next) ? n.next : (n.next ? [n.next] : []) });
+    const x = d.x - NW / 2;
+    const y = d.y - NH / 2;
+    ns.push({ name: n.name, x, y, w: NW, h: NH, color, head, sub, subColor, bg, tool, dur, status: st, next: Array.isArray(n.next) ? n.next : (n.next ? [n.next] : []) });
   }
 
   const es = [];
@@ -133,21 +139,23 @@ function doLayout() {
 
   layoutNodes.value = ns;
   edges.value = es;
-  const gw = g.graph().width + 40;
-  const gh = g.graph().height + 40;
-  vw.value = gw;
-  vh.value = Math.max(gh, props.height);
+  graphW.value = g.graph().width;
+  graphH.value = g.graph().height;
 
   nextTick(() => {
-    if (!svgEl.value || !wrap.value) return;
+    if (!wrap.value) return;
     const rect = wrap.value.getBoundingClientRect();
-    const scale = Math.max(rect.width, 400) / vw.value;
-    const fontScale = 1 / Math.max(scale, 0.08);
-    const texts = svgEl.value.querySelectorAll("text");
-    texts.forEach((t) => {
-      const fs = parseFloat(t.getAttribute("font-size") || "12");
-      t.setAttribute("font-size", String(Math.round(fs * fontScale)));
-    });
+    const sx = rect.width / graphW.value;
+    const sy = rect.height / graphH.value;
+    const s = Math.min(sx, sy, 1);
+    if (s < 1) {
+      vx.value = 0;
+      vy.value = 0;
+      if (svgEl.value) {
+        svgEl.value.style.transformOrigin = "0 0";
+        svgEl.value.style.transform = `scale(${s})`;
+      }
+    }
   });
 }
 
@@ -157,18 +165,21 @@ function select(n) {
   emit("selectNode", data);
 }
 
-let panning = false, px = 0, py = 0;
-function startPan(e) { panning = true; px = e.clientX; py = e.clientY; }
-function doPan(e) {
-  if (!panning) return;
-  const rect = wrap.value?.getBoundingClientRect();
-  if (!rect) return;
-  const dx = ((e.clientX - px) / rect.width) * vw.value;
-  const dy = ((e.clientY - py) / rect.height) * vh.value;
-  vx.value -= dx; vy.value -= dy;
-  px = e.clientX; py = e.clientY;
+let px = 0, py = 0;
+function startPan(e) {
+  if (e.target.closest(".dag-card")) return;
+  panning.value = true;
+  px = e.clientX;
+  py = e.clientY;
 }
-function endPan() { panning = false; }
+function doPan(e) {
+  if (!panning.value) return;
+  vx.value += e.clientX - px;
+  vy.value += e.clientY - py;
+  px = e.clientX;
+  py = e.clientY;
+}
+function endPan() { panning.value = false; }
 
 watch(() => [props.nodes, props.nodeData], doLayout, { deep: true });
 watch(() => props.height, v => { h.value = v; });
@@ -178,9 +189,8 @@ onMounted(async () => {
   doLayout();
   if (wrap.value) {
     wrap.value.addEventListener("mousedown", startPan);
-    wrap.value.addEventListener("mousemove", doPan);
-    wrap.value.addEventListener("mouseup", endPan);
-    wrap.value.addEventListener("mouseleave", endPan);
+    window.addEventListener("mousemove", doPan);
+    window.addEventListener("mouseup", endPan);
   }
 });
 
@@ -211,7 +221,7 @@ async function loadDagre() {
   position: absolute;
   right: 8px;
   top: 8px;
-  width: 190px;
+  width: 200px;
   max-height: calc(100% - 16px);
   overflow-y: auto;
   background: var(--bg);
@@ -219,10 +229,16 @@ async function loadDagre() {
   border-radius: 8px;
   padding: 10px;
   box-shadow: var(--shadow-lg);
-  font-size: 0.75rem;
+  font-size: 0.78rem;
+}
+.dag-card-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
 }
 .dag-row {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   margin-bottom: 3px;
   color: var(--text2);
 }
