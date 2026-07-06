@@ -36,15 +36,15 @@ def _get_dagre_js() -> str:
 
 def _inject_css():
     st.markdown("""<style>
-    header[data-testid="stHeader"] { display: none !important; }
+    header[data-testid="stHeader"] {
+        height: 2.2rem !important; min-height: 0 !important;
+    }
     [data-testid="stDeployButton"] { display: none !important; }
-    [data-testid="baseButton-header"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
-    #MainMenu { display: none !important; }
     [data-testid="stAppViewContainer"] > .main h1:first-of-type {
         font-size: 0.38rem !important;
         padding: 0.1rem 1rem !important; margin: 0 !important;
-        position: sticky; top: 0; z-index: 100; background: inherit;
+        position: sticky; top: 1.8rem; z-index: 100; background: inherit;
     }
     h2 { font-size: 0.95rem !important; }
     h3 { font-size: 0.85rem !important; }
@@ -82,7 +82,7 @@ def _inject_css():
         padding: 4px 10px; cursor: pointer;
     }
     @media (max-width: 768px) {
-        [data-testid="stSidebar"] { display: none !important; }
+        [data-testid="stSidebar"] { width: 200px !important; }
         h1 { font-size: 0.35rem !important; }
     }
     @media (min-width:769px) and (max-width:1024px) {
