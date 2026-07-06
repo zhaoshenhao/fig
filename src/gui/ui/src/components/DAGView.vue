@@ -15,7 +15,7 @@
           <rect :x="n.x" :y="n.y" :width="n.w" :height="28" rx="8" :fill="n.color" />
           <rect :x="n.x" :y="n.y+17" :width="n.w" :height="11" :fill="n.color" />
           <text :x="n.x+n.w/2" :y="n.y+19" text-anchor="middle" fill="#fff" font-size="19" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
-          <text :x="n.x+n.w/2" :y="n.y+36" text-anchor="middle" :fill="n.subColor" font-size="16" style="pointer-events:none">{{ n.sub }}</text>
+          <text :x="n.x+n.w/2" :y="n.y+44" text-anchor="middle" :fill="n.subColor" font-size="16" style="pointer-events:none">{{ n.sub }}</text>
         </g>
       </svg>
     </div>
@@ -49,7 +49,7 @@ const STATUS_COLORS = {
   skipped: "#9e9e9e", pending: "#64b5f6",
 };
 
-const NW = 280, NH = 48;
+const NW = 190, NH = 60;
 
 const h = ref(props.height);
 const graphW = ref(800);
