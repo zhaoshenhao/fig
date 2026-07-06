@@ -52,10 +52,59 @@ def _inject_css():
         align-items: flex-end !important;
     }
 
-    .mermaid-box {
-        padding: 8px 0;
-        margin: 4px 0;
-        overflow-x: auto;
+    .dag-flow {
+        display: flex; flex-direction: column;
+        gap: 0; padding: 4px 0;
+    }
+    .dag-row {
+        display: flex; align-items: center; gap: 6px;
+        padding: 2px 0; flex-wrap: wrap;
+    }
+    .dag-card {
+        display: inline-flex; flex-direction: column;
+        border-radius: 6px;
+        padding: 4px 10px;
+        min-width: 90px;
+        text-align: center;
+        font-family: monospace;
+    }
+    .dag-card .node-name {
+        font-size: 0.82rem; font-weight: 600;
+    }
+    .dag-card .node-tool {
+        font-size: 0.65rem; opacity: 0.7;
+    }
+    .dag-card .node-dur {
+        font-size: 0.6rem; opacity: 0.6;
+    }
+    .dag-card.executed {
+        border: 1.5px solid #4caf50; background: #e8f5e9;
+    }
+    .dag-card.failed {
+        border: 1.5px solid #f44336; background: #ffebee;
+    }
+    .dag-card.skipped {
+        border: 1.5px solid #bdbdbd; background: #f5f5f5; opacity: 0.6;
+    }
+    .dag-card.no-status {
+        border: 1.5px solid #90caf9; background: #e3f2fd;
+    }
+    .dag-arrow {
+        font-size: 1.1rem; color: #999;
+        flex-shrink: 0;
+    }
+    .dag-branch-label {
+        font-size: 0.65rem; color: #888;
+        margin-right: 4px;
+    }
+    .dag-branch {
+        margin-left: 18px; border-left: 2px dashed #ccc;
+        padding-left: 10px;
+    }
+    .dag-parallel {
+        display: flex; gap: 12px; flex-wrap: wrap;
+        margin-left: 18px; border-left: 2px solid #90caf9;
+        padding-left: 10px;
     }
 
     @media (max-width: 768px) {
@@ -150,78 +199,151 @@ def _pretty_display(text: str, max_len: int = 5000):
     st.text(text[:max_len])
 
 
-def _render_mermaid(chart_def: str, height: int = 260):
-    """Render a mermaid.js diagram via st.components.html."""
-    rid = f"mermaid_{abs(hash(chart_def)) % 1000000}"
-    components.html(f"""
-    <div class="mermaid-box"><div class="mermaid" id="{rid}">
-{chart_def}
-    </div></div>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-    <script>
-    mermaid.initialize({{ startOnLoad: true, theme: 'default',
-        flowchart: {{ useMaxWidth: true, htmlLabels: true, curve: 'basis' }} }});
-    </script>
-    """, height=height + 40)
+def _dag_card_html(
+    node_name: str,
+    status: str = "no-status",
+    tool: str = "",
+    duration_ms: float = 0,
+) -> str:
+    """Render a single DAG node as a Dify-style card HTML snippet."""
+    dur_text = f"<div class='node-dur'>{duration_ms:.0f}ms</div>" if duration_ms else ""
+    tool_text = f"<div class='node-tool'>{tool}</div>" if tool else ""
+    return (
+        f"<div class='dag-card {status}'>"
+        f"<div class='node-name'>{node_name}</div>"
+        f"{tool_text}{dur_text}"
+        f"</div>"
+    )
 
 
-def _build_mermaid_dag(nodes: list[dict], node_colors: dict[str, str] | None = None) -> str:
-    """Build a mermaid flowchart definition from a DAG node list.
+def _render_dag_flow(nodes: list[dict], node_data: dict | None = None):
+    """Render a DAG workflow as a Dify-style card flow (HTML).
 
     Args:
-        nodes: workflow node definitions with name/next_type/next
-        node_colors: optional dict mapping node_name → CSS color.
-                      If None, default colors are used.
+        nodes: workflow node definitions (name, next_type, next)
+        node_data: optional dict {node_name: {status, tool, duration_ms}}
+                   If provided, cards are colored by execution status.
     """
-    if not nodes:
-        return "graph TD\n  empty[no nodes]"
-
-    lines = ["graph TD"]
-    shapes: dict[str, str] = {}
-    class_defs: list[str] = []
-
-    for n in nodes:
-        name = n["name"]
-        nt = n.get("next_type", "one")
-        if nt in ("if-then", "switch"):
-            shapes[name] = f"{name}{{{name}}}"
-        else:
-            shapes[name] = f"{name}[{name}]"
-
-    for n in nodes:
-        src = n["name"]
-        nt = n.get("next_type", "one")
-        nxt = n.get("next", "")
-        if nt == "one" and nxt:
-            lines.append(f"    {shapes.get(src, src)} --> {shapes.get(nxt, nxt)}")
-        elif nt in ("if-then", "switch") and isinstance(nxt, list):
-            for tgt in nxt:
-                lines.append(f"    {shapes.get(src, src)} --> {shapes.get(tgt, tgt)}")
-
-    if node_colors:
-        for node_name, color in node_colors.items():
-            cls = f"node_{node_name.replace('-', '_')}"
-            class_defs.append(
-                f"    classDef {cls} fill:{color},stroke:#424242,"
-                "color:#fff,stroke-width:2px"
-            )
-            lines.append(f"    class {node_name} {cls}")
-
-    if class_defs:
-        lines.extend(class_defs)
-
-    return "\n".join(lines)
-
-
-def _render_dag_nodes(nodes: list[dict], product_name: str):
-    """Render DAG as mermaid flow chart with clickable nodes below."""
     if not nodes:
         st.caption("_无节点_")
         return
 
-    _render_mermaid(_build_mermaid_dag(nodes), height=180 + len(nodes) * 14)
+    if node_data is None:
+        node_data = {}
 
-    st.markdown("**点击节点查看配置：**")
+    def _card(name):
+        nd = node_data.get(name, {})
+        status = nd.get("status", "no-status") if nd else "no-status"
+        tool = nd.get("tool", "") if nd else ""
+        dur = nd.get("duration_ms", 0) if nd else 0
+        return _dag_card_html(name, status=status, tool=tool, duration_ms=dur)
+
+    adj: dict[str, list[str]] = {}
+    levels: dict[str, int] = {}
+    for n in nodes:
+        adj[n["name"]] = []
+        nt = n.get("next_type", "one")
+        nxt = n.get("next", "")
+        if nt == "one" and nxt:
+            adj[n["name"]].append(nxt)
+        elif nt in ("if-then", "switch") and isinstance(nxt, list):
+            for b in nxt:
+                adj[n["name"]].append(b)
+
+    has_parent = {t for v in adj.values() for t in v}
+    roots = [n["name"] for n in nodes if n["name"] not in has_parent]
+    if not roots:
+        roots = [nodes[0]["name"]]
+
+    from collections import deque
+    q = deque((r, 0) for r in roots)
+    while q:
+        name, lv = q.popleft()
+        if name in levels:
+            continue
+        levels[name] = lv
+        for nb in adj.get(name, []):
+            if nb not in levels:
+                q.append((nb, lv + 1))
+    for n in nodes:
+        if n["name"] not in levels:
+            levels[n["name"]] = max(levels.values(), default=0) + 1
+
+    max_lv = max(levels.values()) if levels else 0
+    groups: list[list[str]] = [[] for _ in range(max(max_lv, 1))]
+    for node_name, lv in levels.items():
+        groups[lv].append(node_name)
+
+    node_map = {n["name"]: n for n in nodes}
+
+    html_parts = ['<div class="dag-flow">']
+
+    for lv, group in enumerate(groups):
+        if not group:
+            continue
+        row_parts = []
+        for node_name in group:
+            row_parts.append(_card(node_name))
+            children = adj.get(node_name, [])
+            nt = node_map.get(node_name, {}).get("next_type", "one")
+            if children:
+                if nt == "switch" and node_map.get(node_name, {}).get("parallel"):
+                    row_parts.append("<div class='dag-parallel'>")
+                    for ch in children:
+                        row_parts.append(
+                            f"<div class='dag-row'>"
+                            f"{_card(ch)}"
+                            f"</div>"
+                        )
+                        for gc in adj.get(ch, []):
+                            row_parts.append(
+                                f"<div class='dag-row'>"
+                                f"<span class='dag-arrow'> →</span>"
+                                f"{_card(gc)}"
+                                f"</div>"
+                            )
+                    row_parts.append("</div>")
+                elif nt == "if-then":
+                    row_parts.append("<div class='dag-branch'>")
+                    row_parts.append(
+                        '<div class="dag-row">'
+                        '<span class="dag-branch-label">branches:</span>'
+                        '</div>'
+                    )
+                    for ch in children:
+                        row_parts.append(
+                            f"<div class='dag-row'>"
+                            f"{_card(ch)}"
+                            f"</div>"
+                        )
+                        for gc in adj.get(ch, []):
+                            row_parts.append(
+                                f"<div class='dag-row'>"
+                                f"<span class='dag-arrow'> →</span>"
+                                f"{_card(gc)}"
+                                f"</div>"
+                            )
+                    row_parts.append("</div>")
+                else:
+                    for ch in children:
+                        row_parts.append("<span class='dag-arrow'>→</span>")
+                        row_parts.append(_card(ch))
+
+        html_parts.append(f'<div class="dag-row">{"".join(row_parts)}</div>')
+
+    html_parts.append("</div>")
+    st.markdown("\n".join(html_parts), unsafe_allow_html=True)
+
+
+def _render_dag_nodes(nodes: list[dict], product_name: str):
+    """Render DAG as Dify-style card flow with clickable node configs below."""
+    if not nodes:
+        st.caption("_无节点_")
+        return
+
+    _render_dag_flow(nodes)
+
+    st.markdown("**节点配置：**")
     app_cfg = load_app_config()
     cols = st.columns(min(len(nodes), 6))
     for i, n in enumerate(nodes):
@@ -230,9 +352,9 @@ def _render_dag_nodes(nodes: list[dict], product_name: str):
         badge = " ⇢" if nt == "if-then" else (" ⇉" if nt == "switch" else "")
         with cols[i % len(cols)]:
             with st.popover(f"{node_name}{badge}", use_container_width=True):
-                st.caption(f"**路由类型：** `{nt}`")
+                st.caption(f"**路由：** `{nt}`")
                 if n.get("next"):
-                    st.caption(f"**下一节点：** `{n['next']}`")
+                    st.caption(f"**后继：** `{n['next']}`")
                 if nt == "switch" and n.get("parallel"):
                     st.caption("**并行：** 是")
                 node_key = f"{product_name}:{node_name}"
@@ -804,20 +926,22 @@ with tabs[4]:
 
                     if wf_nodes:
                         st.markdown("**DAG 执行状态：**")
-                        colors: dict[str, str] = {}
+                        nd_map: dict[str, dict[str, object]] = {}
                         for n in wf_nodes:
-                            if n["name"] in node_by_name:
-                                nd = node_by_name[n["name"]]
-                                colors[n["name"]] = (
-                                    "#c62828" if nd.get("status", "ok") != "ok"
-                                    else "#2e7d32"
-                                )
+                            nd = node_by_name.get(n["name"])
+                            if nd:
+                                nd_map[n["name"]] = {
+                                    "status": (
+                                        "failed" if nd.get("status", "ok") != "ok"
+                                        else "executed"
+                                    ),
+                                    "tool": str(nd.get("tool_name") or ""),
+                                    "duration_ms": float(nd.get("duration_ms") or 0),
+                                }
                             else:
-                                colors[n["name"]] = "#bdbdbd"
-                        _render_mermaid(
-                            _build_mermaid_dag(wf_nodes, colors),
-                            height=180 + len(wf_nodes) * 14,
-                        )
+                                nd_map[n["name"]] = {"status": "skipped"}
+                        _render_dag_flow(wf_nodes, nd_map)
+
                         st.markdown("**节点详情：**")
                         nc2 = st.columns(min(len(wf_nodes), 6))
                         for i, n in enumerate(wf_nodes):
