@@ -36,8 +36,11 @@ def _get_dagre_js() -> str:
 
 def _inject_css():
     st.markdown("""<style>
+    header[data-testid="stHeader"] { display: none !important; }
     [data-testid="stDeployButton"] { display: none !important; }
     [data-testid="baseButton-header"] { display: none !important; }
+    [data-testid="stStatusWidget"] { display: none !important; }
+    #MainMenu { display: none !important; }
     [data-testid="stAppViewContainer"] > .main h1:first-of-type {
         font-size: 0.38rem !important;
         padding: 0.1rem 1rem !important; margin: 0 !important;
