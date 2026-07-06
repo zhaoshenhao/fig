@@ -56,6 +56,10 @@ def _inject_css():
         width: 100%; border: 1px solid #ddd;
         border-radius: 6px; background: #fff;
     }
+    .cy-modal-close {
+        border: none; background: #eee; border-radius: 4px;
+        padding: 4px 10px; cursor: pointer;
+    }
 
     @media (max-width: 768px) {
         [data-testid="stSidebar"] { display: none !important; }
@@ -150,11 +154,11 @@ def _pretty_display(text: str, max_len: int = 5000):
 
 
 def _render_dag_flow(nodes: list[dict], node_data: dict | None = None, height: int = 280):
-    """Render a DAG using cytoscape.js with dagre layout.
+    """Render a DAG using cytoscape.js + dagre — interactive, responsive.
 
-    Args:
-        nodes: workflow node definitions (name, next_type, next)
-        node_data: optional {node_name: {status, tool, duration_ms}}
+    Nodes: rounded-rectangle, name only (truncated).
+    Hover: floating tooltip with full name + tool + duration.
+    Click: modal popup with full details.
     """
     if not nodes:
         st.caption("_无节点_")
@@ -166,18 +170,23 @@ def _render_dag_flow(nodes: list[dict], node_data: dict | None = None, height: i
     import json as _json
 
     elements: list[dict] = []
+    node_info: dict[str, dict] = {}
     for n in nodes:
         name = n["name"]
         nd = node_data.get(name, {})
         status = nd.get("status", "no-status") if nd else "no-status"
         tool = nd.get("tool", "") if nd else ""
         dur = nd.get("duration_ms", 0) if nd else 0
-        label = name
-        if tool:
-            label += f"\\n{tool}"
-        if dur:
-            label += f"\\n{dur:.0f}ms"
-        elements.append({"data": {"id": name, "label": label, "status": status}})
+        label = name[:18] + "…" if len(name) > 18 else name
+        full_name = name
+        elements.append({
+            "data": {
+                "id": name, "label": label,
+                "status": status, "fullName": full_name,
+                "tool": tool, "dur": f"{dur:.0f}ms" if dur else "",
+            },
+        })
+        node_info[name] = {"name": full_name, "tool": tool, "dur": dur, "status": status}
         nt = n.get("next_type", "one")
         nxt = n.get("next", "")
         if nt == "one" and nxt:
@@ -186,58 +195,118 @@ def _render_dag_flow(nodes: list[dict], node_data: dict | None = None, height: i
             for b in nxt:
                 elements.append({"data": {"id": f"{name}→{b}", "source": name, "target": b}})
 
-    rid = f"cy_{abs(hash(_json.dumps(elements, sort_keys=True))) % 1000000}"
+    rid = f"cy_{abs(hash(_json.dumps(list(node_info.keys()), sort_keys=True))) % 1000000}"
     cy_json = _json.dumps(elements, ensure_ascii=False)
+    info_json = _json.dumps(node_info, ensure_ascii=False)
 
     components.html(f"""
-    <div id="{rid}" class="cy-container" style="height:{height}px"></div>
+    <div id="{rid}" class="cy-container" style="height:{height}px;position:relative"></div>
+    <div id="{rid}_tip"
+         style="display:none;position:fixed;z-index:9999;
+                background:#333;color:#fff;padding:6px 10px;
+                border-radius:6px;font-size:12px;pointer-events:none;
+                max-width:260px;white-space:pre-line;line-height:1.4;
+                box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>
+    <div id="{rid}_modal" style="display:none;position:fixed;top:10vh;left:10vw;
+         width:80vw;max-width:540px;z-index:10000;
+         background:#fff;border:2px solid #555;border-radius:10px;
+         padding:18px;box-shadow:0 8px 30px rgba(0,0,0,.3);
+         font-family:monospace;font-size:13px;color:#333;max-height:80vh;overflow:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <b id="{rid}_modal_title" style="font-size:15px"></b>
+        <button id="{rid}_modal_close" class="cy-modal-close">✕</button>
+      </div>
+      <pre id="{rid}_modal_body" style="white-space:pre-wrap;margin:0"></pre>
+    </div>
     <script src="https://unpkg.com/cytoscape@3.30/dist/cytoscape.min.js"></script>
     <script src="https://unpkg.com/dagre@0.8/dist/dagre.min.js"></script>
     <script src="https://unpkg.com/cytoscape-dagre@2.5/cytoscape-dagre.js"></script>
     <script>
     (function() {{
+        var infoMap = {info_json};
+        var tip = document.getElementById('{rid}_tip');
+        var modal = document.getElementById('{rid}_modal');
+        var modalTitle = document.getElementById('{rid}_modal_title');
+        var modalBody = document.getElementById('{rid}_modal_body');
+
+        var NODE_STYLE = {{
+            'border-width': 2,
+            'border-radius': '8px',
+            'label': 'data(label)',
+            'font-size': '11px',
+            'text-valign': 'center',
+            'text-halign': 'center',
+            'text-wrap': 'ellipsis',
+            'text-max-width': '110px',
+            'width': 100,
+            'height': 46,
+            'shape': 'round-rectangle',
+            'padding': '4px',
+        }};
+        var styles = [
+            {{ selector: 'node.executed',
+               style: Object.assign({{}}, NODE_STYLE, {{
+                   'background-color': '#e8f5e9', 'border-color': '#4caf50', 'color': '#2e7d32' }})
+            }},
+            {{ selector: 'node.failed',
+               style: Object.assign({{}}, NODE_STYLE, {{
+                   'background-color': '#ffebee', 'border-color': '#f44336', 'color': '#c62828' }})
+            }},
+            {{ selector: 'node.skipped',
+               style: Object.assign({{}}, NODE_STYLE, {{
+                   'background-color': '#f5f5f5', 'border-color': '#ccc', 'color': '#aaa' }})
+            }},
+            {{ selector: 'node.no-status',
+               style: Object.assign({{}}, NODE_STYLE, {{
+                   'background-color': '#e3f2fd', 'border-color': '#64b5f6', 'color': '#1565c0' }})
+            }},
+            {{ selector: 'edge',
+               style: {{ 'width': 1.5, 'line-color': '#999',
+                        'target-arrow-color': '#999', 'target-arrow-shape': 'triangle',
+                        'curve-style': 'bezier' }} }}
+        ];
+
         var cy = cytoscape({{
             container: document.getElementById('{rid}'),
             elements: {cy_json},
-            style: [
-                {{ selector: 'node.executed',
-                   style: {{ 'background-color': '#4caf50', 'border-color': '#2e7d32',
-                            'border-width': 2, 'label': 'data(label)',
-                            'color': '#333', 'font-size': '11px',
-                            'text-valign': 'center', 'text-halign': 'center',
-                            'text-wrap': 'wrap', 'text-max-width': '120px',
-                            'width': 80, 'height': 80, 'shape': 'round-rectangle' }} }},
-                {{ selector: 'node.failed',
-                   style: {{ 'background-color': '#f44336', 'border-color': '#c62828',
-                            'border-width': 2, 'label': 'data(label)',
-                            'color': '#fff', 'font-size': '11px',
-                            'text-valign': 'center', 'text-halign': 'center',
-                            'text-wrap': 'wrap', 'text-max-width': '120px',
-                            'width': 80, 'height': 80, 'shape': 'round-rectangle' }} }},
-                {{ selector: 'node.skipped',
-                   style: {{ 'background-color': '#e0e0e0', 'border-color': '#bdbdbd',
-                            'border-width': 1, 'label': 'data(label)',
-                            'color': '#999', 'font-size': '11px',
-                            'text-valign': 'center', 'text-halign': 'center',
-                            'text-wrap': 'wrap', 'text-max-width': '120px',
-                            'width': 80, 'height': 80, 'shape': 'round-rectangle' }} }},
-                {{ selector: 'node.no-status',
-                   style: {{ 'background-color': '#e3f2fd', 'border-color': '#90caf9',
-                            'border-width': 2, 'label': 'data(label)',
-                            'color': '#1565c0', 'font-size': '11px',
-                            'text-valign': 'center', 'text-halign': 'center',
-                            'text-wrap': 'wrap', 'text-max-width': '120px',
-                            'width': 80, 'height': 80, 'shape': 'round-rectangle' }} }},
-                {{ selector: 'edge',
-                   style: {{ 'width': 1.5, 'line-color': '#999',
-                            'target-arrow-color': '#999',
-                            'target-arrow-shape': 'triangle',
-                            'curve-style': 'bezier' }} }}
-            ],
-            layout: {{ name: 'dagre', rankDir: 'LR', nodeSep: 30, rankSep: 60, edgeSep: 15 }},
+            style: styles,
+            layout: {{ name: 'dagre', rankDir: 'LR', nodeSep: 30, rankSep: 70, edgeSep: 15 }},
             wheelSensitivity: 0.3,
             minZoom: 0.4, maxZoom: 2,
         }});
+
+        document.getElementById('{rid}_modal_close').onclick = function() {{
+            document.getElementById('{rid}_modal').style.display = 'none';
+        }};
+
+        cy.on('mouseover', 'node', function(evt) {{
+            var node = evt.target;
+            var d = node.data();
+            var info = infoMap[d.id] || {{}};
+            var lines = ['<b>' + (info.name || d.id) + '</b>'];
+            if (info.tool) lines.push('Tool: ' + info.tool);
+            if (info.dur) lines.push('Duration: ' + info.dur + 'ms');
+            tip.innerHTML = lines.join('<br>');
+            tip.style.display = 'block';
+        }});
+        cy.on('mousemove', 'node', function(evt) {{
+            tip.style.left = (evt.originalEvent.clientX + 14) + 'px';
+            tip.style.top = (evt.originalEvent.clientY + 14) + 'px';
+        }});
+        cy.on('mouseout', 'node', function() {{ tip.style.display = 'none'; }});
+        cy.on('tap', 'node', function(evt) {{
+            var node = evt.target;
+            var d = node.data();
+            var info = infoMap[d.id] || {{}};
+            modalTitle.textContent = '◉ ' + (info.name || d.id);
+            var body = [];
+            if (info.tool) body.push('Tool:  ' + info.tool);
+            if (info.dur) body.push('Duration:  ' + info.dur + 'ms');
+            body.push('Status:  ' + (d.status || '—'));
+            modalBody.textContent = body.join('\\n');
+            modal.style.display = 'block';
+        }});
+
         setTimeout(function() {{ cy.fit(cy.elements(), 20); }}, 100);
         window.addEventListener('resize', function() {{ cy.resize(); cy.fit(cy.elements(), 20); }});
     }})();
