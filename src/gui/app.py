@@ -218,9 +218,9 @@ def _render_dag_flow(nodes: list[dict], node_data: dict | None = None, height: i
       </div>
       <pre id="{rid}_modal_body" style="white-space:pre-wrap;margin:0"></pre>
     </div>
-    <script src="https://unpkg.com/cytoscape@3.30/dist/cytoscape.min.js"></script>
-    <script src="https://unpkg.com/dagre@0.8/dist/dagre.min.js"></script>
-    <script src="https://unpkg.com/cytoscape-dagre@2.5/cytoscape-dagre.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30/dist/cytoscape.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dagre@0.8/dist/dagre.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5/cytoscape-dagre.js"></script>
     <script>
     (function() {{
         var infoMap = {info_json};
