@@ -12,7 +12,7 @@
         <span>模式: <code>{{ wf.return_mode || "full" }}</code></span>
       </div>
       <div v-if="wf.nodes?.length" style="margin:8px 0">
-        <DAGView :nodes="wf.nodes" :height="320" @selectNode="onSelect" />
+        <DAGView :nodes="wf.nodes" :height="500" @selectNode="onSelect" />
       </div>
       <div v-if="wf.nodes?.length" class="node-grid">
         <button

@@ -21,7 +21,7 @@
               Turn {{ turn.turn_id }} | {{ turn.workflow_name }} | {{ turn.node_count }}节点 | {{ ((turn.duration_ms||0)/1000).toFixed(2) }}s
             </div>
             <div v-if="turn.nodes && turn._wfNodes" style="margin-top:4px">
-              <DAGView :nodes="turn._wfNodes" :nodeData="turn._nodeMap" :height="240" />
+              <DAGView :nodes="turn._wfNodes" :nodeData="turn._nodeMap" :height="500" />
             </div>
             <details v-if="turn.nodes?.length" style="margin-top:4px">
               <summary style="cursor:pointer;font-size:0.78rem;color:var(--text2)">详情 ({{ turn.nodes.length }}节点)</summary>
