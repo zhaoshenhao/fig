@@ -177,7 +177,7 @@ def _render_dag_flow(nodes: list[dict], node_data: dict | None = None, height: i
         status = nd.get("status", "no-status") if nd else "no-status"
         tool = nd.get("tool", "") if nd else ""
         dur = nd.get("duration_ms", 0) if nd else 0
-        label = name[:18] + "…" if len(name) > 18 else name
+        label = name[:20] + "…" if len(name) > 20 else name
         full_name = name
         elements.append({
             "data": {
@@ -231,17 +231,16 @@ def _render_dag_flow(nodes: list[dict], node_data: dict | None = None, height: i
 
         var NODE_STYLE = {{
             'border-width': 2,
-            'border-radius': '8px',
             'label': 'data(label)',
-            'font-size': '11px',
+            'font-size': '12px',
             'text-valign': 'center',
             'text-halign': 'center',
             'text-wrap': 'ellipsis',
-            'text-max-width': '110px',
-            'width': 100,
-            'height': 46,
+            'text-max-width': '115px',
+            'width': 120,
+            'height': 40,
             'shape': 'round-rectangle',
-            'padding': '4px',
+            'padding': '2px',
         }};
         var styles = [
             {{ selector: 'node.executed',
@@ -254,16 +253,17 @@ def _render_dag_flow(nodes: list[dict], node_data: dict | None = None, height: i
             }},
             {{ selector: 'node.skipped',
                style: Object.assign({{}}, NODE_STYLE, {{
-                   'background-color': '#f5f5f5', 'border-color': '#ccc', 'color': '#aaa' }})
+                    'background-color': '#f5f5f5', 'border-color': '#ccc', 'color': '#666' }})
             }},
             {{ selector: 'node.no-status',
                style: Object.assign({{}}, NODE_STYLE, {{
                    'background-color': '#e3f2fd', 'border-color': '#64b5f6', 'color': '#1565c0' }})
             }},
             {{ selector: 'edge',
-               style: {{ 'width': 1.5, 'line-color': '#999',
-                        'target-arrow-color': '#999', 'target-arrow-shape': 'triangle',
-                        'curve-style': 'bezier' }} }}
+               style: {{ 'width': 2.5, 'line-color': '#bbb',
+                        'curve-style': 'bezier',
+                        'control-point-step-size': 55,
+                        'target-arrow-shape': 'none' }} }}
         ];
 
         var cy = cytoscape({{
