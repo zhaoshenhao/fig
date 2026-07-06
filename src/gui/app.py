@@ -270,7 +270,7 @@ def _render_dag_flow(nodes: list[dict], node_data: dict | None = None):
             levels[n["name"]] = max(levels.values(), default=0) + 1
 
     max_lv = max(levels.values()) if levels else 0
-    groups: list[list[str]] = [[] for _ in range(max(max_lv, 1))]
+    groups: list[list[str]] = [[] for _ in range(max_lv + 1)]
     for node_name, lv in levels.items():
         groups[lv].append(node_name)
 
