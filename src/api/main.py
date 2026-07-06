@@ -221,10 +221,12 @@ async def get_workflow(name: str):
         "nodes": [
             {
                 "name": n["name"],
+                "tool": _app_config.nodes.get(f"{name}:{n['name']}", {}).get("tool", ""),
                 "next_type": n.get("next_type", "one"),
                 "next": n.get("next", ""),
                 "metrics": n.get("metrics", False),
                 "parallel": n.get("parallel", False),
+                "config": _app_config.nodes.get(f"{name}:{n['name']}", {}),
             }
             for n in wf.get("nodes", [])
         ],
