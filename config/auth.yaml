@@ -6,8 +6,8 @@
 # 客户端请求时在 Header 中携带:
 #   X-API-Key: <key>
 
-api_keys:
-  - "${KF_API_KEY}"
+# api_keys:
+  # - "${KF_API_KEY}"
 
 skip_paths:
   - /health

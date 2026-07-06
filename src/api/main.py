@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.api.auth import AuthMiddleware
@@ -538,6 +539,11 @@ async def get_node_tools(chat_id: str, turn_id: int, node_name: str):
         "chat_id": chat_id, "turn_id": turn_id,
         "node_name": node_name, "node": node, "tools": tools,
     }
+
+
+_UI_DIR = Path(__file__).resolve().parent.parent / "gui" / "ui" / "dist"
+if _UI_DIR.exists():
+    app.mount("/", StaticFiles(directory=str(_UI_DIR), html=True), name="ui")
 
 
 def _make_qdrant() -> QdrantSearch:
