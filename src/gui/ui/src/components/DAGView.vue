@@ -11,11 +11,11 @@
           <path :d="e.d" stroke="#94a3b8" stroke-width="2" fill="none" marker-end="url(#dag-arrow)" />
         </g>
         <g v-for="(n,i) in layoutNodes" :key="'n'+i" @click.stop="select(n)" style="cursor:pointer">
-          <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="8" :fill="n.bg" :stroke="n.color" stroke-width="2" />
-          <rect :x="n.x" :y="n.y" :width="n.w" :height="24" rx="8" :fill="n.color" />
-          <rect :x="n.x" :y="n.y+15" :width="n.w" :height="9" :fill="n.color" />
-          <text :x="n.x+n.w/2" :y="n.y+16" text-anchor="middle" fill="#fff" font-size="16" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
-          <text :x="n.x+n.w/2" :y="n.y+36" text-anchor="middle" :fill="n.subColor" font-size="13" style="pointer-events:none">{{ n.sub }}</text>
+          <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="8" :fill="n.bg" :stroke="n.color" stroke-width="1" />
+          <rect :x="n.x" :y="n.y" :width="n.w" :height="21" rx="8" :fill="n.color" />
+          <rect :x="n.x" :y="n.y+13" :width="n.w" :height="8" :fill="n.color" />
+          <text :x="n.x+n.w/2" :y="n.y+14" text-anchor="middle" fill="#fff" font-size="14" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
+          <text :x="n.x+n.w/2" :y="n.y+32" text-anchor="middle" :fill="n.subColor" font-size="11" style="pointer-events:none">{{ n.sub }}</text>
         </g>
       </svg>
     </div>
@@ -42,7 +42,7 @@ const STATUS_COLORS = {
   skipped: "#9e9e9e", pending: "#64b5f6",
 };
 
-const NW = 190, NH = 48;
+const NW = 190, NH = 42;
 
 const h = ref(props.height);
 const graphW = ref(800);
