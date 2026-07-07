@@ -3,74 +3,68 @@
     <div v-if="!sessions.length && !loading" class="empty">暂无聊天记录</div>
     <div v-else-if="!sessions.length" class="empty">加载中...</div>
     <template v-else>
-      <div style="margin-bottom:8px;flex-shrink:0;display:flex;gap:8px;align-items:center">
-        <select v-model="selectedSess" class="field" style="flex:1">
-          <option v-for="s in sessions" :key="s.chat_id" :value="s.chat_id">
-            {{ s.chat_id?.slice(0,16) }}... | {{ s.turn_count || 0 }}轮 | {{ ((s.total_duration_ms||0)/1000).toFixed(1) }}s
-          </option>
-        </select>
+      <div style="margin-bottom:8px;flex-shrink:0">
         <button class="btn" @click="exportCSV">导出 CSV</button>
       </div>
 
-      <template v-if="currentSess">
-        <div style="margin-bottom:8px;flex-shrink:0">
-          <select v-model="selectedTurn" class="field" style="width:auto">
-            <option v-for="t in (currentSess.turns || [])" :key="t.turn_id" :value="t.turn_id">
-              Turn {{ t.turn_id }} | {{ t.workflow_name }} | {{ ((t.duration_ms||0)/1000).toFixed(2) }}s
-            </option>
-          </select>
+      <div class="split-area">
+        <div class="split-top sess-list">
+          <div v-for="sess in sessions" :key="sess.chat_id" class="sess-item">
+            <details @toggle="e => { if (e.target.open) loadTurns(sess); }">
+              <summary class="sess-summary">
+                <code>{{ sess.chat_id?.slice(0,16) }}...</code>
+                <span>{{ sess.turn_count || 0 }}轮</span>
+                <span>{{ ((sess.total_duration_ms||0)/1000).toFixed(1) }}s</span>
+                <span class="sess-date">{{ sess.last_at }}</span>
+              </summary>
+              <div v-if="sess._loading" class="empty" style="padding:10px">加载中...</div>
+              <div v-else>
+                <div v-for="turn in (sess.turns || [])" :key="turn.turn_id" style="margin-bottom:8px">
+                  <div class="turn-hd" @click="selectTurn(turn)">
+                    Turn {{ turn.turn_id }} | {{ turn.workflow_name }} | {{ turn.node_count }}节点 | {{ ((turn.duration_ms||0)/1000).toFixed(2) }}s
+                  </div>
+                  <div v-if="turn._wfNodes?.length" style="margin:4px 0;height:240px">
+                    <DAGView :nodes="turn._wfNodes" :nodeData="turn._nodeMap" :height="240" @selectNode="onSelectNode" />
+                  </div>
+                </div>
+              </div>
+            </details>
+          </div>
         </div>
 
-        <template v-if="currentTurn">
-          <div class="split-area">
-            <div class="split-top">
-              <DAGView v-if="currentTurn._wfNodes?.length" :nodes="currentTurn._wfNodes" :nodeData="currentTurn._nodeMap" height="100%" @selectNode="onSelectNode" />
-              <div v-else class="empty" style="padding:10px">无 DAG 数据</div>
-            </div>
-            <div class="split-bottom" v-if="nodePanel">
-              <div class="panel-tabs">
-                <button :class="['tab', { active: outTab === 'input' }]" @click="outTab='input'">输入</button>
-                <button :class="['tab', { active: outTab === 'output' }]" @click="outTab='output'">输出</button>
-                <button class="tab close" @click="nodePanel=null">✕</button>
-              </div>
-              <div class="panel-body scroll">
-                <pre class="hl-json" v-html="highlightJSON(outTab === 'input' ? nodePanel.input : nodePanel.output)"></pre>
-              </div>
-            </div>
-            <div v-else class="split-bottom flex-center">
-              <span class="empty" style="padding:20px">点击 DAG 节点查看详情</span>
-            </div>
+        <div class="split-bottom" v-if="nodePanel">
+          <div class="panel-tabs">
+            <button :class="['tab', { active: outTab === 'input' }]" @click="outTab='input'">输入</button>
+            <button :class="['tab', { active: outTab === 'output' }]" @click="outTab='output'">输出</button>
+            <button class="tab close" @click="nodePanel=null">✕</button>
           </div>
-        </template>
-      </template>
+          <div class="panel-body scroll">
+            <pre class="hl-json" v-html="highlightJSON(outTab === 'input' ? nodePanel.input : nodePanel.output)"></pre>
+          </div>
+        </div>
+        <div v-else class="split-bottom flex-center">
+          <span class="empty" style="padding:20px">点击 DAG 节点查看详情</span>
+        </div>
+      </div>
     </template>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, inject } from "vue";
+import { ref, onMounted, inject } from "vue";
 import { api } from "../api.js";
 import DAGView from "../components/DAGView.vue";
 
 const toast = inject("toast");
 const sessions = ref([]);
 const loading = ref(true);
-const selectedSess = ref("");
-const selectedTurn = ref(0);
 const outTab = ref("input");
 const nodePanel = ref(null);
-
-const currentSess = computed(() => sessions.value.find(s => s.chat_id === selectedSess.value) || null);
-const currentTurn = computed(() => {
-  const turns = currentSess.value?.turns || [];
-  return turns.find(t => t.turn_id === selectedTurn.value) || null;
-});
 
 async function load() {
   try {
     const d = await api.get("/sessions", { limit: 50 });
     sessions.value = (d.sessions || []).map(s => ({ ...s, turns: null, _loading: false }));
-    if (sessions.value.length) selectedSess.value = sessions.value[0].chat_id;
   } catch (e) { toast("无法加载", "error"); }
   loading.value = false;
 }
@@ -111,22 +105,30 @@ async function loadTurns(sess) {
       }
     }
     sess.turns = turnsWithNodes;
-    if (turnsWithNodes.length) {
-      selectedTurn.value = turnsWithNodes[0].turn_id;
-    }
   } catch (e) { toast("加载轮次失败: " + e.message, "error"); }
   sess._loading = false;
 }
 
+function selectTurn(turn) { /* placeholder */ }
+
 function onSelectNode(data) {
-  const turn = currentTurn.value;
-  const nd = turn?._nodeData?.[data.name] || {};
+  const nd = findNodeData(data.name);
   nodePanel.value = {
     name: data.name,
     input: nd.input || "(无)",
     output: nd.output || "(无)",
   };
-  outTab.value = "output";
+  outTab.value = nd.output ? "output" : "input";
+}
+
+function findNodeData(name) {
+  for (const sess of sessions.value) {
+    for (const turn of (sess.turns || [])) {
+      const nd = turn._nodeData?.[name];
+      if (nd) return nd;
+    }
+  }
+  return {};
 }
 
 function highlightJSON(text) {
@@ -154,23 +156,30 @@ function exportCSV() {
   URL.revokeObjectURL(a.href);
 }
 
-const loadTurnsWatcher = computed(() => {
-  if (currentSess.value) loadTurns(currentSess.value);
-  return selectedSess.value;
-});
-
 onMounted(load);
 </script>
 
 <style scoped>
 .empty { text-align: center; color: var(--text3); padding: 40px 0; font-size: 0.9rem; }
-.field { padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-size: 0.82rem; }
 .btn { padding: 5px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-size: 0.82rem; cursor: pointer; color: var(--text); }
 
 .split-area { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.split-top { flex: 1; min-height: 0; margin-bottom: 8px; }
+.split-top { flex: 1; min-height: 0; overflow-y: auto; margin-bottom: 8px; }
 .split-bottom { flex: 1; min-height: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
 .split-bottom.flex-center { align-items: center; justify-content: center; }
+
+.sess-item { margin-bottom: 4px; }
+.sess-summary {
+  cursor: pointer; padding: 6px 8px; border-radius: 4px; background: var(--bg2);
+  display: flex; gap: 12px; align-items: center; font-size: 0.8rem;
+}
+.sess-summary:hover { background: var(--bg3); }
+.sess-summary code { font-size: 0.72rem; }
+.sess-date { color: var(--text3); font-size: 0.7rem; }
+.turn-hd {
+  font-size: 0.78rem; font-weight: 600; padding: 4px 8px; background: var(--bg2);
+  border-radius: 4px; margin: 6px 0 4px; cursor: default;
+}
 
 .panel-tabs { display: flex; gap: 0; background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .tab { padding: 6px 16px; border: none; background: none; font-size: 0.82rem; cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent; }
