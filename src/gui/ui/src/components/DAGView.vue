@@ -162,15 +162,24 @@ let dragging = false, sx = 0, sy = 0;
 function startDrag(e) {
   if (!scrollBox.value) return;
   dragging = true;
-  sx = e.clientX + scrollBox.value.scrollLeft;
-  sy = e.clientY + scrollBox.value.scrollTop;
+  sx = e.pageX;
+  sy = e.pageY;
+  scrollBox.value.style.cursor = "grabbing";
+  e.preventDefault();
 }
 function onDrag(e) {
   if (!dragging || !scrollBox.value) return;
-  scrollBox.value.scrollLeft = sx - e.clientX;
-  scrollBox.value.scrollTop = sy - e.clientY;
+  const dx = sx - e.pageX;
+  const dy = sy - e.pageY;
+  scrollBox.value.scrollLeft += dx;
+  scrollBox.value.scrollTop += dy;
+  sx = e.pageX;
+  sy = e.pageY;
 }
-function endDrag() { dragging = false; }
+function endDrag() {
+  dragging = false;
+  if (scrollBox.value) scrollBox.value.style.cursor = "grab";
+}
 
 watch([() => props.nodes, () => props.nodeData], () => doLayout());
 watch(() => props.height, v => { h.value = v; });
@@ -178,10 +187,14 @@ watch(() => props.height, v => { h.value = v; });
 onMounted(async () => {
   await loadDagre();
   doLayout();
-  if (scrollBox.value) {
-    scrollBox.value.addEventListener("mousedown", startDrag);
-    window.addEventListener("mousemove", onDrag);
-    window.addEventListener("mouseup", endDrag);
+  if (wrap.value) {
+    wrap.value.addEventListener("pointerdown", (e) => {
+      if (e.target === wrap.value || e.target.classList.contains("dag-scroll") || e.target.tagName === "svg") {
+        startDrag(e);
+      }
+    });
+    window.addEventListener("pointermove", onDrag);
+    window.addEventListener("pointerup", endDrag);
   }
 });
 </script>
