@@ -10,12 +10,12 @@
       <g v-for="(n,i) in layoutNodes" :key="'n'+i" @click="select(n)" style="cursor:pointer">
         <template v-if="n.virtual">
           <title>虚拟节点&#10;{{ n.name }}</title>
-          <circle :cx="n.x" :cy="n.y" :r="n.r" :fill="n.bg" :stroke="n.color" stroke-width="1" />
+          <circle :cx="n.x" :cy="n.y" :r="n.r" :fill="n.bg" :stroke="selectedNode === n.name ? '#f59e0b' : n.color" :stroke-width="selectedNode === n.name ? 3 : 1" />
           <text :x="n.x" :y="n.y+5" text-anchor="middle" :fill="n.subColor" font-size="12" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
         </template>
         <template v-else>
           <title>{{ n.fullHead }}&#10;{{ n.fullSub }}</title>
-          <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="6" :fill="n.bg" :stroke="n.color" stroke-width="1" />
+          <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="6" :fill="n.bg" :stroke="selectedNode === n.name ? '#f59e0b' : n.color" :stroke-width="selectedNode === n.name ? 3 : 1" />
           <rect :x="n.x" :y="n.y" :width="n.w" :height="19" rx="6" :fill="n.color" />
           <rect :x="n.x" :y="n.y+12" :width="n.w" :height="7" :fill="n.color" />
           <text :x="n.x+n.w/2" :y="n.y+13" text-anchor="middle" fill="#fff" font-size="13" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
@@ -56,6 +56,7 @@ const graphW = ref(800);
 const graphH = ref(400);
 const layoutNodes = ref([]);
 const edges = ref([]);
+const selectedNode = ref(null);
 
 let dagre = null;
 
@@ -182,6 +183,7 @@ function doLayout() {
 
 function select(n) {
   if (moved) return;
+  selectedNode.value = n.name;
   emit("selectNode", { name: n.name, tool: n.tool, dur: n.dur, status: n.status, next: n.next || [], desc: n.desc || "" });
 }
 
