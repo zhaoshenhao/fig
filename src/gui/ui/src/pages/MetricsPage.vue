@@ -329,8 +329,8 @@ tr.clickable:hover { background: var(--bg3); }
 .panel-body.scroll { overflow: auto; }
 
 .hl-json { font-size: 0.75rem; white-space: pre; margin: 0; font-family: "Cascadia Code", "Fira Code", "Consolas", monospace; color: var(--text2); }
-.hl-json :deep(.jk) { color: #0550ae; }
-.hl-json :deep(.js) { color: #0a3069; }
-.hl-json :deep(.jn) { color: #0550ae; }
-.hl-json :deep(.jb) { color: #cf222e; }
+.hl-json :deep(.jk) { color: var(--hl-key); }
+.hl-json :deep(.js) { color: var(--hl-string); }
+.hl-json :deep(.jn) { color: var(--hl-number); }
+.hl-json :deep(.jb) { color: var(--hl-bool); }
 </style>

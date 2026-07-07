@@ -144,8 +144,8 @@ onMounted(load);
   font-size: 0.75rem; white-space: pre; margin: 0; font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
   color: var(--text2);
 }
-.cfg-json :deep(.jk) { color: #0550ae; }
-.cfg-json :deep(.js) { color: #0a3069; }
-.cfg-json :deep(.jn) { color: #0550ae; }
-.cfg-json :deep(.jb) { color: #cf222e; }
+.cfg-json :deep(.jk) { color: var(--hl-key); }
+.cfg-json :deep(.js) { color: var(--hl-string); }
+.cfg-json :deep(.jn) { color: var(--hl-number); }
+.cfg-json :deep(.jb) { color: var(--hl-bool); }
 </style>
