@@ -164,20 +164,20 @@ function startDrag(e) {
   if (!scrollBox.value) return;
   dragging = true;
   wasDragged = false;
-  sx = e.pageX;
-  sy = e.pageY;
+  sx = e.clientX;
+  sy = e.clientY;
   scrollBox.value.style.cursor = "grabbing";
 }
 function onDrag(e) {
   if (!dragging || !scrollBox.value) return;
-  const dx = e.pageX - sx;
-  const dy = e.pageY - sy;
-  if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
+  const dx = e.clientX - sx;
+  const dy = e.clientY - sy;
+  if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
   wasDragged = true;
   scrollBox.value.scrollLeft -= dx;
   scrollBox.value.scrollTop -= dy;
-  sx = e.pageX;
-  sy = e.pageY;
+  sx = e.clientX;
+  sy = e.clientY;
 }
 function endDrag() {
   dragging = false;
@@ -190,11 +190,16 @@ watch(() => props.height, v => { h.value = v; });
 onMounted(async () => {
   await loadDagre();
   doLayout();
-  if (wrap.value) {
-    wrap.value.addEventListener("pointerdown", startDrag);
-    window.addEventListener("pointermove", onDrag);
-    window.addEventListener("pointerup", endDrag);
-  }
+  const box = scrollBox.value;
+  if (!box) return;
+  box.addEventListener("pointerdown", (e) => {
+    box.setPointerCapture(e.pointerId);
+    startDrag(e);
+  });
+  box.addEventListener("pointermove", onDrag);
+  box.addEventListener("pointerup", endDrag);
+  box.addEventListener("pointercancel", endDrag);
+  box.addEventListener("pointerleave", endDrag);
 });
 </script>
 
