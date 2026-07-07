@@ -83,7 +83,7 @@
         </div>
         <div class="modal-split">
           <div class="modal-dag">
-            <DAGView v-if="detailTurn?._wfNodes?.length" :nodes="detailTurn._wfNodes" :nodeData="detailTurn._nodeMap" height="100%" @selectNode="onSelectNode" />
+            <DAGView v-if="detailTurn?._wfNodes?.length" :nodes="detailTurn._wfNodes" :nodeData="detailTurn._nodeData" height="100%" @selectNode="onSelectNode" />
             <div v-else class="empty" style="padding:10px">无 DAG</div>
           </div>
           <div class="modal-io">
@@ -105,7 +105,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, inject } from "vue";
+import { ref, computed, onMounted, inject, watch } from "vue";
 import { api } from "../api.js";
 import DAGView from "../components/DAGView.vue";
 
@@ -161,6 +161,10 @@ const ioData = ref({ input: "(无)", output: "(无)", config: "(无)" });
 const DURATION_RANGES = [[0, 1000], [1001, 5000], [5001, 10000], [10001, Infinity]];
 
 const detailTurn = computed(() => turnList.value.find(t => t.turn_id === detailTurnId.value) || null);
+
+watch(detailTurnId, () => {
+  ioData.value = { input: "(无)", output: "(无)", config: "(无)" };
+});
 
 function parseTimePreset(p) {
   const now = Date.now();
@@ -248,6 +252,9 @@ async function openSession(chatId) {
           const status = n.status === "ok" ? "executed" : "failed";
           nodeMap[n.node_name] = status;
           nodeData[n.node_name] = { status, tool: n.tool_name || "", duration_ms: n.duration_ms || 0, input: n.input_data || "", output: n.output_text || "" };
+        }
+        for (const n of wfNodes) {
+          if (!nodeData[n.name]) nodeData[n.name] = { status: "skipped", tool: n.tool || "", duration_ms: 0, input: "", output: "" };
         }
         turnsWithNodes.push({ ...t, nodes: td.nodes || [], _wfNodes: wfNodes, _nodeMap: nodeMap, _nodeData: nodeData });
       } catch (_) { turnsWithNodes.push({ ...t, nodes: [], _wfNodes: [], _nodeMap: {}, _nodeData: {} }); }
