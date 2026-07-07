@@ -21,8 +21,8 @@
         <option v-for="c in collections" :key="c" :value="c">{{ c }}</option>
       </select>
       <input v-else v-model="upCollection" class="field" placeholder="集合名称" style="flex:1" />
-      <input v-model.number="upChunkSize" class="field" type="number" placeholder="分块大小" style="width:100px" min="64" max="4096" />
-      <input v-model.number="upChunkOverlap" class="field" type="number" placeholder="重叠" style="width:80px" min="0" max="4096" />
+      <label class="fg"><span>chunk_size</span><input v-model.number="upChunkSize" class="field" type="number" min="64" max="4096" /></label>
+      <label class="fg"><span>chunk_overlap</span><input v-model.number="upChunkOverlap" class="field" type="number" min="0" max="4096" /></label>
       <button class="btn primary" @click="doUpload" :disabled="!files.length || !upCollection || uploading">
         {{ uploading ? "上传中..." : "上传" }}
       </button>
@@ -51,8 +51,8 @@
         <option v-for="c in collections" :key="c" :value="c">{{ c }}</option>
       </select>
       <input v-else v-model="scanCollection" class="field" placeholder="集合名称" style="flex:1" />
-      <input v-model.number="scanChunkSize" class="field" type="number" placeholder="分块大小" style="width:100px" min="64" max="4096" />
-      <input v-model.number="scanChunkOverlap" class="field" type="number" placeholder="重叠" style="width:80px" min="0" max="4096" />
+      <label class="fg"><span>chunk_size</span><input v-model.number="scanChunkSize" class="field" type="number" min="64" max="4096" /></label>
+      <label class="fg"><span>chunk_overlap</span><input v-model.number="scanChunkOverlap" class="field" type="number" min="0" max="4096" /></label>
       <button class="btn primary" @click="doScan" :disabled="!scanDir || !scanCollection || scanning">
         {{ scanning ? "扫描中..." : "扫描" }}
       </button>
@@ -160,4 +160,6 @@ onMounted(loadCollections);
 .result-msg { padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; margin-top: 4px; }
 .result-msg.success { background: #d1fae5; color: #065f46; }
 .result-msg.error { background: #fee2e2; color: #991b1b; }
+.fg { display: flex; flex-direction: column; gap: 1px; }
+.fg span { font-size: 0.65rem; color: var(--text3); }
 </style>
