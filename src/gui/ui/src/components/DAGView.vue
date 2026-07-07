@@ -1,25 +1,21 @@
 <template>
-  <div ref="wrap" class="dag-wrap" :style="wrapStyle">
-    <div ref="scrollBox" class="dag-scroll">
-      <svg :width="graphW" :height="graphH">
-        <defs>
-          <marker id="dag-arrow" markerWidth="7" markerHeight="6" refX="7" refY="3" orient="auto">
-            <polygon points="0 0, 7 3, 0 6" fill="#94a3b8" />
-          </marker>
-        </defs>
-        <g v-for="(e,i) in edges" :key="'e'+i">
-          <path :d="e.d" stroke="#94a3b8" stroke-width="2" fill="none" marker-end="url(#dag-arrow)" />
-        </g>
-        <g v-for="(n,i) in layoutNodes" :key="'n'+i" @click.stop="select(n)">
-          <title>{{ n.fullHead }}&#10;{{ n.fullSub }}</title>
-          <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="6" :fill="n.bg" :stroke="n.color" stroke-width="1" />
-          <rect :x="n.x" :y="n.y" :width="n.w" :height="19" rx="6" :fill="n.color" />
-          <rect :x="n.x" :y="n.y+12" :width="n.w" :height="7" :fill="n.color" />
-          <text :x="n.x+n.w/2" :y="n.y+13" text-anchor="middle" fill="#fff" font-size="13" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
-          <text :x="n.x+n.w/2" :y="n.y+29" text-anchor="middle" :fill="n.subColor" font-size="10" style="pointer-events:none">{{ n.sub }}</text>
-        </g>
-      </svg>
-    </div>
+  <div ref="wrap" class="dag-wrap" :style="wrapStyle" @pointerdown.stop="onDown" @pointermove.stop="onMove" @pointerup.stop="onUp" @pointerleave="onUp">
+    <svg :width="graphW" :height="graphH" :style="{ transform: `translate(${vx}px, ${vy}px)` }">
+      <defs>
+        <marker id="dag-arrow" markerWidth="7" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 7 3, 0 6" fill="#94a3b8" />
+        </marker>
+      </defs>
+      <path v-for="(e,i) in edges" :key="'e'+i" :d="e.d" stroke="#94a3b8" stroke-width="2" fill="none" marker-end="url(#dag-arrow)" />
+      <g v-for="(n,i) in layoutNodes" :key="'n'+i" @click="select(n)" style="cursor:pointer">
+        <title>{{ n.fullHead }}&#10;{{ n.fullSub }}</title>
+        <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="6" :fill="n.bg" :stroke="n.color" stroke-width="1" />
+        <rect :x="n.x" :y="n.y" :width="n.w" :height="19" rx="6" :fill="n.color" />
+        <rect :x="n.x" :y="n.y+12" :width="n.w" :height="7" :fill="n.color" />
+        <text :x="n.x+n.w/2" :y="n.y+13" text-anchor="middle" fill="#fff" font-size="13" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
+        <text :x="n.x+n.w/2" :y="n.y+29" text-anchor="middle" :fill="n.subColor" font-size="10" style="pointer-events:none">{{ n.sub }}</text>
+      </g>
+    </svg>
   </div>
 </template>
 
@@ -45,14 +41,10 @@ const STATUS_COLORS = {
 
 const NW = 140, NH = 38;
 
-const wrapStyle = computed(() => {
-  if (props.height > 0) return { height: props.height + "px" };
-  return { height: "100%" };
-});
-
+const wrapStyle = computed(() => ({ height: props.height > 0 ? props.height + "px" : "100%" }));
 const h = ref(props.height);
 const wrap = ref(null);
-const scrollBox = ref(null);
+const vx = ref(0), vy = ref(0);
 const graphW = ref(800);
 const graphH = ref(400);
 const layoutNodes = ref([]);
@@ -122,12 +114,11 @@ function doLayout() {
 
     const x = d.x - NW / 2;
     const y = d.y - NH / 2;
-    const head = headFull.length > MAX_H ? headFull.slice(0, MAX_H - 1) + "…" : headFull;
-    const sub = subFull.length > MAX_S ? subFull.slice(0, MAX_S - 1) + "…" : subFull;
-
     ns.push({
       name: n.name, x, y, w: NW, h: NH, color,
-      head, sub, fullHead: headFull, fullSub: subFull,
+      head: headFull.length > MAX_H ? headFull.slice(0, MAX_H - 1) + "…" : headFull,
+      sub: subFull.length > MAX_S ? subFull.slice(0, MAX_S - 1) + "…" : subFull,
+      fullHead: headFull, fullSub: subFull,
       subColor, bg, tool, dur, status: st,
       next: Array.isArray(n.next) ? n.next : (n.next ? [n.next] : []),
     });
@@ -155,33 +146,37 @@ function doLayout() {
 }
 
 function select(n) {
-  if (wasDragged) return;
+  if (moved) return;
   emit("selectNode", { name: n.name, tool: n.tool, dur: n.dur, status: n.status, next: n.next || [], desc: n.desc || "" });
 }
 
-let dragging = false, wasDragged = false, sx = 0, sy = 0;
-function startDrag(e) {
-  if (!scrollBox.value) return;
-  dragging = true;
-  wasDragged = false;
+let down = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
+
+function onDown(e) {
+  const onNode = e.target.closest("g");
+  if (onNode) return; // let click bubble
+  down = true;
+  moved = false;
   sx = e.clientX;
   sy = e.clientY;
-  scrollBox.value.style.cursor = "grabbing";
+  ox = vx.value;
+  oy = vy.value;
+  e.target.setPointerCapture?.(e.pointerId);
 }
-function onDrag(e) {
-  if (!dragging || !scrollBox.value) return;
+
+function onMove(e) {
+  if (!down) return;
   const dx = e.clientX - sx;
   const dy = e.clientY - sy;
-  if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
-  wasDragged = true;
-  scrollBox.value.scrollLeft -= dx;
-  scrollBox.value.scrollTop -= dy;
-  sx = e.clientX;
-  sy = e.clientY;
+  if (!moved && Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
+  moved = true;
+  vx.value = ox + dx;
+  vy.value = oy + dy;
 }
-function endDrag() {
-  dragging = false;
-  if (scrollBox.value) scrollBox.value.style.cursor = "grab";
+
+function onUp() {
+  down = false;
+  setTimeout(() => { moved = false; }, 0);
 }
 
 watch([() => props.nodes, () => props.nodeData], () => doLayout());
@@ -190,32 +185,19 @@ watch(() => props.height, v => { h.value = v; });
 onMounted(async () => {
   await loadDagre();
   doLayout();
-  const box = scrollBox.value;
-  if (!box) return;
-  box.addEventListener("pointerdown", (e) => {
-    box.setPointerCapture(e.pointerId);
-    startDrag(e);
-  });
-  box.addEventListener("pointermove", onDrag);
-  box.addEventListener("pointerup", endDrag);
-  box.addEventListener("pointercancel", endDrag);
-  box.addEventListener("pointerleave", endDrag);
 });
 </script>
 
 <style scoped>
 .dag-wrap {
+  position: relative;
+  overflow: hidden;
   background: var(--bg2);
   border-radius: 8px;
   border: 1px solid var(--border);
-  user-select: none;
-}
-.dag-scroll {
-  width: 100%;
-  height: 100%;
-  overflow: auto;
   cursor: grab;
+  user-select: none;
+  touch-action: none;
 }
-.dag-scroll:active { cursor: grabbing; }
-.dag-scroll g { cursor: pointer; }
+.dag-wrap:active { cursor: grabbing; }
 </style>
