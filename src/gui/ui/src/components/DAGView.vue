@@ -23,7 +23,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, nextTick } from "vue";
 
 const props = defineProps({
   nodes: { type: Array, required: true },
@@ -51,6 +51,17 @@ const layoutNodes = ref([]);
 const edges = ref([]);
 
 let dagre = null;
+
+async function loadDagre() {
+  if (dagre) return;
+  if (window.dagre) { dagre = window.dagre; return; }
+  await new Promise((resolve) => {
+    const s = document.createElement("script");
+    s.src = "/dagre.min.js";
+    s.onload = () => { dagre = window.dagre; resolve(); };
+    document.head.appendChild(s);
+  });
+}
 
 function doLayout() {
   if (!dagre || !props.nodes.length) return;
@@ -131,24 +142,13 @@ function select(n) {
   emit("selectNode", { name: n.name, tool: n.tool, dur: n.dur, status: n.status, next: n.next || [], desc: n.desc || "" });
 }
 
-watch(() => [props.nodes, props.nodeData], doLayout, { deep: true });
+watch([() => props.nodes, () => props.nodeData], () => doLayout());
 watch(() => props.height, v => { h.value = v; });
 
 onMounted(async () => {
   await loadDagre();
   doLayout();
 });
-
-async function loadDagre() {
-  if (dagre) return;
-  if (window.dagre) { dagre = window.dagre; return; }
-  return new Promise((resolve) => {
-    const s = document.createElement("script");
-    s.src = "/dagre.min.js";
-    s.onload = () => { dagre = window.dagre; resolve(); };
-    document.head.appendChild(s);
-  });
-}
 </script>
 
 <style scoped>

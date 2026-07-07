@@ -1,8 +1,6 @@
 <template>
   <div class="toast-container">
-    <div v-for="(t, i) in toasts" :key="i" :class="['toast', t.type]">
-      {{ t.msg }}
-    </div>
+    <div v-for="t in toasts" :key="t.id" :class="['toast', t.type]">{{ t.msg }}</div>
   </div>
   <div :class="['sidebar-overlay', { open: sidebarOpen }]" @click="sidebarOpen = false"></div>
   <Sidebar :open="sidebarOpen" @close="sidebarOpen = false" />
@@ -20,39 +18,33 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { computed, provide, ref } from "vue";
-import { store } from "./store.js";
+import { useAppStore } from "./store.js";
 import Sidebar from "./components/Sidebar.vue";
 
-export default {
-  components: { Sidebar },
-  setup() {
-    const sidebarOpen = ref(false);
-    const toasts = ref([]);
-    const toast = (msg, type = "info") => {
-      const id = Date.now();
-      toasts.value.push({ msg, type, id });
-      setTimeout(() => {
-        toasts.value = toasts.value.filter((t) => t.id !== id);
-      }, 3000);
-    };
-    provide("toast", toast);
+const { nav } = useAppStore();
+const sidebarOpen = ref(false);
 
-    const pageTitle = computed(() => {
-      const m = {
-        chat: "多轮对话",
-        kb: "知识库浏览",
-        workflow: "工作流状态",
-        docs: "文档管理",
-        metrics: "运行指标",
-      };
-      return m[store.nav] || "";
-    });
+/** @type {import('vue').Ref<Array<{id:number, msg:string, type:string}>>} */
+const toasts = ref([]);
 
-    return { sidebarOpen, toasts, pageTitle };
-  },
-};
+/**
+ * @param {string} msg
+ * @param {string} [type="info"]
+ */
+function toast(msg, type = "info") {
+  const id = Date.now();
+  toasts.value.push({ msg, type, id });
+  setTimeout(() => {
+    toasts.value = toasts.value.filter((t) => t.id !== id);
+  }, 3000);
+}
+
+provide("toast", toast);
+
+const TITLES = { chat: "多轮对话", kb: "知识库浏览", workflow: "工作流状态", docs: "文档管理", metrics: "运行指标" };
+const pageTitle = computed(() => TITLES[nav.value] || "");
 </script>
 
 <style>

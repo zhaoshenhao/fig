@@ -4,9 +4,9 @@
     <div class="sidebar-section">
       <div class="sidebar-label">导航</div>
       <button
-        v-for="item in navItems"
+        v-for="item in NAV_ITEMS"
         :key="item.id"
-        :class="['nav-item', { active: store.nav === item.id }]"
+        :class="['nav-item', { active: nav === item.id }]"
         @click="navigate(item.id)"
       >
         <span class="nav-icon">{{ item.icon }}</span>
@@ -16,8 +16,8 @@
     <div class="sidebar-section">
       <div class="sidebar-label">会话</div>
       <div style="padding:0 16px">
-        <span v-if="store.chatId" style="font-size:0.78rem;color:var(--text3)">
-          {{ store.chatId.slice(0, 16) }}... · Turn {{ store.turnId }}
+        <span v-if="chatId" style="font-size:0.78rem;color:var(--text3)">
+          {{ chatId.slice(0, 16) }}... · Turn {{ turnId }}
         </span>
         <span v-else style="font-size:0.78rem;color:var(--text3)">暂无</span>
       </div>
@@ -26,8 +26,8 @@
       <div class="sidebar-label">API 连接</div>
       <div style="padding:0 12px">
         <label>
-          <span :style="{color: store.connected ? 'var(--success)' : 'var(--danger)'}">
-            {{ store.connected ? "● 已连接" : "● 已断开" }}
+          <span :style="{color: connected ? 'var(--success)' : 'var(--danger)'}">
+            {{ connected ? "● 已连接" : "● 已断开" }}
           </span>
         </label>
         <input
@@ -35,82 +35,81 @@
           type="password"
           placeholder="API Key..."
           style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:0.78rem;background:var(--bg);margin:4px 0"
-          @input="onApiKeyChange"
+          @input="apiKey = apiKeyInput"
         />
       </div>
     </div>
     <div class="sidebar-footer">
       <label>
-        <input type="checkbox" v-model="store.streamDefault" @change="store._persist()" />
+        <input type="checkbox" :checked="streamDefault" @change="streamDefault = $event.target.checked; persist()" />
         默认流式输出
       </label>
       <button class="theme-toggle" @click="toggleTheme">
-        {{ store.theme === "dark" ? "☀️ 浅色模式" : "🌙 深色模式" }}
+        {{ themeLabel }}
       </button>
     </div>
   </aside>
 </template>
 
-<script>
-import { inject, onMounted, ref, watch } from "vue";
+<script setup>
+import { ref, computed, onMounted, onUnmounted, watch, inject } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import { store } from "../store.js";
+import { useAppStore } from "../store.js";
 import { api } from "../api.js";
 
-export default {
-  props: { open: Boolean },
-  emits: ["close"],
-  setup(props, { emit }) {
-    const toast = inject("toast");
-    const router = useRouter();
-    const route = useRoute();
-    const apiKeyInput = ref("");
+defineProps({ open: Boolean });
+const emit = defineEmits(["close"]);
 
-    const navItems = [
-      { id: "chat", label: "聊天", icon: "💬" },
-      { id: "kb", label: "知识库浏览", icon: "📚" },
-      { id: "workflow", label: "工作流状态", icon: "🔀" },
-      { id: "docs", label: "文档管理", icon: "📄" },
-      { id: "metrics", label: "运行指标", icon: "📊" },
-    ];
+const router = useRouter();
+const route = useRoute();
+const { nav, apiKey, chatId, turnId, streamDefault, theme, connected } = useAppStore();
+const toast = inject("toast");
+const apiKeyInput = ref("");
 
-    const navigate = (id) => {
-      store.nav = id;
-      store._persist();
-      router.push("/" + id);
-      emit("close");
-    };
+const NAV_ITEMS = [
+  { id: "chat", label: "聊天", icon: "💬" },
+  { id: "kb", label: "知识库浏览", icon: "📚" },
+  { id: "workflow", label: "工作流状态", icon: "🔀" },
+  { id: "docs", label: "文档管理", icon: "📄" },
+  { id: "metrics", label: "运行指标", icon: "📊" },
+];
 
-    const toggleTheme = () => {
-      store.theme = store.theme === "dark" ? "light" : "dark";
-      document.documentElement.setAttribute("data-theme", store.theme);
-      store._persist();
-    };
+const themeLabel = computed(() => theme.value === "dark" ? "☀️ 浅色模式" : "🌙 深色模式");
 
-    const onApiKeyChange = () => {
-      store.apiKey = apiKeyInput.value;
-    };
+function navigate(id) {
+  nav.value = id;
+  persist();
+  router.push("/" + id);
+  emit("close");
+}
 
-    const checkHealth = async () => {
-      store.connected = await api.health();
-    };
+function toggleTheme() {
+  const next = theme.value === "dark" ? "light" : "dark";
+  theme.value = next;
+  document.documentElement.setAttribute("data-theme", next);
+  persist();
+}
 
-    watch(
-      () => route.path,
-      (p) => {
-        const id = p.replace("/", "") || "chat";
-        if (store.nav !== id) store.nav = id;
-      },
-      { immediate: true },
-    );
+function persist() {
+  localStorage.setItem("kf_prefs", JSON.stringify({
+    nav: nav.value, streamDefault: streamDefault.value, theme: theme.value,
+  }));
+}
 
-    onMounted(() => {
-      document.documentElement.setAttribute("data-theme", store.theme);
-      checkHealth();
-      setInterval(checkHealth, 15000);
-    });
+let _timer = 0;
+async function checkHealth() {
+  connected.value = await api.health();
+}
 
-    return { store, navItems, navigate, toggleTheme, apiKeyInput, onApiKeyChange };
-  },
-};
+watch(() => route.path, (p) => {
+  const id = p.replace("/", "") || "chat";
+  if (nav.value !== id) nav.value = id;
+}, { immediate: true });
+
+onMounted(() => {
+  document.documentElement.setAttribute("data-theme", theme.value);
+  checkHealth();
+  _timer = setInterval(checkHealth, 15000);
+});
+onUnmounted(() => clearInterval(_timer));
 </script>

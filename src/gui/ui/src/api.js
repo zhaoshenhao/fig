@@ -1,78 +1,101 @@
-import { store } from "./store.js";
+import { useAppStore } from "./store.js";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-function headers() {
-  const h = { "Content-Type": "application/json" };
-  if (store.apiKey) h["X-API-Key"] = store.apiKey;
+/** @returns {Record<string, string>} */
+function authHeaders(extra = {}) {
+  const store = useAppStore();
+  const h = { ...extra };
+  if (store.apiKey.value) h["X-API-Key"] = store.apiKey.value;
   return h;
 }
 
-function formHeaders() {
-  const h = {};
-  if (store.apiKey) h["X-API-Key"] = store.apiKey;
-  return h;
-}
-
+/**
+ * HTTP API client with automatic auth header injection.
+ * @namespace
+ */
 export const api = {
+  /**
+   * @param {string} path
+   * @param {Record<string, string|number>} [params]
+   * @returns {Promise<any>}
+   */
   async get(path, params = {}) {
-    const qs = new URLSearchParams(params).toString();
+    const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString();
     const url = `${API_BASE}${path}${qs ? "?" + qs : ""}`;
-    const r = await fetch(url, { headers: headers() });
+    const r = await fetch(url, { headers: authHeaders() });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();
   },
 
+  /**
+   * @param {string} path
+   * @param {any} body
+   * @param {boolean} [useFormData=false]
+   * @returns {Promise<any>}
+   */
   async post(path, body, useFormData = false) {
-    const url = `${API_BASE}${path}`;
     const opts = {
       method: "POST",
-      headers: useFormData ? formHeaders() : headers(),
+      headers: useFormData ? authHeaders() : authHeaders({ "Content-Type": "application/json" }),
       body: useFormData ? body : JSON.stringify(body),
     };
-    const r = await fetch(url, opts);
+    const r = await fetch(`${API_BASE}${path}`, opts);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();
   },
 
+  /**
+   * @param {string} path
+   * @returns {Promise<any|null>}
+   */
   async del(path) {
-    const r = await fetch(`${API_BASE}${path}`, {
-      method: "DELETE",
-      headers: headers(),
-    });
+    const r = await fetch(`${API_BASE}${path}`, { method: "DELETE", headers: authHeaders() });
     if (!r.ok && r.status !== 204) throw new Error(`HTTP ${r.status}`);
     return r.status === 204 ? null : r.json();
   },
 
+  /**
+   * SSE streaming request. Returns AbortController for cancellation.
+   * @param {string} path
+   * @param {any} body
+   * @param {(token: string) => void} onToken
+   * @param {(done: { chat_id: string, turn_id: number, reply: string }) => void} onDone
+   * @param {(err: string) => void} onError
+   * @returns {Promise<AbortController>}
+   */
   async stream(path, body, onToken, onDone, onError) {
-    const url = `${API_BASE}${path}`;
     const ctrl = new AbortController();
     try {
-      const r = await fetch(url, {
+      const r = await fetch(`${API_BASE}${path}`, {
         method: "POST",
-        headers: headers(),
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(body),
         signal: ctrl.signal,
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const reader = r.body.getReader();
+
+      const reader = /** @type {ReadableStreamDefaultReader<Uint8Array>} */ (r.body.getReader());
       const decoder = new TextDecoder();
       let buf = "";
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         buf += decoder.decode(value, { stream: true });
         const lines = buf.split("\n");
-        buf = lines.pop();
+        buf = /** @type {string} */ (lines.pop());
+
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const evt = JSON.parse(line.slice(6));
-              if (evt.event === "token") onToken(evt.data);
-              else if (evt.event === "done") onDone(evt);
-              else if (evt.event === "error") onError(evt.data);
-            } catch (_) {}
-          }
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            switch (evt.event) {
+              case "token": onToken(evt.data); break;
+              case "done": onDone(evt); break;
+              case "error": onError(evt.data); break;
+            }
+          } catch { /* skip malformed lines */ }
         }
       }
     } catch (e) {
@@ -81,10 +104,13 @@ export const api = {
     return ctrl;
   },
 
+  /**
+   * @returns {Promise<boolean>}
+   */
   async health() {
     try {
       const r = await fetch(`${API_BASE}/health`, {
-        headers: headers(),
+        headers: authHeaders(),
         signal: AbortSignal.timeout(3000),
       });
       return r.ok;

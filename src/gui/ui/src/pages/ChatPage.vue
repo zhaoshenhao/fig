@@ -52,21 +52,23 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, nextTick, watch, inject } from "vue";
-import { store } from "../store.js";
+import { ref, onMounted, onUnmounted, nextTick, inject } from "vue";
+import { useAppStore } from "../store.js";
 import { api } from "../api.js";
 
 const toast = inject("toast");
+const { chatId: storeChatId, turnId: storeTurnId, streamDefault: storeStreamDefault } = useAppStore();
 const workflows = ref([]);
 const wfName = ref("");
 const input = ref("");
 const messages = ref([]);
-const useStream = ref(store.streamDefault);
+const useStream = ref(storeStreamDefault.value);
 const autoScroll = ref(true);
 const streaming = ref(false);
 const streamText = ref("");
 const msgBox = ref(null);
 const msgEnd = ref(null);
+/** @type {AbortController|null} */
 let abortCtrl = null;
 
 async function loadWorkflows() {
@@ -99,7 +101,7 @@ async function send() {
   messages.value.push({ role: "user", content: text, ts });
 
   const payload = { query: text };
-  if (store.chatId) payload.chat_id = store.chatId;
+  if (storeChatId.value) payload.chat_id = storeChatId.value;
 
   scrollBottom();
   streaming.value = true;
@@ -112,8 +114,8 @@ async function send() {
       (token) => { streamText.value += token; scrollBottom(); },
       (done) => {
         reply = done.reply || streamText.value;
-        store.chatId = done.chat_id || store.chatId;
-        store.turnId = done.turn_id || 0;
+        storeChatId.value = done.chat_id || storeChatId.value;
+        storeTurnId.value = done.turn_id || 0;
         finish(reply, ts);
       },
       (err) => { finish("错误: " + err, ts); },
@@ -121,8 +123,8 @@ async function send() {
   } else {
     try {
       const d = await api.post(`/workflows/${wfName.value}/run`, payload);
-      store.chatId = d.chat_id || store.chatId;
-      store.turnId = d.turn_id || 0;
+      storeChatId.value = d.chat_id || storeChatId.value;
+      storeTurnId.value = d.turn_id || 0;
       finish(d.reply || "", ts);
     } catch (e) {
       finish("连接失败: " + e.message, ts);
@@ -139,11 +141,11 @@ function finish(reply, ts) {
 }
 
 async function clearChat() {
-  if (store.chatId) {
-    try { await api.del(`/sessions/${store.chatId}`); } catch (_) {}
+  if (storeChatId.value) {
+    try { await api.del(`/sessions/${storeChatId.value}`); } catch (_) {}
   }
-  store.chatId = "";
-  store.turnId = 0;
+  storeChatId.value = "";
+  storeTurnId.value = 0;
   messages.value = [];
 }
 
@@ -171,7 +173,7 @@ async function copyText(text) {
 }
 
 onMounted(loadWorkflows);
-onUnmounted(() => { if (abortCtrl) abortCtrl.abort(); });
+onUnmounted(() => { abortCtrl?.abort(); });
 </script>
 
 <style scoped>
