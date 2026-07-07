@@ -52,17 +52,15 @@
             <th>工作流</th>
             <th @click="toggleSort('turn_count')" class="sortable">轮次 {{ sortIcon('turn_count') }}</th>
             <th @click="toggleSort('duration_ms')" class="sortable">总耗时 {{ sortIcon('duration_ms') }}</th>
-            <th>操作</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in rows" :key="row.chat_id">
+          <tr v-for="row in rows" :key="row.chat_id" @click="openSession(row.chat_id)" class="clickable">
             <td><code>{{ row.chat_id?.slice(0,16) }}...</code></td>
             <td style="font-size:0.75rem;color:var(--text3)">{{ row.first_at }}</td>
             <td>{{ row.workflow_names || "-" }}</td>
             <td>{{ row.turn_count }}</td>
             <td>{{ ((row.total_duration_ms||0)/1000).toFixed(1) }}s</td>
-            <td><button class="btn-sm" @click="openSession(row.chat_id)">查看</button></td>
           </tr>
         </tbody>
       </table>
@@ -284,6 +282,8 @@ onMounted(doSearch);
 .data-table code { font-size: 0.72rem; }
 .sortable { cursor: pointer; user-select: none; }
 .sortable:hover { color: var(--accent); }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover { background: var(--bg3); }
 
 .pager { display: flex; gap: 8px; align-items: center; justify-content: center; padding: 6px 0; font-size: 0.8rem; color: var(--text2); flex-shrink: 0; }
 
