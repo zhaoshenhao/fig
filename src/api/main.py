@@ -503,8 +503,37 @@ async def count_collection(name: str):
 
 
 @app.get("/sessions")
-async def list_sessions(limit: int = 50, offset: int = 0):
-    return {"sessions": _metrics_store.query_sessions(limit=limit, offset=offset)}
+async def list_sessions(
+    limit: int = 50,
+    offset: int = 0,
+    time_from: str | None = None,
+    time_to: str | None = None,
+    workflow: str | None = None,
+    node: str | None = None,
+    tool: str | None = None,
+    input_text: str | None = None,
+    output_text: str | None = None,
+    duration_min: float | None = None,
+    duration_max: float | None = None,
+    sort_by: str = "last_at",
+    sort_dir: str = "desc",
+):
+    rows, total = _metrics_store.search_sessions(
+        time_from=time_from,
+        time_to=time_to,
+        workflow=workflow,
+        node=node,
+        tool=tool,
+        input_text=input_text,
+        output_text=output_text,
+        duration_min=duration_min,
+        duration_max=duration_max,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        limit=limit,
+        offset=offset,
+    )
+    return {"sessions": rows, "total": total}
 
 
 @app.get("/sessions/{chat_id}")

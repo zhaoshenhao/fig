@@ -258,6 +258,112 @@ class MetricsStore:
         conn.close()
         return [dict(r) for r in rows]
 
+    def search_sessions(
+        self,
+        time_from: str | None = None,
+        time_to: str | None = None,
+        workflow: str | None = None,
+        node: str | None = None,
+        tool: str | None = None,
+        input_text: str | None = None,
+        output_text: str | None = None,
+        duration_min: float | None = None,
+        duration_max: float | None = None,
+        sort_by: str = "last_at",
+        sort_dir: str = "desc",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict[str, Any]], int]:
+        conn = sqlite3.connect(str(self._db_path))
+        conn.row_factory = sqlite3.Row
+        conditions = []
+        params: list[Any] = []
+
+        if time_from:
+            conditions.append("r.created_at >= ?")
+            params.append(time_from)
+        if time_to:
+            conditions.append("r.created_at <= ?")
+            params.append(time_to)
+        if workflow:
+            conditions.append("r.workflow_name LIKE ?")
+            params.append(f"%{workflow}%")
+        if duration_min is not None:
+            conditions.append("r.duration_ms >= ?")
+            params.append(duration_min)
+        if duration_max is not None:
+            conditions.append("r.duration_ms <= ?")
+            params.append(duration_max)
+
+        exclude_pairs = ""
+        if node:
+            exclude_pairs = """
+               AND r.id IN (SELECT DISTINCT run_id FROM node_logs WHERE node_name LIKE ?)
+            """
+            params.append(f"%{node}%")
+        if tool:
+            exclude_pairs = exclude_pairs + """
+               AND r.id IN (SELECT DISTINCT run_id FROM node_logs WHERE tool_name LIKE ?)
+            """ if not node else exclude_pairs + """
+               AND r.id IN (SELECT DISTINCT run_id FROM node_logs WHERE tool_name LIKE ?)
+            """
+            params.append(f"%{tool}%")
+        if input_text:
+            if node or tool:
+                exclude_pairs = exclude_pairs + """
+               AND r.id IN (SELECT DISTINCT run_id FROM node_logs WHERE input_data LIKE ?)
+            """
+            else:
+                exclude_pairs = """
+               AND r.id IN (SELECT DISTINCT run_id FROM node_logs WHERE input_data LIKE ?)
+            """
+            params.append(f"%{input_text}%")
+        if output_text:
+            if node or tool or input_text:
+                exclude_pairs = exclude_pairs + """
+               AND r.id IN (SELECT DISTINCT run_id FROM node_logs WHERE output_text LIKE ?)
+            """
+            else:
+                exclude_pairs = """
+               AND r.id IN (SELECT DISTINCT run_id FROM node_logs WHERE output_text LIKE ?)
+            """
+            params.append(f"%{output_text}%")
+
+        where = "WHERE " + " AND ".join(conditions) if conditions else ""
+        full_where = where + exclude_pairs
+
+        sort_cols = {
+            "last_at": "last_at", "first_at": "first_at",
+            "duration_ms": "total_duration_ms", "turn_count": "turn_count",
+            "chat_id": "chat_id",
+        }
+        order_col = sort_cols.get(sort_by, "last_at")
+        order_dir = "DESC" if sort_dir == "desc" else "ASC"
+
+        count_sql = f"""
+            SELECT COUNT(DISTINCT r.chat_id) AS cnt
+            FROM runs r
+            {full_where}
+        """
+        cnt = conn.execute(count_sql, params).fetchone()["cnt"]
+
+        query_sql = f"""
+            SELECT r.chat_id,
+                   COUNT(DISTINCT r.turn_id) AS turn_count,
+                   SUM(r.duration_ms) AS total_duration_ms,
+                   MIN(r.created_at) AS first_at,
+                   MAX(r.created_at) AS last_at,
+                   GROUP_CONCAT(DISTINCT r.workflow_name) AS workflow_names
+            FROM runs r
+            {full_where}
+            GROUP BY r.chat_id
+            ORDER BY {order_col} {order_dir}
+            LIMIT ? OFFSET ?
+        """
+        rows = conn.execute(query_sql, params + [limit, offset]).fetchall()
+        conn.close()
+        return [dict(r) for r in rows], cnt
+
     @property
     def db_path(self) -> Path:
         return self._db_path
