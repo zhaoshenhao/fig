@@ -1,6 +1,6 @@
 <template>
-  <div ref="wrap" class="dag-wrap" :style="{ height: h + 'px' }">
-    <div class="dag-scroll">
+  <div ref="wrap" class="dag-wrap" :style="wrapStyle">
+    <div ref="scrollBox" class="dag-scroll">
       <svg :width="graphW" :height="graphH">
         <defs>
           <marker id="dag-arrow" markerWidth="7" markerHeight="6" refX="7" refY="3" orient="auto">
@@ -10,12 +10,13 @@
         <g v-for="(e,i) in edges" :key="'e'+i">
           <path :d="e.d" stroke="#94a3b8" stroke-width="2" fill="none" marker-end="url(#dag-arrow)" />
         </g>
-        <g v-for="(n,i) in layoutNodes" :key="'n'+i" @click.stop="select(n)" style="cursor:pointer">
-          <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="8" :fill="n.bg" :stroke="n.color" stroke-width="1" />
-          <rect :x="n.x" :y="n.y" :width="n.w" :height="21" rx="8" :fill="n.color" />
-          <rect :x="n.x" :y="n.y+13" :width="n.w" :height="8" :fill="n.color" />
-          <text :x="n.x+n.w/2" :y="n.y+14" text-anchor="middle" fill="#fff" font-size="14" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
-          <text :x="n.x+n.w/2" :y="n.y+32" text-anchor="middle" :fill="n.subColor" font-size="11" style="pointer-events:none">{{ n.sub }}</text>
+        <g v-for="(n,i) in layoutNodes" :key="'n'+i" @click.stop="select(n)">
+          <title>{{ n.fullHead }}&#10;{{ n.fullSub }}</title>
+          <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="6" :fill="n.bg" :stroke="n.color" stroke-width="1" />
+          <rect :x="n.x" :y="n.y" :width="n.w" :height="19" rx="6" :fill="n.color" />
+          <rect :x="n.x" :y="n.y+12" :width="n.w" :height="7" :fill="n.color" />
+          <text :x="n.x+n.w/2" :y="n.y+13" text-anchor="middle" fill="#fff" font-size="13" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
+          <text :x="n.x+n.w/2" :y="n.y+29" text-anchor="middle" :fill="n.subColor" font-size="10" style="pointer-events:none">{{ n.sub }}</text>
         </g>
       </svg>
     </div>
@@ -23,7 +24,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, nextTick } from "vue";
+import { ref, watch, onMounted, computed } from "vue";
 
 const props = defineProps({
   nodes: { type: Array, required: true },
@@ -42,9 +43,16 @@ const STATUS_COLORS = {
   skipped: "#9e9e9e", pending: "#64b5f6",
 };
 
-const NW = 190, NH = 42;
+const NW = 140, NH = 38;
+
+const wrapStyle = computed(() => {
+  if (props.height > 0) return { height: props.height + "px" };
+  return { height: "100%" };
+});
 
 const h = ref(props.height);
+const wrap = ref(null);
+const scrollBox = ref(null);
 const graphW = ref(800);
 const graphH = ref(400);
 const layoutNodes = ref([]);
@@ -66,7 +74,7 @@ async function loadDagre() {
 function doLayout() {
   if (!dagre || !props.nodes.length) return;
   const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "LR", nodesep: 70, ranksep: 120, edgesep: 20, marginx: 50, marginy: 50 });
+  g.setGraph({ rankdir: "LR", nodesep: 50, ranksep: 90, edgesep: 15, marginx: 40, marginy: 40 });
   g.setDefaultEdgeLabel(() => ({}));
 
   const ndData = props.nodeData || {};
@@ -89,32 +97,40 @@ function doLayout() {
   dagre.layout(g);
 
   const ns = [];
+  const MAX_H = 10, MAX_S = 14;
   for (const n of props.nodes) {
     const nd = ndData[n.name] || {};
     const st = nd.status || "pending";
     const tool = nd.tool || n.tool || "";
     const dur = nd.duration_ms !== undefined ? Math.round(Number(nd.duration_ms)) : undefined;
     const d = g.node(n.name) || { x: 0, y: 0 };
-    const x = d.x - NW / 2;
-    const y = d.y - NH / 2;
 
-    let color, head, sub, subColor, bg;
+    let color, headFull, subFull, subColor, bg;
     if (hasData) {
       color = STATUS_COLORS[st] || "#64b5f6";
-      head = n.name.length > 12 ? n.name.slice(0, 11) + "…" : n.name;
-      sub = st === "skipped" ? "-" : (tool || "-");
+      headFull = n.name;
+      subFull = st === "skipped" ? "-" : (tool || "-");
       subColor = st === "skipped" ? "var(--text3)" : "var(--text2)";
       bg = st === "skipped" ? "var(--bg3)" : "var(--bg)";
     } else {
       color = TOOL_COLORS[tool] || "#6b7280";
-      head = tool ? tool.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : n.name;
-      head = head.length > 12 ? head.slice(0, 11) + "…" : head;
-      sub = n.name.length > 16 ? n.name.slice(0, 15) + "…" : n.name;
+      headFull = tool ? tool.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : n.name;
+      subFull = n.name;
       subColor = "var(--text2)";
       bg = "var(--bg)";
     }
 
-    ns.push({ name: n.name, x, y, w: NW, h: NH, color, head, sub, subColor, bg, tool, dur, status: st, next: Array.isArray(n.next) ? n.next : (n.next ? [n.next] : []) });
+    const x = d.x - NW / 2;
+    const y = d.y - NH / 2;
+    const head = headFull.length > MAX_H ? headFull.slice(0, MAX_H - 1) + "…" : headFull;
+    const sub = subFull.length > MAX_S ? subFull.slice(0, MAX_S - 1) + "…" : subFull;
+
+    ns.push({
+      name: n.name, x, y, w: NW, h: NH, color,
+      head, sub, fullHead: headFull, fullSub: subFull,
+      subColor, bg, tool, dur, status: st,
+      next: Array.isArray(n.next) ? n.next : (n.next ? [n.next] : []),
+    });
   }
 
   const es = [];
@@ -142,18 +158,36 @@ function select(n) {
   emit("selectNode", { name: n.name, tool: n.tool, dur: n.dur, status: n.status, next: n.next || [], desc: n.desc || "" });
 }
 
+let dragging = false, sx = 0, sy = 0;
+function startDrag(e) {
+  if (!scrollBox.value) return;
+  dragging = true;
+  sx = e.clientX + scrollBox.value.scrollLeft;
+  sy = e.clientY + scrollBox.value.scrollTop;
+}
+function onDrag(e) {
+  if (!dragging || !scrollBox.value) return;
+  scrollBox.value.scrollLeft = sx - e.clientX;
+  scrollBox.value.scrollTop = sy - e.clientY;
+}
+function endDrag() { dragging = false; }
+
 watch([() => props.nodes, () => props.nodeData], () => doLayout());
 watch(() => props.height, v => { h.value = v; });
 
 onMounted(async () => {
   await loadDagre();
   doLayout();
+  if (scrollBox.value) {
+    scrollBox.value.addEventListener("mousedown", startDrag);
+    window.addEventListener("mousemove", onDrag);
+    window.addEventListener("mouseup", endDrag);
+  }
 });
 </script>
 
 <style scoped>
 .dag-wrap {
-  position: relative;
   background: var(--bg2);
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -163,5 +197,8 @@ onMounted(async () => {
   width: 100%;
   height: 100%;
   overflow: auto;
+  cursor: grab;
 }
+.dag-scroll:active { cursor: grabbing; }
+.dag-scroll g { cursor: pointer; }
 </style>

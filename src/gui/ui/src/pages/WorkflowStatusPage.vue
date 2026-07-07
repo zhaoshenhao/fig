@@ -1,9 +1,9 @@
 <template>
-  <div>
+  <div style="display:flex;flex-direction:column;height:calc(100vh - 80px)">
     <div v-if="loading" class="empty">加载中...</div>
     <div v-else-if="!workflows.length" class="empty">暂无已注册的工作流</div>
     <template v-else>
-      <div class="row" style="margin-bottom:12px">
+      <div class="row" style="margin-bottom:8px;flex-shrink:0">
         <select v-model="selected" class="field" style="flex:1">
           <option v-for="wf in workflows" :key="wf.name" :value="wf.name">{{ wf.name }} — {{ wf.description }}</option>
         </select>
@@ -14,25 +14,29 @@
           <span>集合: <code>{{ currentWf.collections?.join(", ") || "default" }}</code></span>
           <span>模式: <code>{{ currentWf.return_mode || "full" }}</code></span>
         </div>
-        <div v-if="currentWf.nodes?.length" style="margin:8px 0">
-          <DAGView :nodes="currentWf.nodes" :height="500" @selectNode="onSelectNode" />
-        </div>
 
-        <div v-if="nodeInfo" class="node-panel">
-          <div class="panel-tabs">
-            <button :class="['tab', { active: tab === 'status' }]" @click="tab='status'">状态</button>
-            <button :class="['tab', { active: tab === 'config' }]" @click="tab='config'">配置</button>
-            <button class="tab close" @click="nodeInfo=null">✕</button>
+        <div class="split-area">
+          <div class="split-top">
+            <DAGView v-if="currentWf.nodes?.length" :nodes="currentWf.nodes" height="100%" @selectNode="onSelectNode" />
           </div>
-          <div v-if="tab === 'status'" class="panel-body">
-            <div class="prop"><span>名称</span> {{ nodeInfo.name }}</div>
-            <div class="prop"><span>工具</span> {{ nodeInfo.tool || "-" }}</div>
-            <div class="prop" v-if="nodeInfo.dur !== undefined"><span>耗时</span> {{ nodeInfo.dur }}ms</div>
-            <div class="prop"><span>状态</span> {{ nodeInfo.status || "-" }}</div>
-            <div class="prop" v-if="nodeInfo.next?.length"><span>后继</span> {{ nodeInfo.next.join(", ") }}</div>
-          </div>
-          <div v-else class="panel-body">
-            <pre class="cfg-json">{{ formatJSON(nodeInfo.config) }}</pre>
+          <div class="split-bottom">
+            <div v-if="!nodeInfo" class="empty" style="padding:20px">点击 DAG 节点查看详情</div>
+            <template v-else>
+              <div class="panel-tabs">
+                <button :class="['tab', { active: tab === 'status' }]" @click="tab='status'">状态</button>
+                <button :class="['tab', { active: tab === 'config' }]" @click="tab='config'">配置</button>
+              </div>
+              <div v-if="tab === 'status'" class="panel-body">
+                <div class="prop"><span>名称</span> {{ nodeInfo.name }}</div>
+                <div class="prop"><span>工具</span> {{ nodeInfo.tool || "-" }}</div>
+                <div class="prop" v-if="nodeInfo.dur !== undefined"><span>耗时</span> {{ nodeInfo.dur }}ms</div>
+                <div class="prop"><span>状态</span> {{ nodeInfo.status || "-" }}</div>
+                <div class="prop" v-if="nodeInfo.next?.length"><span>后继</span> {{ nodeInfo.next.join(", ") }}</div>
+              </div>
+              <div v-else class="panel-body scroll">
+                <pre class="cfg-json" v-html="highlighted"></pre>
+              </div>
+            </template>
           </div>
         </div>
       </template>
@@ -55,6 +59,19 @@ const tab = ref("status");
 const nodeInfo = ref(null);
 
 const currentWf = computed(() => workflows.value.find(w => w.name === selected.value) || null);
+
+const highlighted = computed(() => {
+  if (!nodeInfo.value?.config) return "";
+  const json = JSON.stringify(nodeInfo.value.config, null, 2);
+  return json
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/("(?:[^"\\]|\\.)*")\s*:/g, '<span class="jk">$1</span>:')
+    .replace(/: ("(?:[^"\\]|\\.)*")/g, ': <span class="js">$1</span>')
+    .replace(/: (\d+\.?\d*)/g, ': <span class="jn">$1</span>')
+    .replace(/: (true|false|null)/g, ': <span class="jb">$1</span>');
+});
 
 async function load() {
   if (_cache) {
@@ -91,11 +108,8 @@ function onSelectNode(data) {
     next: data.next || [],
     config: node?.config || {},
   };
-  tab.value = "status";
-}
-
-function formatJSON(obj) {
-  try { return JSON.stringify(obj, null, 2); } catch { return String(obj); }
+  if (node?.config) tab.value = "config";
+  else tab.value = "status";
 }
 
 onMounted(load);
@@ -108,43 +122,30 @@ onMounted(load);
 .wf-meta { font-size: 0.75rem; color: var(--text3); display: flex; gap: 16px; margin-bottom: 6px; }
 .wf-meta code { font-size: 0.72rem; background: var(--bg2); padding: 1px 5px; border-radius: 3px; }
 
-.node-panel {
-  margin-top: 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
+.split-area { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.split-top { flex: 1; min-height: 0; margin-bottom: 8px; }
+.split-bottom { flex: 1; min-height: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+
 .panel-tabs {
-  display: flex;
-  gap: 0;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
+  display: flex; gap: 0; background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
 .tab {
-  padding: 6px 16px;
-  border: none;
-  background: none;
-  font-size: 0.82rem;
-  cursor: pointer;
-  color: var(--text2);
-  border-bottom: 2px solid transparent;
+  padding: 6px 16px; border: none; background: none; font-size: 0.82rem; cursor: pointer;
+  color: var(--text2); border-bottom: 2px solid transparent;
 }
-.tab.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-  font-weight: 600;
-}
-.tab.close {
-  margin-left: auto;
-  padding: 6px 12px;
-  color: var(--text3);
-}
-.panel-body {
-  padding: 10px 14px;
-  max-height: 300px;
-  overflow-y: auto;
-}
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+.panel-body { padding: 10px 14px; overflow-y: auto; flex: 1; }
+.panel-body.scroll { overflow: auto; }
 .prop { font-size: 0.8rem; margin-bottom: 4px; color: var(--text); }
 .prop span { color: var(--text3); margin-right: 8px; font-weight: 600; }
-.cfg-json { font-size: 0.75rem; white-space: pre-wrap; color: var(--text2); }
+
+.cfg-json {
+  font-size: 0.75rem; white-space: pre; margin: 0; font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  color: var(--text2);
+}
+.cfg-json :deep(.jk) { color: #0550ae; }
+.cfg-json :deep(.js) { color: #0a3069; }
+.cfg-json :deep(.jn) { color: #0550ae; }
+.cfg-json :deep(.jb) { color: #cf222e; }
 </style>
