@@ -155,24 +155,27 @@ function doLayout() {
 }
 
 function select(n) {
+  if (wasDragged) return;
   emit("selectNode", { name: n.name, tool: n.tool, dur: n.dur, status: n.status, next: n.next || [], desc: n.desc || "" });
 }
 
-let dragging = false, sx = 0, sy = 0;
+let dragging = false, wasDragged = false, sx = 0, sy = 0;
 function startDrag(e) {
   if (!scrollBox.value) return;
   dragging = true;
+  wasDragged = false;
   sx = e.pageX;
   sy = e.pageY;
   scrollBox.value.style.cursor = "grabbing";
-  e.preventDefault();
 }
 function onDrag(e) {
   if (!dragging || !scrollBox.value) return;
-  const dx = sx - e.pageX;
-  const dy = sy - e.pageY;
-  scrollBox.value.scrollLeft += dx;
-  scrollBox.value.scrollTop += dy;
+  const dx = e.pageX - sx;
+  const dy = e.pageY - sy;
+  if (Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
+  wasDragged = true;
+  scrollBox.value.scrollLeft -= dx;
+  scrollBox.value.scrollTop -= dy;
   sx = e.pageX;
   sy = e.pageY;
 }
@@ -188,11 +191,7 @@ onMounted(async () => {
   await loadDagre();
   doLayout();
   if (wrap.value) {
-    wrap.value.addEventListener("pointerdown", (e) => {
-      if (e.target === wrap.value || e.target.classList.contains("dag-scroll") || e.target.tagName === "svg") {
-        startDrag(e);
-      }
-    });
+    wrap.value.addEventListener("pointerdown", startDrag);
     window.addEventListener("pointermove", onDrag);
     window.addEventListener("pointerup", endDrag);
   }
