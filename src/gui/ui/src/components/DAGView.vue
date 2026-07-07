@@ -11,20 +11,13 @@
           <path :d="e.d" stroke="#94a3b8" stroke-width="2" fill="none" marker-end="url(#dag-arrow)" />
         </g>
         <g v-for="(n,i) in layoutNodes" :key="'n'+i" @click.stop="select(n)" style="cursor:pointer">
-          <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="8" :fill="n.bg" :stroke="n.color" stroke-width="2.5" />
+          <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="8" :fill="n.bg" :stroke="n.color" stroke-width="2" />
           <rect :x="n.x" :y="n.y" :width="n.w" :height="24" rx="8" :fill="n.color" />
           <rect :x="n.x" :y="n.y+15" :width="n.w" :height="9" :fill="n.color" />
           <text :x="n.x+n.w/2" :y="n.y+16" text-anchor="middle" fill="#fff" font-size="16" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
           <text :x="n.x+n.w/2" :y="n.y+36" text-anchor="middle" :fill="n.subColor" font-size="13" style="pointer-events:none">{{ n.sub }}</text>
         </g>
       </svg>
-    </div>
-    <div v-if="sel" class="dag-card">
-      <div class="dag-card-hd"><b>◉ {{ sel.name }}</b><button class="dag-close" @click="sel=null">✕</button></div>
-      <div class="dag-row"><span>工具</span> {{ sel.tool || "-" }}</div>
-      <div class="dag-row" v-if="sel.dur !== undefined"><span>耗时</span> {{ sel.dur }}ms</div>
-      <div class="dag-row"><span>状态</span> {{ sel.status || "-" }}</div>
-      <div class="dag-row" v-if="sel.next.length"><span>后继</span> {{ sel.next.join(", ") }}</div>
     </div>
   </div>
 </template>
@@ -56,7 +49,6 @@ const graphW = ref(800);
 const graphH = ref(400);
 const layoutNodes = ref([]);
 const edges = ref([]);
-const sel = ref(null);
 
 let dagre = null;
 
@@ -136,9 +128,7 @@ function doLayout() {
 }
 
 function select(n) {
-  const data = { name: n.name, tool: n.tool, dur: n.dur, status: n.status, next: n.next || [], desc: n.desc || "" };
-  sel.value = data;
-  emit("selectNode", data);
+  emit("selectNode", { name: n.name, tool: n.tool, dur: n.dur, status: n.status, next: n.next || [], desc: n.desc || "" });
 }
 
 watch(() => [props.nodes, props.nodeData], doLayout, { deep: true });
@@ -174,23 +164,4 @@ async function loadDagre() {
   height: 100%;
   overflow: auto;
 }
-.dag-card {
-  position: absolute;
-  right: 8px;
-  top: 8px;
-  width: 200px;
-  max-height: calc(100% - 16px);
-  overflow-y: auto;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px;
-  box-shadow: var(--shadow-lg);
-  font-size: 0.78rem;
-  z-index: 10;
-}
-.dag-card-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.dag-row { font-size: 0.75rem; margin-bottom: 3px; color: var(--text2); }
-.dag-row span { color: var(--text3); margin-right: 6px; }
-.dag-close { border: none; background: var(--bg3); border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 0.85rem; }
 </style>

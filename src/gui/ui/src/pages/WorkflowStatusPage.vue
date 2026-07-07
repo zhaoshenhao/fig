@@ -2,55 +2,46 @@
   <div>
     <div v-if="loading" class="empty">加载中...</div>
     <div v-else-if="!workflows.length" class="empty">暂无已注册的工作流</div>
-    <div v-for="wf in workflows" :key="wf.name" style="margin-bottom:24px">
-      <h3 style="font-size:0.9rem;font-weight:600;margin-bottom:4px">
-        {{ wf.name }}
-        <span style="color:var(--text3);font-weight:400;font-size:0.78rem">— {{ wf.description }}</span>
-      </h3>
-      <div class="wf-meta">
-        <span>集合: <code>{{ wf.collections?.join(", ") || "default" }}</code></span>
-        <span>模式: <code>{{ wf.return_mode || "full" }}</code></span>
+    <template v-else>
+      <div class="row" style="margin-bottom:12px">
+        <select v-model="selected" class="field" style="flex:1">
+          <option v-for="wf in workflows" :key="wf.name" :value="wf.name">{{ wf.name }} — {{ wf.description }}</option>
+        </select>
       </div>
-      <div v-if="wf.nodes?.length" style="margin:8px 0">
-        <DAGView :nodes="wf.nodes" :height="500" @selectNode="onSelect" />
-      </div>
-      <div v-if="wf.nodes?.length" class="node-grid">
-        <button
-          v-for="n in wf.nodes" :key="n.name"
-          class="node-tag"
-          :style="{ borderLeftColor: toolColor(n.tool || '') }"
-          @click="openNodeConfig(wf.name, n)"
-        >
-          <b>{{ n.name }}</b>
-          <span style="color:var(--text3);font-size:0.7rem">{{ n.tool || "-" }}</span>
-        </button>
-      </div>
-    </div>
 
-    <h3 style="font-size:0.85rem;font-weight:600;margin-top:16px">LLM</h3>
-    <div v-if="llmDefault" style="font-size:0.8rem;color:var(--text2);margin:4px 0">
-      默认: <code>{{ llmDefault }}</code>
-    </div>
-
-    <h3 style="font-size:0.85rem;font-weight:600;margin-top:12px">Embedding</h3>
-    <div v-if="embedDefault" style="font-size:0.8rem;color:var(--text2);margin:4px 0">
-      默认: <code>{{ embedDefault }}</code>
-    </div>
-
-    <div v-if="nodeConfig" class="modal-overlay" @click.self="nodeConfig=null">
-      <div class="modal-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <b>{{ nodeConfig.name }}</b>
-          <button class="btn" @click="nodeConfig=null">✕</button>
+      <template v-if="currentWf">
+        <div class="wf-meta">
+          <span>集合: <code>{{ currentWf.collections?.join(", ") || "default" }}</code></span>
+          <span>模式: <code>{{ currentWf.return_mode || "full" }}</code></span>
         </div>
-        <pre class="cfg-json">{{ formatJSON(nodeConfig.config) }}</pre>
-      </div>
-    </div>
+        <div v-if="currentWf.nodes?.length" style="margin:8px 0">
+          <DAGView :nodes="currentWf.nodes" :height="500" @selectNode="onSelectNode" />
+        </div>
+
+        <div v-if="nodeInfo" class="node-panel">
+          <div class="panel-tabs">
+            <button :class="['tab', { active: tab === 'status' }]" @click="tab='status'">状态</button>
+            <button :class="['tab', { active: tab === 'config' }]" @click="tab='config'">配置</button>
+            <button class="tab close" @click="nodeInfo=null">✕</button>
+          </div>
+          <div v-if="tab === 'status'" class="panel-body">
+            <div class="prop"><span>名称</span> {{ nodeInfo.name }}</div>
+            <div class="prop"><span>工具</span> {{ nodeInfo.tool || "-" }}</div>
+            <div class="prop" v-if="nodeInfo.dur !== undefined"><span>耗时</span> {{ nodeInfo.dur }}ms</div>
+            <div class="prop"><span>状态</span> {{ nodeInfo.status || "-" }}</div>
+            <div class="prop" v-if="nodeInfo.next?.length"><span>后继</span> {{ nodeInfo.next.join(", ") }}</div>
+          </div>
+          <div v-else class="panel-body">
+            <pre class="cfg-json">{{ formatJSON(nodeInfo.config) }}</pre>
+          </div>
+        </div>
+      </template>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, inject } from "vue";
+import { ref, computed, onMounted, inject } from "vue";
 import { api } from "../api.js";
 import DAGView from "../components/DAGView.vue";
 
@@ -59,73 +50,50 @@ let _cache = null;
 const toast = inject("toast");
 const workflows = ref([]);
 const loading = ref(true);
-const llmDefault = ref("");
-const embedDefault = ref("");
-const nodeConfig = ref(null);
+const selected = ref("");
+const tab = ref("status");
+const nodeInfo = ref(null);
 
-const TOOL_COLORS = {
-  llm: "#10b981", rag_search: "#3b82f6", router: "#8b5cf6", merge: "#f59e0b",
-  db_query: "#06b6d4", api_call: "#ef4444", web_search: "#ec4899",
-  extract_llm: "#6366f1", extract_regex: "#14b8a6", code: "#6b7280",
-};
-function toolColor(t) { return TOOL_COLORS[t] || "#6b7280"; }
+const currentWf = computed(() => workflows.value.find(w => w.name === selected.value) || null);
 
 async function load() {
   if (_cache) {
-    workflows.value = _cache.workflows;
-    llmDefault.value = _cache.llmDefault;
-    embedDefault.value = _cache.embedDefault;
+    workflows.value = _cache;
+    if (!selected.value && _cache.length) selected.value = _cache[0].name;
     loading.value = false;
     return;
   }
   try {
-    const d = await api.get("/ready");
     const wl = await api.get("/workflows");
     const list = wl.workflows || [];
-
     const details = await Promise.all(
       list.map(w => api.get(`/workflows/${w.name}`).catch(() => null))
     );
-
-    const wfs = details.filter(Boolean).map(d => ({
+    _cache = details.filter(Boolean).map(d => ({
       ...d,
       nodes: (d.nodes || []).map(n => ({ ...n, tool: n.tool || "" })),
     }));
-
-    _cache = {
-      workflows: wfs,
-      llmDefault: d.llm_default || "",
-      embedDefault: d.embed_default || "",
-    };
-
-    workflows.value = _cache.workflows;
-    llmDefault.value = _cache.llmDefault;
-    embedDefault.value = _cache.embedDefault;
+    workflows.value = _cache;
+    if (_cache.length) selected.value = _cache[0].name;
   } catch (e) {
     toast("加载失败: " + e.message, "error");
   }
   loading.value = false;
 }
 
-function onSelect(n) {
-  for (const wf of workflows.value) {
-    for (const node of wf.nodes) {
-      if (node.name === n.name) {
-        nodeConfig.value = {
-          name: node.name,
-          config: node.config || { tool: node.tool, name: node.name },
-        };
-        return;
-      }
-    }
-  }
-}
-function openNodeConfig(wfName, node) {
-  nodeConfig.value = {
-    name: node.name,
-    config: node.config || { tool: node.tool, name: node.name },
+function onSelectNode(data) {
+  const node = currentWf.value?.nodes?.find(n => n.name === data.name);
+  nodeInfo.value = {
+    name: data.name,
+    tool: data.tool || (node?.tool) || "",
+    dur: data.dur,
+    status: data.status || "pending",
+    next: data.next || [],
+    config: node?.config || {},
   };
+  tab.value = "status";
 }
+
 function formatJSON(obj) {
   try { return JSON.stringify(obj, null, 2); } catch { return String(obj); }
 }
@@ -135,24 +103,48 @@ onMounted(load);
 
 <style scoped>
 .empty { text-align: center; color: var(--text3); padding: 40px 0; font-size: 0.9rem; }
+.row { display: flex; gap: 8px; align-items: center; }
+.field { padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-size: 0.82rem; }
 .wf-meta { font-size: 0.75rem; color: var(--text3); display: flex; gap: 16px; margin-bottom: 6px; }
 .wf-meta code { font-size: 0.72rem; background: var(--bg2); padding: 1px 5px; border-radius: 3px; }
-.node-grid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-.node-tag {
-  padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px;
-  border-left: 3px solid #6b7280; background: var(--bg);
-  font-size: 0.75rem; cursor: pointer; display: flex; gap: 6px; align-items: center;
+
+.node-panel {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
 }
-.node-tag:hover { background: var(--bg2); }
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.35);
-  display: flex; align-items: center; justify-content: center; z-index: 500;
+.panel-tabs {
+  display: flex;
+  gap: 0;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
 }
-.modal-card {
-  background: var(--bg); border-radius: 10px; padding: 16px;
-  max-width: 500px; width: 90%; max-height: 70vh; overflow-y: auto;
-  box-shadow: var(--shadow-lg);
+.tab {
+  padding: 6px 16px;
+  border: none;
+  background: none;
+  font-size: 0.82rem;
+  cursor: pointer;
+  color: var(--text2);
+  border-bottom: 2px solid transparent;
 }
-.cfg-json { font-size: 0.72rem; white-space: pre-wrap; background: var(--bg2); padding: 10px; border-radius: 6px; }
-.btn { padding: 4px 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); cursor: pointer; }
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.tab.close {
+  margin-left: auto;
+  padding: 6px 12px;
+  color: var(--text3);
+}
+.panel-body {
+  padding: 10px 14px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.prop { font-size: 0.8rem; margin-bottom: 4px; color: var(--text); }
+.prop span { color: var(--text3); margin-right: 8px; font-weight: 600; }
+.cfg-json { font-size: 0.75rem; white-space: pre-wrap; color: var(--text2); }
 </style>
