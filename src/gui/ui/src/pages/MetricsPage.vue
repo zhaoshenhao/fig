@@ -90,10 +90,12 @@
             <div class="panel-tabs">
               <button :class="['tab', { active: ioTab === 'input' }]" @click="ioTab='input'">输入</button>
               <button :class="['tab', { active: ioTab === 'output' }]" @click="ioTab='output'">输出</button>
+              <button :class="['tab', { active: ioTab === 'config' }]" @click="ioTab='config'">配置</button>
             </div>
             <div class="panel-body scroll">
               <pre v-if="ioTab === 'input'" class="hl-json" v-html="highlightJSON(ioData.input)"></pre>
-              <pre v-else class="hl-json" v-html="highlightJSON(ioData.output)"></pre>
+              <pre v-else-if="ioTab === 'output'" class="hl-json" v-html="highlightJSON(ioData.output)"></pre>
+              <pre v-else class="hl-json" v-html="highlightJSON(ioData.config)"></pre>
             </div>
           </div>
         </div>
@@ -108,6 +110,18 @@ import { api } from "../api.js";
 import DAGView from "../components/DAGView.vue";
 
 const toast = inject("toast");
+
+/** @type {Record<string, any>} */
+const _wfCache = {};
+
+/** @param {string} name */
+async function getWfConfig(name) {
+  if (_wfCache[name]) return _wfCache[name];
+  try {
+    _wfCache[name] = await api.get(`/workflows/${name}`);
+  } catch { _wfCache[name] = { nodes: [] }; }
+  return _wfCache[name];
+}
 
 const TIME_PRESETS = [
   { label: "最后 5 分钟", value: "5m" }, { label: "最后 10 分钟", value: "10m" },
@@ -142,7 +156,7 @@ const detailSess = ref("");
 const turnList = ref([]);
 const detailTurnId = ref(0);
 const ioTab = ref("input");
-const ioData = ref({ input: "(无)", output: "(无)" });
+const ioData = ref({ input: "(无)", output: "(无)", config: "(无)" });
 
 const DURATION_RANGES = [[0, 1000], [1001, 5000], [5001, 10000], [10001, Infinity]];
 
@@ -215,7 +229,7 @@ async function openSession(chatId) {
   detailSess.value = chatId;
   detailTurnId.value = 0;
   ioTab.value = "input";
-  ioData.value = { input: "(无)", output: "(无)" };
+  ioData.value = { input: "(无)", output: "(无)", config: "(无)" };
   turnList.value = [];
   try {
     const d = await api.get(`/sessions/${chatId}`);
@@ -243,10 +257,16 @@ async function openSession(chatId) {
   } catch (e) { toast("加载详情失败: " + e.message, "error"); }
 }
 
-function onSelectNode(data) {
+async function onSelectNode(data) {
   const turn = detailTurn.value;
   const nd = turn?._nodeData?.[data.name] || {};
-  ioData.value = { input: nd.input || "(无)", output: nd.output || "(无)" };
+  let config = "(无)";
+  if (turn?.workflow_name) {
+    const wf = await getWfConfig(turn.workflow_name);
+    const nc = (wf.nodes || []).find(n => n.name === data.name);
+    if (nc?.config) config = JSON.stringify(nc.config, null, 2);
+  }
+  ioData.value = { input: nd.input || "(无)", output: nd.output || "(无)", config };
   ioTab.value = nd.output ? "output" : "input";
 }
 
