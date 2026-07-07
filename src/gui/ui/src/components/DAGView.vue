@@ -8,12 +8,19 @@
       </defs>
       <path v-for="(e,i) in edges" :key="'e'+i" :d="e.d" stroke="#94a3b8" stroke-width="2" fill="none" marker-end="url(#dag-arrow)" />
       <g v-for="(n,i) in layoutNodes" :key="'n'+i" @click="select(n)" style="cursor:pointer">
-        <title>{{ n.fullHead }}&#10;{{ n.fullSub }}</title>
-        <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="6" :fill="n.bg" :stroke="n.color" stroke-width="1" />
-        <rect :x="n.x" :y="n.y" :width="n.w" :height="19" rx="6" :fill="n.color" />
-        <rect :x="n.x" :y="n.y+12" :width="n.w" :height="7" :fill="n.color" />
-        <text :x="n.x+n.w/2" :y="n.y+13" text-anchor="middle" fill="#fff" font-size="13" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
-        <text :x="n.x+n.w/2" :y="n.y+29" text-anchor="middle" :fill="n.subColor" font-size="10" style="pointer-events:none">{{ n.sub }}</text>
+        <template v-if="n.virtual">
+          <title>虚拟节点&#10;{{ n.name }}</title>
+          <circle :cx="n.x" :cy="n.y" :r="n.r" :fill="n.bg" :stroke="n.color" stroke-width="1" />
+          <text :x="n.x" :y="n.y+5" text-anchor="middle" :fill="n.subColor" font-size="12" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
+        </template>
+        <template v-else>
+          <title>{{ n.fullHead }}&#10;{{ n.fullSub }}</title>
+          <rect :x="n.x" :y="n.y" :width="n.w" :height="n.h" rx="6" :fill="n.bg" :stroke="n.color" stroke-width="1" />
+          <rect :x="n.x" :y="n.y" :width="n.w" :height="19" rx="6" :fill="n.color" />
+          <rect :x="n.x" :y="n.y+12" :width="n.w" :height="7" :fill="n.color" />
+          <text :x="n.x+n.w/2" :y="n.y+13" text-anchor="middle" fill="#fff" font-size="13" font-weight="600" style="pointer-events:none">{{ n.head }}</text>
+          <text :x="n.x+n.w/2" :y="n.y+29" text-anchor="middle" :fill="n.subColor" font-size="10" style="pointer-events:none">{{ n.sub }}</text>
+        </template>
       </g>
     </svg>
   </div>
@@ -73,6 +80,26 @@ function doLayout() {
   const hasData = ndData && Object.keys(ndData).length > 0;
   const nameSet = new Set(props.nodes.map(n => n.name));
 
+  const hasVirtual = !hasData;
+  const VR = 16;
+  const VIRT_W = VR * 2, VIRT_H = VR * 2;
+
+  if (hasVirtual) {
+    g.setNode("INPUT", { width: VIRT_W, height: VIRT_H });
+    g.setNode("OUTPUT", { width: VIRT_W, height: VIRT_H });
+    const roots = props.nodes.filter(n => !props.nodes.some(m => {
+      const nx = m.next || [];
+      const targets = Array.isArray(nx) ? nx : (typeof nx === "string" ? [nx] : []);
+      return targets.includes(n.name);
+    }));
+    const leaves = props.nodes.filter(n => {
+      const nx = n.next || [];
+      return !nx || (Array.isArray(nx) && nx.length === 0) || (typeof nx === "string" && !nameSet.has(nx));
+    });
+    for (const r of roots) g.setEdge("INPUT", r.name);
+    for (const l of leaves) g.setEdge(l.name, "OUTPUT");
+  }
+
   for (const n of props.nodes) g.setNode(n.name, { width: NW, height: NH });
   for (const n of props.nodes) {
     const nt = n.next_type || "one";
@@ -90,6 +117,14 @@ function doLayout() {
 
   const ns = [];
   const MAX_H = 10, MAX_S = 14;
+
+  if (hasVirtual) {
+    const id = g.node("INPUT") || { x: 0, y: 0 };
+    ns.push({ name: "INPUT", x: id.x, y: id.y, r: VR, virtual: true, color: "#94a3b8", head: "IN", subColor: "var(--text3)", bg: "var(--bg2)", tool: "", dur: undefined, status: "virtual", next: [] });
+    const od = g.node("OUTPUT") || { x: 0, y: 0 };
+    ns.push({ name: "OUTPUT", x: od.x, y: od.y, r: VR, virtual: true, color: "#94a3b8", head: "OUT", subColor: "var(--text3)", bg: "var(--bg2)", tool: "", dur: undefined, status: "virtual", next: [] });
+  }
+
   for (const n of props.nodes) {
     const nd = ndData[n.name] || {};
     const st = nd.status || "pending";
@@ -115,7 +150,7 @@ function doLayout() {
     const x = d.x - NW / 2;
     const y = d.y - NH / 2;
     ns.push({
-      name: n.name, x, y, w: NW, h: NH, color,
+      name: n.name, x, y, w: NW, h: NH, color, virtual: false,
       head: headFull.length > MAX_H ? headFull.slice(0, MAX_H - 1) + "…" : headFull,
       sub: subFull.length > MAX_S ? subFull.slice(0, MAX_S - 1) + "…" : subFull,
       fullHead: headFull, fullSub: subFull,

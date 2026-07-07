@@ -43,7 +43,7 @@ function toast(msg, type = "info") {
 
 provide("toast", toast);
 
-const TITLES = { chat: "多轮对话", kb: "知识库浏览", workflow: "工作流状态", docs: "文档管理", metrics: "运行指标" };
+const TITLES = { chat: "多轮对话", kb: "知识库浏览", workflow: "工作流", docs: "文档管理", metrics: "聊天记录" };
 const pageTitle = computed(() => TITLES[nav.value] || "");
 </script>
 

@@ -69,9 +69,9 @@ const apiKeyInput = ref("");
 const NAV_ITEMS = [
   { id: "chat", label: "聊天", icon: "💬" },
   { id: "kb", label: "知识库浏览", icon: "📚" },
-  { id: "workflow", label: "工作流状态", icon: "🔀" },
+  { id: "workflow", label: "工作流", icon: "🔀" },
   { id: "docs", label: "文档管理", icon: "📄" },
-  { id: "metrics", label: "运行指标", icon: "📊" },
+  { id: "metrics", label: "聊天记录", icon: "📊" },
 ];
 
 const themeLabel = computed(() => theme.value === "dark" ? "☀️ 浅色模式" : "🌙 深色模式");
