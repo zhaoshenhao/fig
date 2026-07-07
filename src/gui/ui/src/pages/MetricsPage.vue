@@ -252,8 +252,9 @@ function onSelectNode(data) {
 
 function highlightJSON(text) {
   if (!text || text === "(无)") return '<span style="color:var(--text3)">(无)</span>';
-  try { JSON.parse(text); } catch { return text; }
-  const fmt = typeof text === "string" ? text : JSON.stringify(text, null, 2);
+  let obj;
+  try { obj = JSON.parse(text); } catch { return text; }
+  const fmt = JSON.stringify(obj, null, 2);
   return fmt.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/("(?:[^"\\]|\\.)*")\s*:/g, '<span class="jk">$1</span>:')
     .replace(/: ("(?:[^"\\]|\\.)*")/g, ': <span class="js">$1</span>')
