@@ -1,0 +1,31 @@
+name: auto_film
+description: "汽车衣膜智能问答 — 太阳膜/隐形车衣/车窗膜/车衣膜产品咨询"
+collections:
+  - auto_film_kb
+return_mode: full
+
+conversation:
+  max_turns: null
+
+nodes:
+  - name: intent_router
+    next_type: if-then
+    next:
+      - search_kb
+      - non_product_reply
+    metrics: true
+
+  - name: search_kb
+    next_type: one
+    next: generate_answer
+    metrics: true
+
+  - name: generate_answer
+    next_type: one
+    next: ""
+    metrics: true
+
+  - name: non_product_reply
+    next_type: one
+    next: ""
+    metrics: true

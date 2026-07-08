@@ -1,0 +1,65 @@
+tool: router
+router:
+  match_field: text
+  default: non_product_reply
+  rules:
+    - match: contains
+      value: "太阳膜"
+      branch: search_kb
+    - match: contains
+      value: "车衣"
+      branch: search_kb
+    - match: contains
+      value: "车窗膜"
+      branch: search_kb
+    - match: contains
+      value: "窗膜"
+      branch: search_kb
+    - match: contains
+      value: "贴膜"
+      branch: search_kb
+    - match: contains
+      value: "隐形车衣"
+      branch: search_kb
+    - match: contains
+      value: "车衣膜"
+      branch: search_kb
+    - match: contains
+      value: "膜"
+      branch: search_kb
+    - match: contains
+      value: "隔热"
+      branch: search_kb
+    - match: contains
+      value: "防紫外线"
+      branch: search_kb
+    - match: contains
+      value: "防晒"
+      branch: search_kb
+    - match: contains
+      value: "保护车漆"
+      branch: search_kb
+    - match: contains
+      value: "TPU"
+      branch: search_kb
+    - match: contains
+      value: "TPH"
+      branch: search_kb
+    - match: contains
+      value: "PVC"
+      branch: search_kb
+    - match: contains
+      value: "你好"
+      branch: search_kb
+    - match: contains
+      value: "您好"
+      branch: search_kb
+    - match: contains
+      value: "hi"
+      branch: search_kb
+    - match: contains
+      value: "hello"
+      branch: search_kb
+    - match: contains
+      value: "在吗"
+      branch: search_kb
