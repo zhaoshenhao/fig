@@ -8,7 +8,12 @@ conversation:
   max_turns: null
 
 nodes:
-  - name: intent_router
+  - name: intent_classify
+    next_type: one
+    next: intent_route
+    metrics: true
+
+  - name: intent_route
     next_type: if-then
     next:
       - search_kb

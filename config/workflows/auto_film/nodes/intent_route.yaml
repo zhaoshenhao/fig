@@ -1,0 +1,11 @@
+tool: router
+router:
+  match_field: text
+  default: search_kb
+  rules:
+    - match: exact
+      value: "product"
+      branch: search_kb
+    - match: exact
+      value: "non_product"
+      branch: non_product_reply
