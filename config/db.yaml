@@ -1,20 +1,32 @@
 default: mysql_main
 
+# 本地开发默认指向 WSL Docker 中的 MySQL/PG（见 docs/metrics-db-setup.md）
+# 密码用 ${VAR:-default} 语法，生产用环境变量覆盖。
 pools:
   mysql_main:
     type: mysql
-    host: localhost
-    port: 3306
-    user: root
-    password: ${MYSQL_PASSWORD:}
-    database: kf
+    host: ${MYSQL_HOST:-127.0.0.1}
+    port: ${MYSQL_PORT:-3307}
+    user: ${MYSQL_USER:-root}
+    password: ${MYSQL_PASSWORD:-kfpass}
+    database: ${MYSQL_DB:-kf_metrics}
     pool_size: 5
 
   pg_analytics:
     type: postgresql
-    host: localhost
-    port: 5432
-    user: postgres
-    password: ${PG_PASSWORD:}
-    database: analytics
+    host: ${PG_HOST:-127.0.0.1}
+    port: ${PG_PORT:-5433}
+    user: ${PG_USER:-postgres}
+    password: ${PG_PASSWORD:-kfpass}
+    database: ${PG_DB:-kf_metrics}
     pool_size: 3
+
+  # Metrics 存储专用连接池（KF_METRICS_ENGINE=mysql|postgresql 时使用）
+  metrics:
+    type: ${KF_METRICS_DB_TYPE:-mysql}
+    host: ${KF_METRICS_DB_HOST:-127.0.0.1}
+    port: ${KF_METRICS_DB_PORT:-3307}
+    user: ${KF_METRICS_DB_USER:-root}
+    password: ${KF_METRICS_DB_PASSWORD:-kfpass}
+    database: ${KF_METRICS_DB_NAME:-kf_metrics}
+    pool_size: 5

@@ -7,6 +7,8 @@
         <select v-model="selected" class="field" style="flex:1">
           <option v-for="wf in workflows" :key="wf.name" :value="wf.name">{{ wf.name }} — {{ wf.description }}</option>
         </select>
+        <button class="btn" @click="refresh" :disabled="loading">刷新</button>
+        <button class="btn" @click="reload" :disabled="reloading">{{ reloading ? "重载中..." : "热重载" }}</button>
       </div>
 
       <template v-if="currentWf">
@@ -54,6 +56,7 @@ let _cache = null;
 const toast = inject("toast");
 const workflows = ref([]);
 const loading = ref(true);
+const reloading = ref(false);
 const selected = ref("");
 const tab = ref("status");
 const nodeInfo = ref(null);
@@ -81,10 +84,10 @@ async function load() {
     return;
   }
   try {
-    const wl = await api.get("/workflows");
+    const wl = await api.get("/api/v1/workflows");
     const list = wl.workflows || [];
     const details = await Promise.all(
-      list.map(w => api.get(`/workflows/${w.name}`).catch(() => null))
+      list.map(w => api.get(`/api/v1/workflows/${w.name}`).catch(() => null))
     );
     _cache = details.filter(Boolean).map(d => ({
       ...d,
@@ -113,12 +116,37 @@ function onSelectNode(data) {
 }
 
 onMounted(load);
+
+async function refresh() {
+  _cache = null;
+  loading.value = true;
+  await load();
+}
+
+async function reload() {
+  if (!window.confirm("确定要热重载配置？重载期间其他请求将短暂返回 503。")) return;
+  reloading.value = true;
+  try {
+    await api.post("/reload", {});
+    toast("配置已热重载", "success");
+  } catch (e) {
+    toast("重载失败: " + e.message, "error");
+  }
+  // 重载后刷新页面数据
+  _cache = null;
+  loading.value = true;
+  await load();
+  reloading.value = false;
+}
+
 </script>
 
 <style scoped>
 .empty { text-align: center; color: var(--text3); padding: 40px 0; font-size: 0.9rem; }
 .row { display: flex; gap: 8px; align-items: center; }
 .field { padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-size: 0.82rem; }
+.btn { padding: 5px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-size: 0.82rem; cursor: pointer; color: var(--text); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .wf-meta { font-size: 0.75rem; color: var(--text3); display: flex; gap: 16px; margin-bottom: 6px; }
 .wf-meta code { font-size: 0.72rem; background: var(--bg2); padding: 1px 5px; border-radius: 3px; }
 

@@ -64,7 +64,9 @@ async function loadCollections() {
     const d = await api.get("/collections");
     collections.value = d.collections || [];
     if (collections.value.length && !collection.value) collection.value = collections.value[0];
-  } catch { /* silent */ }
+  } catch (e) {
+    toast("加载集合列表失败: " + e.message, "error");
+  }
 }
 
 async function loadBrowse() {
@@ -91,17 +93,18 @@ async function doSearch() {
   if (!query.value.trim() || !collection.value) return;
   loading.value = true;
   try {
-    const d = await api.get(`/collections/${collection.value}/browse`, {
+    const d = await api.get(`/collections/${collection.value}/search`, {
+      q: query.value.trim(),
       limit: perPage.value,
-      offset: 0,
     });
     results.value = (d.points || []).map(p => ({
       id: p.id,
-      payload: p.payload || {},
-      text: (p.payload && p.payload.text) || JSON.stringify(p.payload || {}),
+      payload: { text: p.text, source: p.source },
+      text: p.text || "",
       score: p.score,
     }));
-  } catch (e) { toast("搜索失败: " + e.message, "error"); }
+    if (!results.value.length) toast("未找到相关结果", "info");
+  } catch (e) { toast("搜索失败: " + e.message, "error"); results.value = []; }
   loading.value = false;
 }
 

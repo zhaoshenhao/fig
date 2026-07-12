@@ -1,0 +1,23 @@
+# LLM 模型定价配置（单位：元 / 1K tokens，输入/输出分开计）
+# 用于成本报表；新增模型在此追加即可。
+
+models:
+  deepseek-v4-flash:
+    prompt_per_1k: 0.002         # ¥0.002 / 1K prompt tokens
+    completion_per_1k: 0.008     # ¥0.008 / 1K completion tokens
+
+  qwen3:8b:
+    prompt_per_1k: 0.0           # 本地 Ollama，免费
+    completion_per_1k: 0.0
+
+  qwen3:4b:
+    prompt_per_1k: 0.0
+    completion_per_1k: 0.0
+
+  gpt-4o:
+    prompt_per_1k: 0.03
+    completion_per_1k: 0.15
+
+  claude-sonnet-4-20250514:
+    prompt_per_1k: 0.03
+    completion_per_1k: 0.15

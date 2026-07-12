@@ -4,20 +4,28 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kf"
-version = "0.1.0"
+version = "0.2.0"
 description = "intelligent customer service system"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi[standard]>=0.138.0",
-    "qdrant-client[grpc]>=1.18.0",
+    "qdrant-client>=1.18.0",
     "httpx2>=2.5.0",
     "pyyaml>=6.0.3",
     "python-multipart>=0.0.32",
 ]
 
 [project.optional-dependencies]
-gui = ["streamlit>=1.58.0"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.25", "pytest-mock>=3.14", "pytest-cov>=6.0"]
+embed = ["fastembed>=0.4.0"]
+# 生产运行时驱动（懒加载）：多库连接池 + Redis 会话 + Excel 导出
+prod = [
+    "pymysql>=1.1.0",
+    "psycopg2-binary>=2.9.0",
+    "redis>=5.0",
+    "hiredis>=3.0",
+    "openpyxl>=3.1",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]

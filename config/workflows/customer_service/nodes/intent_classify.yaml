@@ -37,8 +37,5 @@ router:
       value: "您好"
       branch: inquiry_handler
     - match: contains
-      value: "你好"
-      branch: inquiry_handler
-    - match: contains
       value: "hello"
       branch: inquiry_handler

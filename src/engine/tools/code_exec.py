@@ -98,9 +98,15 @@ def _run_python(code_text: str, timeout: int) -> dict:
         - 数据处理：json（通过受限 import 导入）
         - 安全的 __import__：由 _safe_import 函数控制，仅允许白名单中的模块
 
+    超时机制（跨平台）：
+        代码在独立守护线程中执行；主线程 join(timeout)。超时后向执行线程
+        注入 `_CodeTimeout`（best-effort，可中断纯 Python 循环如 `while True: pass`），
+        并立即返回超时错误。由于无法强制杀死线程，注入对阻塞型 C 调用无效，
+        但受限环境已禁用 I/O，实际风险很低。
+
     Args:
         code_text (str): 已解析占位符的 Python 代码
-        timeout (int): 超时时间（秒），当前版本为预留参数，不强制中断
+        timeout (int): 超时时间（秒），<=0 时回退为默认 10 秒
 
     Returns:
         dict: 包含以下键的字典：
@@ -108,6 +114,13 @@ def _run_python(code_text: str, timeout: int) -> dict:
             - stdout (str): 捕获的标准输出
             - error (str | None): 错误信息
     """
+    try:
+        timeout = float(timeout)
+    except (TypeError, ValueError):
+        timeout = 10.0
+    if timeout <= 0:
+        timeout = 10.0
+
     # 定义受限的全局命名空间
     # __builtins__ 被替换为白名单字典，禁止访问 open、eval、exec 等危险函数
     restricted_globals = {
@@ -129,26 +142,69 @@ def _run_python(code_text: str, timeout: int) -> dict:
 
     # 用于捕获标准输出的缓冲区和上下文管理器
     import io
+    import threading
     from contextlib import redirect_stdout
 
     buf = io.StringIO()
-    error = None
-    try:
-        # 在受限环境中执行代码，stdout 被重定向到 buf
-        with redirect_stdout(buf):
-            exec(code_text, restricted_globals, restricted_locals)  # noqa: S102
-    except Exception as e:
-        # 捕获所有异常（语法错误、运行时错误、ImportError 等）
-        error = f"{type(e).__name__}: {e}"
-        _log.error("code execution failed", extra={"error": error})
+    holder: dict = {}
+    done = threading.Event()
 
-    # 获取 stdout 缓冲区内容
-    output = buf.getvalue().strip()
+    def _target() -> None:
+        try:
+            with redirect_stdout(buf):
+                exec(code_text, restricted_globals, restricted_locals)  # noqa: S102
+        except _CodeTimeout:
+            holder["error"] = "timeout"
+        except Exception as e:  # noqa: BLE001
+            holder["error"] = f"{type(e).__name__}: {e}"
+        finally:
+            holder["stdout"] = buf.getvalue().strip()
+            done.set()
+
+    worker = threading.Thread(target=_target, daemon=True)
+    worker.start()
+    finished = done.wait(timeout)
+
+    if not finished:
+        # 超时：best-effort 中断执行线程（可打断纯 Python 死循环）
+        if worker.ident is not None:
+            _async_raise(worker.ident, _CodeTimeout)
+        error = f"TimeoutError: code execution exceeded {timeout:g}s"
+        _log.error("code execution timed out", extra={"error": error})
+        return {"text": error, "error": error, "stdout": ""}
+
+    error = holder.get("error")
+    output = holder.get("stdout", "")
     if error:
         # 有错误时：text 和 error 都返回错误信息，stdout 返回已产生的输出
+        _log.error("code execution failed", extra={"error": error})
         return {"text": error, "error": error, "stdout": output}
     # 无错误：text 返回 stdout 内容；如果没有输出，返回成功消息
     return {"text": output or "code executed successfully", "stdout": output, "error": None}
+
+
+class _CodeTimeout(BaseException):
+    """内部超时信号，用于中断超时的代码执行线程。"""
+
+
+def _async_raise(tid: int, exctype: type) -> None:
+    """
+    向指定线程异步注入异常（CPython 专用，best-effort）。
+
+    通过 CPython C-API `PyThreadState_SetAsyncExc` 在目标线程中触发异常，
+    可中断纯 Python 层的死循环。对阻塞在 C 扩展/系统调用中的线程无效。
+    """
+    import ctypes
+
+    try:
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+            ctypes.c_long(tid), ctypes.py_object(exctype)
+        )
+        # 若影响了多个线程（异常情况），撤销以避免误伤
+        if res > 1:
+            ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid), None)
+    except Exception as e:  # noqa: BLE001
+        _log.warning("async raise failed", extra={"error": str(e)})
 
 
 def _safe_import(name, *args, **kwargs):
@@ -177,7 +233,7 @@ def _safe_import(name, *args, **kwargs):
     allowed = {
         "json", "math", "datetime", "collections", "itertools",
         "functools", "re", "statistics", "decimal", "fractions",
-        "hashlib", "base64", "uuid", "random", "string", "textwrap",
+        "hashlib", "base64", "uuid", "string", "textwrap",
     }
     # 检查模块的顶层名称（对于 "os.path" 只检查 "os"）
     if name.split(".")[0] not in allowed:
@@ -186,30 +242,6 @@ def _safe_import(name, *args, **kwargs):
 
 
 def _resolve(template: str, session: SessionData) -> str:
-    """
-    解析代码模板中的占位符变量。
-
-    支持的占位符：
-        - {{query}}: 当前用户查询文本
-        - {{key}}: session.data_map 中的字段值
-        - {{chat_id}}: 会话 ID
-        - {{_workflow}}: 当前工作流名称
-        - {{long_mem_data}}: 长期记忆数据
-
-    Args:
-        template (str): 包含占位符的模板字符串
-        session (SessionData): 当前会话数据对象
-
-    Returns:
-        str: 替换了所有占位符的字符串
-    """
-    result = template.replace("{{query}}", session.current_query)
-    # 替换 data_map 中的所有字段占位符
-    for key, val in session.data_map.items():
-        result = result.replace(f"{{{{{key}}}}}", val)
-    # 替换会话级别的元数据占位符
-    for key in ("chat_id", "_workflow", "long_mem_data"):
-        val = session.get(key, "")
-        if isinstance(val, str):
-            result = result.replace(f"{{{{{key}}}}}", val)
-    return result
+    """解析代码模板中的占位符（委托公共实现 `_template.resolve_template`）。"""
+    from src.engine.tools._template import resolve_template
+    return resolve_template(template, session)

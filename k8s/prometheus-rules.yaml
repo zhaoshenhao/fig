@@ -41,6 +41,36 @@ groups:
           summary: "RAG 检索 P99 > 5000ms"
           description: "RAG 检索 P99 延迟 {{ $value }}ms"
 
+      - alert: KFNodeHighErrorRate
+        expr: sum(rate(node_executions_total{status="error"}[10m])) by (node) / sum(rate(node_executions_total[10m])) by (node) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: kf
+        annotations:
+          summary: "节点 {{ $labels.node }} 错误率 > 10%"
+          description: "节点 {{ $labels.node }} 错误率 {{ $value | humanizePercentage }}"
+
+      - alert: KFNodeSlow
+        expr: histogram_quantile(0.95, sum(rate(node_duration_ms_bucket[5m])) by (le, node)) > 8000
+        for: 5m
+        labels:
+          severity: warning
+          team: kf
+        annotations:
+          summary: "节点 {{ $labels.node }} P95 > 8000ms"
+          description: "节点 {{ $labels.node }} P95 耗时 {{ $value }}ms"
+
+      - alert: KFToolHighErrorRate
+        expr: sum(rate(tool_calls_total{status="error"}[10m])) by (tool) / sum(rate(tool_calls_total[10m])) by (tool) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: kf
+        annotations:
+          summary: "工具 {{ $labels.tool }} 错误率 > 10%"
+          description: "工具 {{ $labels.tool }} 错误率 {{ $value | humanizePercentage }}"
+
       - alert: KFInstanceDown
         expr: up{job="kf-api"} == 0
         for: 1m
@@ -63,16 +93,6 @@ groups:
 
   - name: kf_infra_alerts
     rules:
-      - alert: KFOllamaDown
-        expr: kf_ollama_health != 1
-        for: 2m
-        labels:
-          severity: critical
-          team: kf
-        annotations:
-          summary: "Ollama 服务不可用"
-          description: "Ollama 健康检查失败"
-
       - alert: KFQdrantDown
         expr: kf_qdrant_health != 1
         for: 2m
@@ -83,12 +103,12 @@ groups:
           summary: "Qdrant 服务不可用"
           description: "Qdrant 健康检查失败"
 
-      - alert: KFMemorySessionHigh
-        expr: kf_memory_sessions_active > 1800
-        for: 5m
+      - alert: KFEmbedDown
+        expr: kf_embed_health != 1
+        for: 2m
         labels:
-          severity: warning
+          severity: critical
           team: kf
         annotations:
-          summary: "内存会话数 > 1800"
-          description: "当前 {{ $value }} 个会话，接近上限"
+          summary: "kf-embed 服务不可用"
+          description: "kf-embed 微服务健康检查失败"

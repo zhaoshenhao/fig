@@ -1,41 +1,23 @@
 version: "3.8"
 
 services:
-  ollama:
-    image: ollama/ollama:latest
-    container_name: kf-ollama
+  embed:
+    build:
+      context: .
+      dockerfile: Dockerfile.embed
+    container_name: kf-embed
     ports:
-      - "11434:11434"
-    volumes:
-      - ollama_models:/root/.ollama
+      - "8100:8100"
     environment:
-      OLLAMA_KEEP_ALIVE: 24h
-      OLLAMA_HOST: "0.0.0.0"
-    deploy:
-      resources:
-        limits:
-          memory: 4G
+      EMBED_MODEL: "nomic-ai/nomic-embed-text-v1.5"
+      EMBED_WARMUP: "1"
+      EMBED_API_KEY: "${EMBED_API_KEY:-}"
     healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 30s
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8100/ready').status==200 else 1)"]
+      interval: 15s
       timeout: 10s
-      retries: 5
+      retries: 10
     restart: unless-stopped
-
-  ollama-init:
-    image: ollama/ollama:latest
-    container_name: kf-ollama-init
-    depends_on:
-      ollama:
-        condition: service_healthy
-    entrypoint: >
-      sh -c '
-      echo "pulling nomic-embed-text..."
-      ollama pull nomic-embed-text --host http://ollama:11434
-      echo "pull complete"
-      '
-    volumes:
-      - ollama_models:/root/.ollama
 
   qdrant:
     image: qdrant/qdrant:latest
@@ -62,36 +44,21 @@ services:
     ports:
       - "8000:8000"
     environment:
-      OLLAMA_URL: http://ollama:11434
+      EMBED_BASE_URL: http://embed:8100/v1
+      EMBED_MODEL: nomic-embed-text
       QDRANT_HOST: qdrant
       QDRANT_PORT: 6334
-      QDRANT_GRPC_PORT: 6334
     env_file:
       - .env
     depends_on:
       qdrant:
         condition: service_healthy
+      embed:
+        condition: service_healthy
     volumes:
       - kf_data:/app/data
     restart: unless-stopped
 
-  streamlit:
-    build:
-      context: .
-      dockerfile: Dockerfile.streamlit
-    container_name: kf-streamlit
-    ports:
-      - "8501:8501"
-    environment:
-      KF_API_URL: http://api:8000
-      QDRANT_HOST: qdrant
-      QDRANT_PORT: 6334
-      QDRANT_GRPC_PORT: 6334
-    depends_on:
-      - api
-    restart: unless-stopped
-
 volumes:
-  ollama_models:
   qdrant_data:
   kf_data:

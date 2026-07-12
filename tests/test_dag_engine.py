@@ -132,6 +132,30 @@ class TestDAGRouting:
         dispatcher = [n for n in nodes if n["name"] == "dispatcher"][0]
         assert "branches" in dispatcher
 
+    def test_walk_branch_if_then_selects_single(self, mocker):
+        """并行/分支上下文内 if-then 应按 branch 选择单一路径，而非全部执行。"""
+        from src.engine import DAGEngine, ToolRegistry
+
+        reg = ToolRegistry()
+        reg.register("router", lambda c, s: {"text": "", "branch": "A"})
+        reg.register("llm", lambda c, s: {"text": "ok"})
+
+        app = mocker.MagicMock()
+        app.node_config = lambda key: (
+            {"tool": "router"} if key.endswith("route") else {"tool": "llm"}
+        )
+        eng = DAGEngine(tools=reg, app_config=app)
+        node_map = {
+            "route": {"name": "route", "next_type": "if-then", "next": ["A", "B"]},
+            "A": {"name": "A", "next_type": "one", "next": ""},
+            "B": {"name": "B", "next_type": "one", "next": ""},
+        }
+        result = eng._walk_branch("route", node_map, product="p")
+        names = [n["name"] for n in result]
+        assert "route" in names
+        assert "A" in names
+        assert "B" not in names  # 未命中的分支不应执行
+
 
 class TestDAGInit:
     def test_auto_registers_tools_when_no_registry(self, temp_config_dir):

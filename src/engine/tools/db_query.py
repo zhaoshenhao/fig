@@ -116,56 +116,13 @@ def db_query(config: dict, session: SessionData) -> dict:
 
 
 def _resolve_template(template: str, session: SessionData) -> str:
+    """解析 SQL 模板中的占位符（委托公共实现 `_template.resolve_template`）。
+
+    支持 {{query}} / {{field}}（节点输出或 data_map）/ {{chat_id}} / {{_workflow}} /
+    {{return_mode}} / {{long_mem_data}} / {{data_map}}。
     """
-    解析 SQL 模板中的占位符变量。
-
-    支持的占位符：
-        - {{query}}: 当前用户查询文本
-        - {{key}}: 前序节点 output 中的字段值（遍历所有节点的 data 进行替换）
-        - {{chat_id}}: 会话 ID
-        - {{_workflow}}: 当前工作流名称
-        - {{return_mode}}: 返回模式
-        - {{long_mem_data}}: 长期记忆数据
-        - {{data_map}}: 已提取的结构化数据（JSON 格式）
-
-    优化：如果模板中不包含任何 "{{"，跳过所有解析逻辑，直接返回。
-
-    Args:
-        template (str): 包含占位符的模板字符串
-        session (SessionData): 当前会话数据对象
-
-    Returns:
-        str: 替换了所有占位符的字符串
-    """
-    # 快速路径：模板中没有占位符语法，直接返回原始模板
-    if "{{" not in template:
-        return template
-
-    query = session.current_query
-    # 替换查询占位符
-    result = template.replace("{{query}}", query)
-
-    # 遍历所有已执行节点的 output data，用字段值替换 {{field_name}} 占位符
-    # 注意：后续节点会覆盖前序节点的同名字段值（后进先覆盖）
-    for node in session.nodes:
-        for key, value in node.get("data", {}).items():
-            if isinstance(value, str):
-                result = result.replace(f"{{{{{key}}}}}", value)
-
-    # 替换会话级别的元数据占位符
-    for key in ("chat_id", "_workflow", "return_mode", "long_mem_data"):
-        val = session.get(key, "")
-        if isinstance(val, str):
-            result = result.replace(f"{{{{{key}}}}}", val)
-
-    # 替换 data_map 占位符：将整个数据映射转为 JSON 字符串
-    if "{{data_map}}" in result:
-        import json
-        result = result.replace(
-            "{{data_map}}", json.dumps(session.data_map, ensure_ascii=False)
-        )
-
-    return result
+    from src.engine.tools._template import resolve_template
+    return resolve_template(template, session)
 
 
 def _format_rows(rows: list[dict], db_name: str) -> str:

@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: embed
+  namespace: <NAMESPACE>
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: embed
+  template:
+    metadata:
+      labels:
+        app: embed
+    spec:
+      containers:
+        - name: embed
+          # 模型已在构建期烘焙进镜像（/opt/fastembed_cache），启动时无需下载
+          image: <ACR_REGISTRY>/kf-embed:<EMBED_IMAGE_TAG>
+          ports:
+            - containerPort: 8100
+          env:
+            - name: EMBED_MODEL
+              value: "nomic-ai/nomic-embed-text-v1.5"
+            - name: FASTEMBED_CACHE_PATH
+              value: "/opt/fastembed_cache"
+            - name: EMBED_WARMUP
+              value: "1"
+            # 内部服务鉴权 Key（与 kf-api 共享，从 Secret 注入）
+            - name: EMBED_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kf-secrets
+                  key: EMBED_API_KEY
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8100
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8100
+            # 模型已内置，仅需加载进内存，预热很快
+            initialDelaySeconds: 5
+            periodSeconds: 5

@@ -92,7 +92,9 @@ async function loadCollections() {
   try {
     const d = await api.get("/collections");
     collections.value = d.collections || [];
-  } catch (_) {}
+  } catch (e) {
+    toast("加载集合列表失败: " + e.message, "error");
+  }
 }
 
 function onFileChange(e) {
@@ -104,19 +106,32 @@ async function doUpload() {
   uploading.value = true;
   uploadResult.value = "";
   uploadError.value = "";
+  const ok = [];
+  const failed = [];
   try {
-    for (const f of files.value) {
+    for (let i = 0; i < files.value.length; i++) {
+      const f = files.value[i];
       const fd = new FormData();
       fd.append("file", f);
       fd.append("collection", upCollection.value);
       fd.append("chunk_size", String(upChunkSize.value));
       fd.append("chunk_overlap", String(upChunkOverlap.value));
-      const r = await api.post("/documents/upload", fd, true);
-      uploadResult.value = `✅ ${f.name}: ${r.chunks} 分块 → ${r.collection}`;
+      // 仅第一个文件在 rebuild 模式下清空集合，避免逐个文件互相覆盖
+      fd.append("rebuild", String(upMode.value === "rebuild" && i === 0));
+      try {
+        const r = await api.post("/documents/upload", fd, true);
+        ok.push(`${f.name}: ${r.chunks} 分块`);
+      } catch (e) {
+        failed.push(`${f.name}: ${e.message}`);
+      }
     }
-    toast("上传完成", "success");
-    files.value = [];
-    if (fileInput.value) fileInput.value.value = "";
+    if (ok.length) uploadResult.value = `✅ 成功 ${ok.length}/${files.value.length} → ${upCollection.value}\n` + ok.join("\n");
+    if (failed.length) uploadError.value = `❌ 失败 ${failed.length}:\n` + failed.join("\n");
+    toast(failed.length ? `完成，${failed.length} 个失败` : "上传完成", failed.length ? "error" : "success");
+    if (!failed.length) {
+      files.value = [];
+      if (fileInput.value) fileInput.value.value = "";
+    }
     loadCollections();
   } catch (e) {
     uploadError.value = "上传失败: " + e.message;
@@ -136,8 +151,9 @@ async function doScan() {
     fd.append("collection", scanCollection.value);
     fd.append("chunk_size", String(scanChunkSize.value));
     fd.append("chunk_overlap", String(scanChunkOverlap.value));
+    fd.append("rebuild", String(scanMode.value === "rebuild"));
     const r = await api.post("/documents/scan", fd, true);
-    scanResult.value = `✅ ${r.directory}: ${r.chunks} 分块 → ${r.collection}`;
+    scanResult.value = `✅ ${r.directory}: ${r.chunks} 分块 → ${r.collection}` + (r.rebuilt ? "（已重建）" : "");
     toast("扫描完成", "success");
     loadCollections();
   } catch (e) {
@@ -157,7 +173,7 @@ onMounted(loadCollections);
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 .mode-label { font-size: 0.82rem; display: flex; align-items: center; gap: 4px; cursor: pointer; }
-.result-msg { padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; margin-top: 4px; }
+.result-msg { padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; margin-top: 4px; white-space: pre-line; }
 .result-msg.success { background: #d1fae5; color: #065f46; }
 .result-msg.error { background: #fee2e2; color: #991b1b; }
 .fg { display: flex; flex-direction: column; gap: 1px; }

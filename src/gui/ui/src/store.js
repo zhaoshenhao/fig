@@ -13,14 +13,13 @@ export function useAppStore() {
   if (_instance) return _instance;
 
   const nav = ref(prefs.nav || "chat");
-  const apiKey = ref("");
+  const apiKey = ref(prefs.apiKey || "");
   const chatId = ref("");
   const turnId = ref(0);
   const chatMessages = ref([]);
-  const streamDefault = ref(prefs.streamDefault !== false);
   const theme = ref(prefs.theme || "light");
   const connected = ref(false);
 
-  _instance = { nav, apiKey, chatId, turnId, chatMessages, streamDefault, theme, connected };
+  _instance = { nav, apiKey, chatId, turnId, chatMessages, theme, connected };
   return _instance;
 }

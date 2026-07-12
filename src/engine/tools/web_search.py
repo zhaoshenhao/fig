@@ -145,22 +145,6 @@ def _search_duckduckgo(query: str, limit: int) -> dict:
 
 
 def _resolve(template: str, session: SessionData) -> str:
-    """
-    解析搜索查询模板中的占位符变量。
-
-    支持的占位符：
-        - {{query}}: 当前用户查询文本
-        - {{key}}: session.data_map 中的字段值
-
-    Args:
-        template (str): 包含占位符的模板字符串
-        session (SessionData): 当前会话数据对象
-
-    Returns:
-        str: 替换了所有占位符的字符串
-    """
-    result = template.replace("{{query}}", session.current_query)
-    # 替换 data_map 中的所有字段占位符
-    for key, val in session.data_map.items():
-        result = result.replace(f"{{{{{key}}}}}", val)
-    return result
+    """解析搜索查询模板中的占位符（委托公共实现 `_template.resolve_template`）。"""
+    from src.engine.tools._template import resolve_template
+    return resolve_template(template, session)

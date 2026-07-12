@@ -132,6 +132,10 @@ class DAGEngine:
         self._app_config = app_config or get_app_config()
         self._metrics_store = metrics_store
 
+    def update_app_config(self, cfg: object) -> None:
+        """热重载：更新引用的 AppConfig（由 reload 回调触发）。"""
+        self._app_config = cfg
+
     def run(
         self,
         workflow_name: str,
@@ -201,8 +205,12 @@ class DAGEngine:
         output_node = session.nodes[-1]
         answer_text = output_node["data"].get("text", "")
 
-        # 7. 收集执行指标（如启用）
-        self._collect_metrics(session, workflow_name, current_turn_id)
+        # 7. 收集执行指标（如启用）—— 显式传入本轮 query/answer，
+        #    避免依赖 history（此时尚未 add_turn，会导致 query/reply 记为空或错位）
+        self._collect_metrics(
+            session, workflow_name, current_turn_id,
+            query=query_text, reply=answer_text,
+        )
 
         # 8. 将本轮问答追加到会话历史
         session.add_turn(query_text, answer_text)
@@ -443,7 +451,15 @@ class DAGEngine:
 
             if nt == "one" and nxt:
                 queue.append(nxt)
-            elif nt in ("if-then", "switch") and isinstance(nxt, list):
+            elif nt == "if-then" and isinstance(nxt, list):
+                # 条件分支：按 router 输出的 branch 选择单一路径（与主 _walk 一致）
+                branch = result.get("branch", "") if isinstance(result, dict) else result
+                if branch in nxt:
+                    queue.append(branch)
+                elif "default" in node_config.get("router", {}):
+                    queue.append(node_config["router"]["default"])
+            elif nt == "switch" and isinstance(nxt, list):
+                # 多分支：全部顺序执行
                 for b in nxt:
                     queue.append(b)
 
@@ -516,7 +532,21 @@ class DAGEngine:
             (result, tool_data, elapsed_ms)
         """
         t0 = time.time()
-        result = tool_fn(node_config, session)
+        error_message = None
+        try:
+            result = tool_fn(node_config, session)
+        except Exception as exc:  # noqa: BLE001 - 节点级错误隔离
+            error_message = f"{type(exc).__name__}: {exc}"
+            _log.error(
+                "node tool failed",
+                extra={"node": node_name, "tool": tool_name, "error": error_message},
+                exc_info=exc,
+            )
+            result = {
+                "text": f"[节点 {node_name} 执行失败]",
+                "error": error_message,
+                "branch": "",
+            }
         elapsed_ms = (time.time() - t0) * 1000
         if isinstance(result, str):
             result = {"text": result, "branch": result}
@@ -531,27 +561,65 @@ class DAGEngine:
             "input_params": json.dumps(effective_input, ensure_ascii=False, default=str),
             "output_result": json.dumps(result, ensure_ascii=False, default=str),
             "duration_ms": round(elapsed_ms, 2),
-            "status": "ok",
+            "status": "error" if error_message else "ok",
+            "error_message": error_message,
         }
         return result, tool_data, round(elapsed_ms, 2)
 
     def _collect_metrics(
-        self, session: SessionData, workflow_name: str, turn_id: int
+        self, session: SessionData, workflow_name: str, turn_id: int,
+        query: str | None = None, reply: str | None = None,
     ) -> None:
         if not self._metrics_store:
             return
 
-        query = ""
-        reply = ""
-        if session.history:
-            last = session.history[-1]
-            query = last.input
-            reply = last.output
+        # 优先使用显式传入的本轮 query/reply；否则回退到 history（向后兼容）
+        if query is None or reply is None:
+            query = query or ""
+            reply = reply or ""
+            if session.history:
+                last = session.history[-1]
+                query = query or last.input
+                reply = reply or last.output
 
         total_ms = sum(
             n.get("metrics", {}).get("total_ms", 0)
             for n in session.nodes
         )
+
+        def _node_error(node: dict) -> str | None:
+            for td in node.get("_tool_data", []):
+                if td.get("status") == "error":
+                    return td.get("error_message") or "error"
+            return None
+
+        run_error = next(
+            (_node_error(n) for n in session.nodes if _node_error(n)), None
+        )
+
+        # 汇总 token 用量（来自 llm 节点的 usage 字段）
+        prompt_tokens = 0
+        completion_tokens = 0
+        for n in session.nodes:
+            usage = (n.get("data") or {}).get("usage")
+            if isinstance(usage, dict):
+                prompt_tokens += int(usage.get("prompt_tokens", 0) or 0)
+                completion_tokens += int(usage.get("completion_tokens", 0) or 0)
+
+        # Prometheus 节点/工具级指标
+        try:
+            from src.metrics.prometheus import record_node_metric, record_workflow_run
+            record_workflow_run(workflow_name, "error" if run_error else "ok")
+            for n in session.nodes:
+                nerr = _node_error(n)
+                record_node_metric(
+                    n.get("name", ""), n.get("_tool", ""),
+                    "error" if nerr else "ok",
+                    n.get("metrics", {}).get("total_ms", 0),
+                )
+        except Exception as e:  # noqa: BLE001 - 指标失败不影响主流程
+            _log.warning("prometheus metrics recording failed",
+                         extra={"error": f"{type(e).__name__}: {e}"})
 
         run_id = self._metrics_store.insert_run(
             chat_id=session.chat_id,
@@ -561,7 +629,10 @@ class DAGEngine:
             reply=reply,
             node_count=len(session.nodes),
             duration_ms=round(total_ms, 2),
-            status="ok",
+            status="error" if run_error else "ok",
+            error_message=run_error,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
         )
 
         for node in session.nodes:
@@ -594,6 +665,7 @@ class DAGEngine:
             )
             dur = node.get("metrics", {}).get("total_ms", 0)
 
+            node_err = _node_error(node)
             node_log_id = self._metrics_store.insert_node_log(
                 run_id=run_id,
                 chat_id=session.chat_id,
@@ -603,7 +675,8 @@ class DAGEngine:
                 input_data=input_data,
                 output_text=output_text,
                 duration_ms=dur,
-                status="ok",
+                status="error" if node_err else "ok",
+                error_message=node_err,
             )
 
             for td in node.get("_tool_data", []):
@@ -618,7 +691,30 @@ class DAGEngine:
                     output_result=td["output_result"],
                     duration_ms=td["duration_ms"],
                     status=td.get("status", "ok"),
+                    error_message=td.get("error_message"),
                 )
+
+            # RAG 检索详情入库（仅 rag_search 节点）
+            if tool_name == "rag_search":
+                try:
+                    result_data = node.get("data") or {}
+                    results = result_data.get("results", [])
+                    collections = result_data.get("_collections") or [""]
+                    collections = collections if isinstance(collections, list) else [str(collections)]
+                    default_col = collections[0] if collections else ""
+                    for rr in results:
+                        if not isinstance(rr, dict):
+                            continue
+                        payload = rr.get("payload") or {}
+                        self._metrics_store.insert_rag_retrieval(
+                            run_id=run_id, chat_id=session.chat_id,
+                            turn_id=turn_id, collection=default_col,
+                            score=float(rr.get("score", 0) or 0),
+                            source=str(payload.get("source", "") or ""),
+                            chunk_preview=(str(payload.get("text", "") or ""))[:500],
+                        )
+                except Exception:
+                    pass  # RAG 详情入库失败不影响主流程
 
 
 def _register_builtins(registry: ToolRegistry) -> None:

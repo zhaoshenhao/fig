@@ -164,8 +164,57 @@ providers:
         p = cfg_obj.llm_provider("ollama")
         assert p.api_key == ""
 
+    def test_env_var_default_value(self, tmp_path: Path):
+        cfg = tmp_path / "config"
+        (cfg / "workflows").mkdir(parents=True)
+        os.environ.pop("KF_TEST_MISSING_URL", None)
 
-class TestGetWorkflow:
+        (cfg / "llm.yaml").write_text(
+            """default: ollama
+providers:
+  ollama:
+    type: openai
+    base_url: ${KF_TEST_MISSING_URL:-https://prod.example/v1}
+    api_key: ""
+    model: test""",
+            encoding="utf-8",
+        )
+        (cfg / "embed.yaml").write_text(
+            "default: ollama\nproviders: {}", encoding="utf-8"
+        )
+        (cfg / "workflow.yaml").write_text("workflows: []", encoding="utf-8")
+
+        from src.config import load_app_config
+
+        cfg_obj = load_app_config(cfg)
+        p = cfg_obj.llm_provider("ollama")
+        assert p.base_url == "https://prod.example/v1"
+
+    def test_env_var_overrides_default(self, tmp_path: Path):
+        cfg = tmp_path / "config"
+        (cfg / "workflows").mkdir(parents=True)
+        os.environ["KF_TEST_URL_OVERRIDE"] = "http://localhost:11434/v1"
+
+        (cfg / "llm.yaml").write_text(
+            """default: ollama
+providers:
+  ollama:
+    type: openai
+    base_url: ${KF_TEST_URL_OVERRIDE:-https://prod.example/v1}
+    api_key: ""
+    model: test""",
+            encoding="utf-8",
+        )
+        (cfg / "embed.yaml").write_text(
+            "default: ollama\nproviders: {}", encoding="utf-8"
+        )
+        (cfg / "workflow.yaml").write_text("workflows: []", encoding="utf-8")
+
+        from src.config import load_app_config
+
+        cfg_obj = load_app_config(cfg)
+        p = cfg_obj.llm_provider("ollama")
+        assert p.base_url == "http://localhost:11434/v1"
     def test_returns_workflow_by_name(self, temp_config_dir):
         from src.config import get_workflow
 
@@ -177,6 +226,44 @@ class TestGetWorkflow:
 
         with pytest.raises(KeyError, match="not found"):
             get_workflow(temp_config_dir, "nonexistent")
+
+
+class TestConfigReload:
+    def test_qdrant_config_loaded(self, tmp_path):
+        cfg = tmp_path / "config"
+        (cfg / "workflows").mkdir(parents=True)
+        (cfg / "llm.yaml").write_text("default: ollama\nproviders: {}", encoding="utf-8")
+        (cfg / "embed.yaml").write_text("default: ollama\nproviders: {}", encoding="utf-8")
+        (cfg / "workflow.yaml").write_text("workflows: []", encoding="utf-8")
+        (cfg / "qdrant.yaml").write_text(
+            "host: qdrant-host\nport: 7000\nprefer_grpc: false", encoding="utf-8")
+
+        from src.config import load_app_config
+        c = load_app_config(cfg)
+        assert c.qdrant.host == "qdrant-host"
+        assert c.qdrant.port == 7000
+        assert c.qdrant.prefer_grpc is False
+
+    def test_qdrant_config_default(self, tmp_path):
+        cfg = tmp_path / "config"
+        (cfg / "workflows").mkdir(parents=True)
+        (cfg / "llm.yaml").write_text("default: ollama\nproviders: {}", encoding="utf-8")
+        (cfg / "embed.yaml").write_text("default: ollama\nproviders: {}", encoding="utf-8")
+        (cfg / "workflow.yaml").write_text("workflows: []", encoding="utf-8")
+
+        from src.config import load_app_config
+        c = load_app_config(cfg)
+        assert c.qdrant.host == "localhost" and c.qdrant.port == 6334
+
+    def test_reload_callback_failure_logged(self, mocker):
+        from src.config import register_reload_callback, reload_app_config
+
+        warn_mock = mocker.patch("src.config._log.warning")
+        def bad_cb(_): raise RuntimeError("cb failed")
+        register_reload_callback(bad_cb)
+        reload_app_config()
+        warn_mock.assert_called_once()
+        assert "cb failed" in str(warn_mock.call_args)
 
 
 class TestLLMProvider:

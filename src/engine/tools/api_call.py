@@ -99,26 +99,6 @@ def api_call(config: dict, session: SessionData) -> dict:
 
 
 def _resolve(template: str, session: SessionData) -> str:
-    """
-    解析字符串模板中的占位符变量。
-
-    支持的占位符：
-        - {{query}}: 当前用户查询文本
-        - {{key}}: session.data_map 中的字段值（如 {{order_id}}）
-        - {{chat_id}}: 会话 ID
-
-    Args:
-        template (str): 包含占位符的模板字符串
-        session (SessionData): 当前会话数据对象
-
-    Returns:
-        str: 替换了所有占位符的字符串
-    """
-    # 替换查询占位符
-    result = template.replace("{{query}}", session.current_query)
-    # 遍历 data_map，替换所有数据映射占位符（如 {{order_id}}、{{phone}}）
-    for key, val in session.data_map.items():
-        result = result.replace(f"{{{{{key}}}}}", val)
-    # 替换会话 ID 占位符
-    result = result.replace("{{chat_id}}", session.chat_id)
-    return result
+    """解析字符串模板中的占位符（委托公共实现 `_template.resolve_template`）。"""
+    from src.engine.tools._template import resolve_template
+    return resolve_template(template, session)

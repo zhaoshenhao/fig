@@ -88,7 +88,9 @@ class MySQLPool(DBPool):
                 cursor.execute(sql, params)
                 # 提取列名列表（仅 SELECT 查询有 description）
                 columns = [col[0] for col in cursor.description] if cursor.description else []
-                rows = cursor.fetchall()
+                rows = cursor.fetchall() if cursor.description else []
+                # 提交事务，确保 INSERT/UPDATE/DDL 写入持久化（pymysql 默认 autocommit=off）
+                conn.commit()
                 # 将 (val1, val2) -> {"col1": val1, "col2": val2}
                 return [dict(zip(columns, row)) for row in rows]
         finally:
@@ -129,10 +131,9 @@ class MySQLPool(DBPool):
         """将连接归还到连接池。
 
         归还前通过 ping(reconnect=True) 检测连接是否存活:
-          - 连接存活: 放回队列供后续复用
-          - 连接断开: ping 会尝试重连，放回队列
-          - 异常: 仍然放回队列（连接可由其他线程尝试修复）
-          - 队列满: Queue.put_nowait 会阻塞，实际不会满（获取方同时最多 N 个）
+          - 连接存活/可重连: 放回队列供后续复用
+          - 无法重连: 关闭并丢弃，递减 _created，允许后续按需重建
+            （避免把坏连接放回池导致下次取到死连接）
 
         Args:
             conn: pymysql.Connection 连接对象
@@ -141,8 +142,12 @@ class MySQLPool(DBPool):
             conn.ping(reconnect=True)  # 检测连接并尝试自动重连
             self._queue.put_nowait(conn)
         except Exception:
-            # 连接异常仍然放回队列（避免连接泄漏）
-            self._queue.put_nowait(conn)
+            # 连接损坏且无法重连：丢弃而非放回，防止污染连接池
+            try:
+                conn.close()
+            except Exception:
+                pass
+            self._created -= 1
 
     def close(self) -> None:
         """关闭连接池中的所有连接。

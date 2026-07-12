@@ -1,0 +1,22 @@
+FROM python:3.14-slim
+
+WORKDIR /app
+
+# 模型缓存目录（构建期预下载 + 运行期复用，避免容器启动时下载）
+ENV FASTEMBED_CACHE_PATH=/opt/fastembed_cache
+ENV EMBED_MODEL=nomic-ai/nomic-embed-text-v1.5
+
+# 仅安装 embedding 微服务所需依赖（fastembed 自带 ONNX Runtime）
+COPY pyproject.toml .
+RUN pip install --no-cache-dir -e .[embed]
+
+COPY src/embed_service/ ./src/embed_service/
+COPY src/__init__.py ./src/
+
+# 构建期预下载并解包模型到镜像层（关键：不留到容器启动阶段）
+RUN python -c "import os; from fastembed import TextEmbedding; TextEmbedding(model_name=os.environ['EMBED_MODEL'])" \
+    && python -c "import os; p=os.environ['FASTEMBED_CACHE_PATH']; assert any(os.scandir(p)), 'model cache empty'"
+
+EXPOSE 8100
+
+CMD ["uvicorn", "src.embed_service.app:app", "--host", "0.0.0.0", "--port", "8100"]

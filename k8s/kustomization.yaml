@@ -1,14 +1,13 @@
 resources:
   - namespace.yaml
-  - configmap.yaml
   - secret.yaml
-  - ollama/deployment.yaml
-  - ollama/service.yaml
+  - embed/deployment.yaml
+  - embed/service.yaml
   - qdrant/statefulset.yaml
   - qdrant/service.yaml
-  - api/deployment.yaml
-  - api/service.yaml
-  - api/hpa.yaml
-  - streamlit/deployment.yaml
-  - streamlit/service.yaml
+  - oss-pvc.yaml
+  - chat-api/deployment.yaml
+  - chat-api/service.yaml
+  - admin-api/deployment.yaml
+  - admin-api/service.yaml
   - ingress.yaml

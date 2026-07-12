@@ -1014,6 +1014,57 @@ class TestLLMToolHistoryTemplate:
 
 
 class TestRAGSearchEdges:
+    def test_reset_qdrant(self):
+        import importlib
+        m = importlib.import_module("src.engine.tools.rag_search")
+        m._qdrant = object()
+        m._reset_qdrant()
+        assert m._qdrant is None
+
+    def test_embed_reconnect_retry_fail(self, mocker):
+        import importlib
+        m = importlib.import_module("src.engine.tools.rag_search")
+
+        class _Boom:
+            def embed(self, *_a):
+                raise ConnectionError("down")
+            def close(self):
+                pass
+
+        m._embed_client = _Boom()
+        mocker.patch("src.llm.client.LLMClient", return_value=_Boom())
+
+        class P:
+            base_url = "http://x"
+            api_key = ""
+            model = "m"
+
+        assert m._embed_with_reconnect(P(), "q", "k") is None
+
+    def test_embed_reconnect_recovers(self, mocker):
+        import importlib
+        m = importlib.import_module("src.engine.tools.rag_search")
+
+        class _Boom:
+            def embed(self, *_a):
+                raise ConnectionError("down")
+            def close(self):
+                pass
+
+        class _Good:
+            def embed(self, *_a):
+                return [[0.1, 0.2]]
+
+        m._embed_client = _Boom()
+        mocker.patch("src.llm.client.LLMClient", return_value=_Good())
+
+        class P:
+            base_url = "http://x"
+            api_key = ""
+            model = "m"
+
+        assert m._embed_with_reconnect(P(), "q", "k") == [[0.1, 0.2]]
+
     def test_resolve_collections_from_wf(self, temp_config_dir):
         from src.config import load_app_config
 

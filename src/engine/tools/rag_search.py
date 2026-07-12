@@ -18,15 +18,64 @@
     - prefetch_limit (int): 预取数量（用于 RRF 融合前的候选集大小），默认 20
 """
 
+import threading
 import time
 
 from src.config import get_app_config
+from src.logger import get_logger
 from src.metrics.prometheus import rag_search_duration_ms
 from src.session.data import SessionData
+
+_log = get_logger(__name__)
 
 _embed_client = None
 _embed_provider_key = None
 _qdrant = None
+_init_lock = threading.Lock()
+
+
+def _reset_qdrant() -> None:
+    """重置全局 Qdrant 客户端，下次调用时重建（连接断开自愈）。"""
+    global _qdrant
+    with _init_lock:
+        _qdrant = None
+    _log.warning("rag_search: qdrant client reset, will reconnect next call")
+
+
+def _reset_embed() -> None:
+    """重置全局 Embed 客户端（关闭旧连接）。"""
+    global _embed_client, _embed_provider_key
+    with _init_lock:
+        try:
+            if _embed_client is not None:
+                _embed_client.close()
+        except Exception:  # noqa: BLE001
+            pass
+        _embed_client = None
+        _embed_provider_key = None
+
+
+def _embed_with_reconnect(provider, query: str, provider_key: str):
+    """嵌入调用，失败时重置客户端并重试一次（服务重启/连接断开自愈）。"""
+    global _embed_client, _embed_provider_key
+    from src.llm.client import LLMClient
+    try:
+        return _embed_client.embed(provider.model, query)
+    except Exception as e:  # noqa: BLE001
+        _log.warning("rag_search: embed failed, reconnecting",
+                     extra={"error": f"{type(e).__name__}: {e}"})
+        _reset_embed()
+        with _init_lock:
+            if _embed_client is None:
+                _embed_client = LLMClient(base_url=provider.base_url,
+                                          api_key=provider.api_key)
+                _embed_provider_key = provider_key
+        try:
+            return _embed_client.embed(provider.model, query)
+        except Exception as e2:  # noqa: BLE001
+            _log.error("rag_search: embed retry failed",
+                       extra={"error": f"{type(e2).__name__}: {e2}"})
+            return None
 
 
 def rag_search(config: dict, session: SessionData) -> dict:
@@ -70,21 +119,29 @@ def rag_search(config: dict, session: SessionData) -> dict:
     # 复用 LLMClient 和 QdrantSearch，避免每次创建连接
     global _embed_client, _embed_provider_key, _qdrant
     provider_key = f"{provider.base_url}:{provider.model}"
-    if _embed_client is None or _embed_provider_key != provider_key:
-        from src.llm.client import LLMClient
-        _embed_client = LLMClient(base_url=provider.base_url, api_key=provider.api_key)
-        _embed_provider_key = provider_key
-    if _qdrant is None:
-        from src.rag.qdrant import QdrantSearch
-        _qdrant = QdrantSearch()
+    if _embed_client is None or _embed_provider_key != provider_key or _qdrant is None:
+        # 加锁避免并发线程重复创建 client（泄漏连接）
+        with _init_lock:
+            if _embed_client is None or _embed_provider_key != provider_key:
+                from src.llm.client import LLMClient
+                _embed_client = LLMClient(base_url=provider.base_url, api_key=provider.api_key)
+                _embed_provider_key = provider_key
+            if _qdrant is None:
+                from src.rag.qdrant import QdrantSearch
+                qc = getattr(app, "qdrant", None)
+                _qdrant = QdrantSearch(host=qc.host, port=qc.port) if qc else QdrantSearch()
 
-    vectors = _embed_client.embed(provider.model, query)
+    vectors = _embed_with_reconnect(provider, query, provider_key)
+    if vectors is None:
+        return {"text": "", "chunks": [], "results": [],
+                "error": "embedding service unavailable"}
     vector = vectors[0]
 
     # 解析目标集合列表（支持单个集合字符串、列表，或自动检测）
     collections = _resolve_collections(config, session)
 
     all_results = []
+    failures = 0
     for col in collections:
         try:
             # 执行混合搜索：稠密向量 + 稀疏 BM25，RRF 融合
@@ -98,10 +155,19 @@ def rag_search(config: dict, session: SessionData) -> dict:
             )
             # 将当前集合的检索结果合并到总结果列表
             all_results.extend(results)
-        except Exception:
-            # 单个集合检索失败时静默跳过，不中断其他集合的检索
+        except Exception as e:
+            failures += 1
+            # 单个集合检索失败时跳过，不中断其他集合的检索
             # 这是容错设计：某个集合可能不存在或暂时不可用
+            _log.warning(
+                "rag_search: collection search failed, skipping",
+                extra={"collection": col, "error": f"{type(e).__name__}: {e}"},
+            )
             continue
+
+    # 全部集合都失败：可能是 Qdrant 连接断开，重置客户端以便下次重连
+    if collections and failures == len(collections):
+        _reset_qdrant()
 
     # 按分数降序排列所有结果（分数越高表示相关性越强）
     all_results.sort(key=lambda r: r.get("score", 0), reverse=True)
@@ -146,8 +212,11 @@ def _resolve_collections(config: dict, session: SessionData) -> list[str]:
                 # 从全局配置中获取该工作流关联的集合列表
                 return app.wf_collections(wf_name)
             except KeyError:
-                # 工作流名在配置中不存在，静默回退到默认集合
-                pass
+                # 工作流名在配置中不存在，回退到默认集合
+                _log.debug(
+                    "rag_search: workflow has no collections mapping, using default",
+                    extra={"workflow": wf_name},
+                )
         return ["default"]
     # 情况2：config 中指定了集合列表
     if isinstance(col, list):

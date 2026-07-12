@@ -254,11 +254,30 @@ def _format_labels(labels: dict[str, str]) -> str:
 
 _registry = MetricsRegistry()  # 全局唯一注册表实例
 
-# 预注册四个核心指标，模块 import 后立即可用
+# 预注册核心指标，模块 import 后立即可用
 http_requests_total = _registry.counter("http_requests_total")
 http_request_duration_seconds = _registry.histogram("http_request_duration_seconds")
 llm_calls_total = _registry.counter("llm_calls_total")
 rag_search_duration_ms = _registry.histogram("rag_search_duration_ms")
+# 节点/工具级指标（供 Grafana 观测各节点/工具的调用量、错误、耗时）
+node_executions_total = _registry.counter("node_executions_total")
+node_duration_ms = _registry.histogram(
+    "node_duration_ms", buckets=[10, 50, 100, 250, 500, 1000, 2500, 5000, 10000]
+)
+tool_calls_total = _registry.counter("tool_calls_total")
+workflow_runs_total = _registry.counter("workflow_runs_total")
+
+
+def record_node_metric(node: str, tool: str, status: str, duration_ms: float) -> None:
+    """记录一次节点执行的 Prometheus 指标（供 DAG 引擎调用）。"""
+    labels = {"node": node, "tool": tool or "none", "status": status}
+    node_executions_total.inc(labels)
+    tool_calls_total.inc({"tool": tool or "none", "status": status})
+    node_duration_ms.observe(float(duration_ms), {"node": node, "tool": tool or "none"})
+
+
+def record_workflow_run(workflow: str, status: str) -> None:
+    workflow_runs_total.inc({"workflow": workflow, "status": status})
 
 
 # ---------------------------------------------------------------------------

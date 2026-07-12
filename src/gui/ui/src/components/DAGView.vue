@@ -81,7 +81,7 @@ function doLayout() {
   const hasData = ndData && Object.keys(ndData).length > 0;
   const nameSet = new Set(props.nodes.map(n => n.name));
 
-  const hasVirtual = !hasData;
+  const hasVirtual = true;
   const VR = 16;
   const VIRT_W = VR * 2, VIRT_H = VR * 2;
 

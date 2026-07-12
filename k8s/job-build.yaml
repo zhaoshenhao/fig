@@ -16,8 +16,13 @@ spec:
               value: "qdrant.<NAMESPACE>.svc.cluster.local"
             - name: QDRANT_PORT
               value: "6334"
-            - name: OLLAMA_HOST
-              value: "http://ollama.<NAMESPACE>.svc.cluster.local:11434/v1"
+            - name: EMBED_BASE_URL
+              value: "http://embed.<NAMESPACE>.svc.cluster.local:8100/v1"
+            - name: EMBED_MODEL
+              value: "nomic-embed-text"
+          envFrom:
+            - secretRef:
+                name: kf-secrets
           resources:
             requests:
               cpu: "500m"

@@ -6,7 +6,7 @@ metadata:
   annotations:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
     alb.ingress.kubernetes.io/healthcheck-enabled: "true"
-    alb.ingress.kubernetes.io/healthcheck-path: "/ready"
+    alb.ingress.kubernetes.io/healthcheck-path: "/health"
     alb.ingress.kubernetes.io/healthcheck-protocol: "HTTP"
 spec:
   ingressClassName: alb
@@ -14,17 +14,96 @@ spec:
     - host: <DOMAIN>
       http:
         paths:
-          - path: /api
-            pathType: Prefix
+          # ── Chat API (user-facing) ──
+          - path: /api/v1/workflows/{name}/run
+            pathType: Exact
             backend:
               service:
-                name: api
+                name: chat-api
                 port:
                   number: 8000
-          - path: /
+          - path: /api/v1/workflows/{name}/regenerate
+            pathType: Exact
+            backend:
+              service:
+                name: chat-api
+                port:
+                  number: 8000
+          - path: /api/v1/usage
+            pathType: Exact
+            backend:
+              service:
+                name: chat-api
+                port:
+                  number: 8000
+          - path: /api/v1/sessions/
             pathType: Prefix
             backend:
               service:
-                name: streamlit
+                name: chat-api
                 port:
-                  number: 8501
+                  number: 8000
+          - path: /export/
+            pathType: Prefix
+            backend:
+              service:
+                name: chat-api
+                port:
+                  number: 8000
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: chat-api
+                port:
+                  number: 8000
+          - path: /ready
+            pathType: Exact
+            backend:
+              service:
+                name: chat-api
+                port:
+                  number: 8000
+          - path: /reload
+            pathType: Exact
+            backend:
+              service:
+                name: chat-api
+                port:
+                  number: 8000
+          # ── Admin API (internal management) ──
+          - path: /api/v1/workflows
+            pathType: Prefix
+            backend:
+              service:
+                name: admin-api
+                port:
+                  number: 8000
+          - path: /metrics
+            pathType: Prefix
+            backend:
+              service:
+                name: admin-api
+                port:
+                  number: 8000
+          - path: /collections
+            pathType: Prefix
+            backend:
+              service:
+                name: admin-api
+                port:
+                  number: 8000
+          - path: /documents
+            pathType: Prefix
+            backend:
+              service:
+                name: admin-api
+                port:
+                  number: 8000
+          - path: /status
+            pathType: Exact
+            backend:
+              service:
+                name: admin-api
+                port:
+                  number: 8000

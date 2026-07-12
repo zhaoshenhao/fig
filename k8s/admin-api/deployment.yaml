@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin-api
+  namespace: <NAMESPACE>
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: admin-api
+  template:
+    metadata:
+      labels:
+        app: admin-api
+    spec:
+      containers:
+        - name: admin-api
+          image: <ACR_REGISTRY>/kf-api:<API_IMAGE_TAG>
+          ports:
+            - containerPort: 8000
+          env:
+            - name: KF_MODE
+              value: "admin"
+            - name: QDRANT_HOST
+              value: "qdrant.<NAMESPACE>.svc.cluster.local"
+            - name: QDRANT_PORT
+              value: "6334"
+            - name: EMBED_BASE_URL
+              value: "http://embed.<NAMESPACE>.svc.cluster.local:8100/v1"
+            - name: EMBED_MODEL
+              value: "nomic-embed-text"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: CONFIG_PATH
+              value: "/app/config"
+            - name: KF_METRICS_ENGINE
+              value: "mysql"
+          envFrom:
+            - secretRef:
+                name: kf-secrets
+          volumeMounts:
+            - name: workflows
+              mountPath: /app/config/workflows
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: workflows
+          persistentVolumeClaim:
+            claimName: workflow-config

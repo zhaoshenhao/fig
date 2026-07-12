@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: workflow-config
+  namespace: <NAMESPACE>
+spec:
+  storageClassName: alicloud-oss
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi

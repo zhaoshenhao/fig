@@ -4,6 +4,12 @@
 > 环境: Windows 11 + WSL (Qdrant Docker, Ollama systemd)
 > Python: `.venv\Scripts\python.exe` (3.11.11)
 
+> ⚠️ **已过时（历史存档）**：本文档基于早期架构（Streamlit GUI、无 `/api/v1/` 前缀）。
+> 当前对外对话/会话接口已迁移至 `/api/v1/*`（见 [`api-reference.md`](./api-reference.md)），
+> GUI 已改为 Vue SPA。**最新手工测试请以 [`manual-test-plan-v2.md`](./manual-test-plan-v2.md) 为准**；
+> 本文件仅保留 Layer 1-4 的基础设施/入库/工作流用例作参考（其中 `/workflows`、`/sessions`
+> 路径需替换为 `/api/v1/workflows`、`/api/v1/sessions`）。
+
 ---
 
 ## 环境概况

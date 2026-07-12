@@ -108,7 +108,20 @@ def llm_tool(config: dict, session: SessionData) -> dict:
     # 增加 LLM 调用计数器（Prometheus 指标），按模型名打标签
     llm_calls_total.inc({"model": provider.model})
 
-    return {"text": content, "model": provider.model}
+    result = {"text": content, "model": provider.model}
+    # 捕获 token 用量（OpenAI 兼容响应含 usage；流式通常不返回）
+    usage = None
+    if not stream_cb:
+        try:
+            usage = response.get("usage") if isinstance(response, dict) else None
+        except Exception:  # noqa: BLE001
+            usage = None
+    if usage:
+        result["usage"] = {
+            "prompt_tokens": usage.get("prompt_tokens", 0) or 0,
+            "completion_tokens": usage.get("completion_tokens", 0) or 0,
+        }
+    return result
 
 
 def _resolve_placeholders(

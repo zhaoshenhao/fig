@@ -1,4 +1,5 @@
-name: customer_service
+﻿name: customer_service
+enabled: true
 description: "客服工作流 — 意图分发 + 多分支处理"
 collections:
   - faq_kb

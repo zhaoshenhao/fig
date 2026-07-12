@@ -33,6 +33,10 @@ from qdrant_client.models import (
     VectorParams,  # 稠密向量配置参数 (size + distance)
 )
 
+from src.logger import get_logger
+
+_log = get_logger(__name__)
+
 
 class QdrantSearch:
     """Qdrant 检索门面 —— 对 QdrantClient 的常用操作做了一层薄封装。
@@ -162,10 +166,13 @@ class QdrantSearch:
                     collection, vector, query_text, limit, offset,
                     prefetch_limit, qdrant_filter,
                 )
-            except Exception:
-                # 混合检索失败时静默降级为纯向量检索
+            except Exception as e:
+                # 混合检索失败时降级为纯向量检索
                 # 常见原因: 集合未配置 sparse 向量索引
-                pass
+                _log.warning(
+                    "hybrid search failed, falling back to vector search",
+                    extra={"collection": collection, "error": f"{type(e).__name__}: {e}"},
+                )
 
         # 纯向量检索（默认/降级路径）
         return self._search_vector(

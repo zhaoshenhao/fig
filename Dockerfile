@@ -1,9 +1,10 @@
-FROM python:3.14-slim
+# syntax=docker/dockerfile:1
 
+FROM python:3.14-slim
 WORKDIR /app
 
 COPY pyproject.toml .
-RUN pip install --no-cache-dir -e .[dev]
+RUN pip install --no-cache-dir -e .[prod]
 
 COPY src/ ./src/
 COPY config/ ./config/

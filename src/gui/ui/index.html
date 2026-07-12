@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>KF - 智能客服</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><text y=%2224%22 font-size=%2224%22>KF</text></svg>" />
+  <script>
+    // 阻塞式设置主题，避免深色模式首次加载闪烁 (FOUC)
+    try {
+      var _p = JSON.parse(localStorage.getItem("kf_prefs") || "{}");
+      if (_p.theme) document.documentElement.setAttribute("data-theme", _p.theme);
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <div id="app"></div>

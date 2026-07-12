@@ -110,15 +110,13 @@ kf/
 ├── k8s/                            # ─── Kubernetes 部署清单 ───
 │   ├── kustomization.yaml          #    Kustomize 入口
 │   ├── namespace.yaml              #    命名空间
-│   ├── configmap.yaml              #    配置 (kf-config + workflow-config)
-│   ├── secret.yaml                 #    认证密钥
+│   ├── secret.yaml                 #    认证密钥 + 外部依赖连接串
 │   ├── prometheus-rules.yaml       #    Prometheus 告警规则
 │   ├── ingress.yaml                #    ALB Ingress
 │   ├── job-build.yaml              #    文档构建 Job
-│   ├── api/                        #    API Deployment/Service/HPA
-│   ├── ollama/                     #    Ollama Deployment/Service
-│   ├── qdrant/                     #    Qdrant StatefulSet/Service
-│   └── streamlit/                  #    Streamlit Deployment/Service
+│   ├── api/                        #    kf-api Deployment/Service/HPA (含 Vue SPA)
+│   ├── embed/                      #    kf-embed Deployment/Service/PVC (FastEmbed)
+│   └── qdrant/                     #    Qdrant StatefulSet/Service
 │
 ├── docs/                           # ─── 文档 ───
 │   ├── architecture.md             #    本文档

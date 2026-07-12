@@ -17,7 +17,7 @@ def build_document(
     embed_client: LLMClient,
     embed_model: str,
     chunk_size: int = 800,
-    chunk_overlap: int = 128,
+    chunk_overlap: int = 64,
 ) -> int:
     filepath = Path(filepath)
     chunks = chunk_file(filepath, chunk_size, chunk_overlap)
@@ -54,7 +54,7 @@ def build_directory(
     embed_client: LLMClient,
     embed_model: str,
     chunk_size: int = 800,
-    chunk_overlap: int = 128,
+    chunk_overlap: int = 64,
     extensions: Sequence[str] | None = None,
 ) -> int:
     if extensions is None:

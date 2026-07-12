@@ -21,6 +21,10 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from src.logger import get_logger
+
+_log = get_logger(__name__)
+
 
 def _new_chat_id() -> str:
     """生成全局唯一的会话 ID。
@@ -86,6 +90,10 @@ class SessionData:
     _workflow: str = ""
     # 返回模式："full"（完整会话）|| "text"（仅文本）
     return_mode: str = "full"
+
+    # ---- 元信息（外部可读写：标题/标签，便于集成方管理会话） ----
+    title: str = ""
+    tags: list[str] = field(default_factory=list)
 
     # ---- 对话历史 ----
     # 按时间顺序存储所有问答轮次，用于构建 LLM 上下文
@@ -300,8 +308,12 @@ class SessionData:
                     max_words=compress_max_words,
                     system_prompt=summary_system_prompt,
                 )
-            except Exception:
-                # 摘要生成失败时静默处理，不中断主流程
+            except Exception as e:
+                # 摘要生成失败时降级为无摘要，不中断主流程
+                _log.warning(
+                    "history summary generation failed",
+                    extra={"error": f"{type(e).__name__}: {e}"},
+                )
                 summary_text = ""
         else:
             summary_text = ""

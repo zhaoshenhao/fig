@@ -35,15 +35,11 @@
           type="password"
           placeholder="API Key..."
           style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:0.78rem;background:var(--bg);margin:4px 0"
-          @input="apiKey = apiKeyInput"
+          @input="apiKey = apiKeyInput; persist()"
         />
       </div>
     </div>
     <div class="sidebar-footer">
-      <label>
-        <input type="checkbox" :checked="streamDefault" @change="streamDefault = $event.target.checked; persist()" />
-        默认流式输出
-      </label>
       <button class="theme-toggle" @click="toggleTheme">
         {{ themeLabel }}
       </button>
@@ -62,7 +58,7 @@ const emit = defineEmits(["close"]);
 
 const router = useRouter();
 const route = useRoute();
-const { nav, apiKey, chatId, turnId, streamDefault, theme, connected } = useAppStore();
+const { nav, apiKey, chatId, turnId, theme, connected } = useAppStore();
 const toast = inject("toast");
 const apiKeyInput = ref("");
 
@@ -72,6 +68,8 @@ const NAV_ITEMS = [
   { id: "workflow", label: "工作流", icon: "🔀" },
   { id: "docs", label: "文档管理", icon: "📄" },
   { id: "metrics", label: "聊天记录", icon: "📊" },
+  { id: "dashboard", label: "仪表盘", icon: "📈" },
+  { id: "status", label: "系统状态", icon: "🩺" },
 ];
 
 const themeLabel = computed(() => theme.value === "dark" ? "☀️ 浅色模式" : "🌙 深色模式");
@@ -92,7 +90,7 @@ function toggleTheme() {
 
 function persist() {
   localStorage.setItem("kf_prefs", JSON.stringify({
-    nav: nav.value, streamDefault: streamDefault.value, theme: theme.value,
+    nav: nav.value, theme: theme.value, apiKey: apiKey.value,
   }));
 }
 
@@ -108,6 +106,7 @@ watch(() => route.path, (p) => {
 
 onMounted(() => {
   document.documentElement.setAttribute("data-theme", theme.value);
+  apiKeyInput.value = apiKey.value;
   checkHealth();
   _timer = setInterval(checkHealth, 15000);
 });

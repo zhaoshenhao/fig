@@ -14,20 +14,27 @@ from __future__ import annotations  # 推迟类型注解求值，支持前向引
 
 import os
 import re
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
 
 from src.db.base import DBConfig, DBPoolConfig
+from src.logger import get_logger
+
+_log = get_logger(__name__)
 
 # ---------------------------------------------------------------------------
 # 常量 & 模块级变量
 # ---------------------------------------------------------------------------
 
-_ENV_PATTERN = re.compile(r"\$\{([^}]+)\}")  # 匹配 ${VAR_NAME} 环境变量占位符
+# 匹配 ${VAR}、${VAR:-default}、${VAR:default} 环境变量占位符（支持默认值）
+_ENV_PATTERN = re.compile(r"\$\{([^}:]+)(?::-?([^}]*))?\}")
 
 _APP_CONFIG: AppConfig | None = None  # 应用配置全局单例
+_CONFIG_LOCK = threading.Lock()       # 热重载与读请求间的互斥锁
+_RELOAD_CALLBACKS: list = []          # 热重载完成后执行的回调列表
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +177,14 @@ class GuiConfig:
 
 
 @dataclass
+class QdrantConfig:
+    """Qdrant 向量库连接配置。"""
+    host: str = "localhost"
+    port: int = 6334
+    prefer_grpc: bool = True
+
+
+@dataclass
 class AppConfig:
     """应用根配置 —— 聚合所有子模块配置。
 
@@ -186,6 +201,8 @@ class AppConfig:
     auth: AuthConfig = field(default_factory=AuthConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     gui: GuiConfig = field(default_factory=GuiConfig)
+    qdrant: QdrantConfig = field(default_factory=QdrantConfig)
+    need_reload: bool = False   # 热重载标记：true 时所有请求返回 503，等待新配置就绪
 
     def llm_provider(self, name: str = "") -> LLMProvider:
         """快捷方法：直接获取 LLMProvider。"""
@@ -240,6 +257,7 @@ def load_app_config(config_dir: str | Path = "config", env_file: str = ".env") -
     auth = _load_optional_config(config_dir, "auth")
     logging_cfg = _load_optional_config(config_dir, "logging")
     gui = _load_optional_config(config_dir, "gui")
+    qdrant = _load_optional_config(config_dir, "qdrant")
 
     # ---- 工作流 & 节点扫描 ----
     workflows: dict[str, dict] = {}
@@ -258,7 +276,10 @@ def load_app_config(config_dir: str | Path = "config", env_file: str = ".env") -
             # 加载工作流定义
             wf_data = _load_yaml(wf_file)
             wf_name = wf_data.get("name", product_name)
+            if wf_data.get("enabled") is False:
+                continue  # 跳过 disabled 的工作流
             wf_data["_product"] = product_name  # 注入内部字段
+            wf_data.setdefault("enabled", True)
             workflows[wf_name] = wf_data
 
             # 加载该产品线的所有节点配置
@@ -276,6 +297,7 @@ def load_app_config(config_dir: str | Path = "config", env_file: str = ".env") -
         session=session, db=db, auth=auth or AuthConfig(),
         logging=logging_cfg or LoggingConfig(),
         gui=gui or GuiConfig(),
+        qdrant=qdrant or QdrantConfig(),
     )
     return _APP_CONFIG
 
@@ -290,6 +312,67 @@ def get_app_config() -> AppConfig:
         raise RuntimeError(
             "app config not loaded — call load_app_config() at startup"
         )
+    return _APP_CONFIG
+
+
+def register_reload_callback(fn) -> None:
+    """注册热重载完成后执行的回调（用于更新 DAG 引擎等持有旧配置引用的组件）。"""
+    _RELOAD_CALLBACKS.append(fn)
+
+
+def with_config_lock(timeout: float = 5.0) -> bool:
+    """获取配置读锁并检查 need_reload 标记。返回 True 表示可安全使用配置。"""
+    acquired = _CONFIG_LOCK.acquire(timeout=timeout)
+    if not acquired:
+        return False
+    cfg = _APP_CONFIG
+    if cfg is not None and cfg.need_reload:
+        _CONFIG_LOCK.release()
+        return False
+    return True
+
+
+def release_config_lock() -> None:
+    _CONFIG_LOCK.release()
+
+
+def reload_app_config(config_dir: str | Path = "config") -> AppConfig:
+    """热重载配置（不重启进程）。
+
+    流程：
+      1. 加写锁 → 在旧 config 上设 need_reload=True（阻止新请求）
+      2. 调用 load_app_config 构建新配置
+      3. 原子替换 _APP_CONFIG
+      4. 释放写锁
+      5. 触发 reload 回调
+
+    安全：加锁期间通过旧 config 的待处理请求仍可读到未过期的配置；
+    新请求在 step.1 后返回 503；回调可更新 DAG 引擎等持有旧引用的组件。
+    """
+    global _APP_CONFIG
+
+    with _CONFIG_LOCK:
+        # 标记旧配置为"重载中"（已有请求不受影响，新请求将见 need_reload=True）
+        if _APP_CONFIG is not None:
+            _APP_CONFIG.need_reload = True
+
+        # 构建全新配置
+        new_cfg = load_app_config(config_dir)
+
+        # 原子替换
+        _APP_CONFIG = new_cfg
+
+        # 此时写锁仍持有但 need_reload 已在新配置上为 False
+        callbacks = list(_RELOAD_CALLBACKS)
+
+    # 锁已释放，执行回调
+    for cb in callbacks:
+        try:
+            cb(new_cfg)
+        except Exception as e:
+            _log.warning("reload callback failed",
+                         extra={"error": f"{type(e).__name__}: {e}"})
+
     return _APP_CONFIG
 
 
@@ -337,7 +420,13 @@ def _resolve_env(obj):
         其他:   原样返回
     """
     if isinstance(obj, str):
-        return _ENV_PATTERN.sub(lambda m: os.environ.get(m.group(1), ""), obj)
+        def _repl(m: "re.Match[str]") -> str:
+            var, default = m.group(1), m.group(2)
+            val = os.environ.get(var)
+            if val:
+                return val
+            return default if default is not None else ""
+        return _ENV_PATTERN.sub(_repl, obj)
     if isinstance(obj, dict):
         return {k: _resolve_env(v) for k, v in obj.items()}
     if isinstance(obj, list):
@@ -379,7 +468,19 @@ def _load_optional_config(config_dir: Path, name: str):
         return _load_logging_config(config_dir)
     if name == "gui":
         return _load_gui_config(config_dir)
+    if name == "qdrant":
+        return _load_qdrant_config(config_dir)
     return None
+
+
+def _load_qdrant_config(config_dir: Path) -> QdrantConfig:
+    """解析 config/qdrant.yaml 为 QdrantConfig 对象。"""
+    data = _load_yaml(config_dir / "qdrant.yaml")
+    return QdrantConfig(
+        host=data.get("host", "localhost"),
+        port=int(data.get("port") or 6334),
+        prefer_grpc=str(data.get("prefer_grpc", "true")).lower() != "false",
+    )
 
 
 def _load_llm_config(config_dir: Path) -> LLMConfig:
@@ -419,11 +520,11 @@ def _load_db_config(config_dir: Path) -> DBConfig:
         pools[name] = DBPoolConfig(
             type=p["type"],
             host=p.get("host", "localhost"),
-            port=p.get("port", 3306 if p.get("type") == "mysql" else 5432),
+            port=int(p.get("port") or (3306 if p.get("type") == "mysql" else 5432)),
             user=p.get("user", ""),
             password=p.get("password", ""),
             database=p.get("database", ""),
-            pool_size=p.get("pool_size", 5),  # 默认连接池大小
+            pool_size=int(p.get("pool_size") or 5),
         )
     return DBConfig(default=data.get("default", ""), pools=pools)
 

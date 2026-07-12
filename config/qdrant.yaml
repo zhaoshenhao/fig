@@ -1,0 +1,7 @@
+# Qdrant 向量库连接配置
+# 环境变量可覆盖：QDRANT_HOST / QDRANT_PORT
+# 开发: localhost:6334（gRPC）；生产: ACK StatefulSet Service
+
+host: ${QDRANT_HOST:-localhost}
+port: ${QDRANT_PORT:-6334}
+prefer_grpc: true

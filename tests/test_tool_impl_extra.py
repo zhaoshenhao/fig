@@ -7,6 +7,54 @@ _proj_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_proj_root))
 
 
+class TestSharedTemplate:
+    def test_resolve_all_placeholders(self):
+        from src.engine.tools._template import resolve_template
+        from src.session.data import SessionData
+
+        sess = SessionData(_workflow="wf1")
+        sess.nodes = [{"name": "input", "data": {"text": "隔热膜", "sku": "WG70"}}]
+        sess.data_map["order_id"] = "123"
+
+        out = resolve_template(
+            "q={{query}} sku={{sku}} order={{order_id}} wf={{_workflow}} cid={{chat_id}}",
+            sess,
+        )
+        assert "q=隔热膜" in out
+        assert "sku=WG70" in out          # 来自节点输出字段
+        assert "order=123" in out          # 来自 data_map
+        assert "wf=wf1" in out
+        assert f"cid={sess.chat_id}" in out
+
+    def test_resolve_data_map_json(self):
+        from src.engine.tools._template import resolve_template
+        from src.session.data import SessionData
+
+        sess = SessionData()
+        sess.data_map["a"] = "1"
+        out = resolve_template("{{data_map}}", sess)
+        assert '"a": "1"' in out
+
+    def test_resolve_no_braces_fastpath(self):
+        from src.engine.tools._template import resolve_template
+        from src.session.data import SessionData
+
+        assert resolve_template("plain text", SessionData()) == "plain text"
+
+    def test_tools_delegate_to_shared(self):
+        # 4 个工具的 _resolve/_resolve_template 均委托到公共实现
+        from src.engine.tools.api_call import _resolve as r1
+        from src.engine.tools.code_exec import _resolve as r2
+        from src.engine.tools.db_query import _resolve_template as r3
+        from src.engine.tools.web_search import _resolve as r4
+        from src.session.data import SessionData
+
+        sess = SessionData()
+        sess.data_map["k"] = "v"
+        for fn in (r1, r2, r3, r4):
+            assert fn("{{k}}", sess) == "v"
+
+
 class TestApiCall:
     def test_no_url_returns_error(self):
         from src.engine.tools.api_call import api_call
@@ -76,6 +124,25 @@ class TestCodeExec:
 
         result = code({"code": "import os"}, SessionData())
         assert "not allowed" in result["error"]
+
+    def test_timeout_enforced(self):
+        import time
+
+        from src.engine.tools.code_exec import code
+        from src.session.data import SessionData
+
+        t0 = time.time()
+        result = code({"code": "while True:\n    pass", "timeout": 1}, SessionData())
+        elapsed = time.time() - t0
+        assert result["error"] and "Timeout" in result["error"]
+        assert elapsed < 4, f"timeout not enforced, took {elapsed:.1f}s"
+
+    def test_invalid_timeout_falls_back(self):
+        from src.engine.tools.code_exec import code
+        from src.session.data import SessionData
+
+        result = code({"code": "print(1)", "timeout": "bad"}, SessionData())
+        assert result["stdout"] == "1"
 
     def test_allowed_imports(self):
         from src.engine.tools.code_exec import code

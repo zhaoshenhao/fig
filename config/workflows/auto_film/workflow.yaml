@@ -1,7 +1,8 @@
 name: auto_film
+enabled: true
 description: "汽车衣膜智能问答 — 太阳膜/隐形车衣/车窗膜/车衣膜产品咨询"
 collections:
-  - car_film
+  - car_films
 return_mode: full
 
 conversation:

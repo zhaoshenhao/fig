@@ -5,11 +5,12 @@
 default: ollama
 
 providers:
+  # kf-embed 微服务（FastEmbed / nomic-embed-text，OpenAI 兼容 /v1/embeddings）
   ollama:
     type: openai
-    base_url: http://localhost:11434/v1
-    api_key: ""
-    model: nomic-embed-text
+    base_url: ${EMBED_BASE_URL:-http://localhost:8100/v1}
+    api_key: ${EMBED_API_KEY:-}
+    model: ${EMBED_MODEL:-nomic-embed-text}
     dims: 768
 
   openai:

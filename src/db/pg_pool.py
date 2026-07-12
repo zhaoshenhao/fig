@@ -87,9 +87,13 @@ class PgPool(DBPool):
         try:
             with conn.cursor() as cursor:
                 cursor.execute(sql, params)
-                # 提取列名（仅查询语句有 description）
-                columns = [col[0] for col in cursor.description] if cursor.description else []
+                # 非 SELECT 语句（DDL/INSERT/UPDATE）无结果集，description 为 None
+                if cursor.description is None:
+                    conn.commit()
+                    return []
+                columns = [col[0] for col in cursor.description]
                 rows = cursor.fetchall()
+                conn.commit()
                 return [dict(zip(columns, row)) for row in rows]
         finally:
             self._release(conn)  # 确保连接归还
@@ -124,17 +128,27 @@ class PgPool(DBPool):
         """将连接归还到连接池。
 
         PostgreSQL 处理:
-          psycopg2 连接在关闭时后端会自动回收，且底层 socket 在服务端断开
-          时会抛出异常，但连接对象在下次使用时可能已不可用。这里采用
-          简单策略：直接放回队列，由 _acquire 时检测（连接失败时自愈）。
+          - 若连接已关闭/损坏 (conn.closed != 0): 丢弃并递减 _created，
+            避免下次取到死连接
+          - 否则回滚未提交事务以重置连接状态，再放回队列复用
 
         Args:
             conn: psycopg2 connection 连接对象
         """
+        if getattr(conn, "closed", 0):
+            # 连接已断开：丢弃，允许后续按需重建
+            self._created -= 1
+            return
         try:
+            conn.rollback()  # 重置事务状态，避免残留事务影响下次使用
             self._queue.put_nowait(conn)
         except Exception:
-            pass  # 队列满时忽略（理论上不会发生）
+            # 无法回滚说明连接已损坏：关闭并丢弃
+            try:
+                conn.close()
+            except Exception:
+                pass
+            self._created -= 1
 
     def close(self) -> None:
         """关闭连接池中的所有连接。
