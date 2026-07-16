@@ -110,13 +110,15 @@ kf/
 ├── k8s/                            # ─── Kubernetes 部署清单 ───
 │   ├── kustomization.yaml          #    Kustomize 入口
 │   ├── namespace.yaml              #    命名空间
-│   ├── secret.yaml                 #    认证密钥 + 外部依赖连接串
+│   ├── configmap.yaml              #    配置 (kf-config + workflow-config)
+│   ├── secret.yaml                 #    认证密钥
 │   ├── prometheus-rules.yaml       #    Prometheus 告警规则
 │   ├── ingress.yaml                #    ALB Ingress
 │   ├── job-build.yaml              #    文档构建 Job
-│   ├── api/                        #    kf-api Deployment/Service/HPA (含 Vue SPA)
-│   ├── embed/                      #    kf-embed Deployment/Service/PVC (FastEmbed)
-│   └── qdrant/                     #    Qdrant StatefulSet/Service
+│   ├── api/                        #    API Deployment/Service/HPA
+│   ├── ollama/                     #    Ollama Deployment/Service
+│   ├── qdrant/                     #    Qdrant StatefulSet/Service
+│   └── streamlit/                  #    Streamlit Deployment/Service
 │
 ├── docs/                           # ─── 文档 ───
 │   ├── architecture.md             #    本文档
@@ -144,26 +146,26 @@ kf/
 
 ```
 ┌─────────────────────────────────────────────┐
-│                  Streamlit GUI               │  ← 前端 (只读浏览 + 聊天)
+│                  Streamlit GUI              │  ← 前端 (只读浏览 + 聊天)
 ├─────────────────────────────────────────────┤
-│                  FastAPI (API)               │  ← HTTP 网关 (workflows/sessions/documents/collections/metrics)
+│                  FastAPI (API)              │  ← HTTP 网关 (workflows/sessions/documents/collections/metrics)
 │  ┌──────────┬──────────┬──────────────────┐ │
 │  │   Auth   │  Logger  │     Metrics      │ │  ← 横切中间件
 │  └──────────┴──────────┴──────────────────┘ │
-│  ┌────────────────────────────────────────┐  │
-│  │  JSON (sync)  │  SSE streaming        │  │  ← 双模式响应 (?stream=true)
-│  └────────────────────────────────────────┘  │
+│  ┌────────────────────────────────────────┐ │
+│  │  JSON (sync)  │  SSE streaming         │ │  ← 双模式响应 (?stream=true)
+│  └────────────────────────────────────────┘ │
 ├─────────────────────────────────────────────┤
-│                DAG Engine                    │  ← 工作流引擎 (拓扑遍历 + 并行)
+│                DAG Engine                   │  ← 工作流引擎 (拓扑遍历 + 并行)
 │  ┌──────────────────────────────────────┐   │
 │  │  llm │ rag │ router │ merge │ ...    │   │  ← 10 个内置工具
 │  └──────────────────────────────────────┘   │
 ├──────────┬──────────┬───────────────────────┤
 │ Session  │   LLM    │       Qdrant RAG      │  ← 领域服务
-│ (内存 /   │ (Ollama/ │   (向量库 + BM25)      │
-│  Redis)   │ 多供应商) │                         │
+│ (内存 /  │ (Ollama/ │    (向量库 + BM25)     │
+│  Redis)  │ 多供应商) │                       │
 ├──────────┴──────────┴───────────────────────┤
-│               DB Pools (MySQL / PG)          │  ← 数据层
+│              DB Pools (MySQL / PG)          │  ← 数据层
 ├─────────────────────────────────────────────┤
 │  Qdrant  │  Ollama  │  MySQL  │ PostgreSQL  │  ← 外部依赖 (Docker)
 └─────────────────────────────────────────────┘

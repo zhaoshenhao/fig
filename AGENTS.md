@@ -1,7 +1,7 @@
 # AGENTS.md — 项目决策记录
 
 ## 项目概述
-多产品线智能客服（智能客服）系统。Python 3.14.5，FastAPI + Vue SPA + Qdrant。
+多产品线智能客服（智能客服）系统。Python >=3.12，FastAPI + Vue SPA + Qdrant。
 
 ## 技术栈决策
 
@@ -104,33 +104,20 @@
 - PowerShell 5.1 的 `Invoke-WebRequest` 必须加 `-UseBasicParsing`（否则 200 响应触发 IE 解析器 NonInteractive 报错）；无 `-SkipHttpErrorCheck`（PS7+ 才有），取状态码用 try/catch 读 `$_.Exception.Response`
 - 服务启动日志重定向到 `$env:TEMP\*.log`，需要时读取
 
-## Current Session (2026-07-07)
-
-### 会话状态
-- Tag: `v1` (commit 27904b9)
-- 服务运行中: `uvicorn src.api.main:app --host 0.0.0.0 --port 9000`
-- 工作 session 在 `D:\workspace\kf`
-
-### auto_film 工作流 (A 方案)
-- LLM 意图分类 + exact router 路由
-- 流程: intent_classify(LLM) → intent_route(router exact) → search_kb(RAG) → generate_answer(LLM)
-- 分流: search_kb → non_product_reply(LLM)
-- 知识库: `car_film` collection
-- 汽车膜产品范围: 太阳膜/隔热膜/防晒膜/隐形车衣/漆面保护膜/车窗膜/车衣膜
-- 打招呼算产品相关
-- non_product_reply: 友好拒绝，引导回产品咨询
-
-### 前端
-- Vue 3 + Vite SPA 已替换 Streamlit GUI
-- `src/gui/ui/` 项目根，`npm run build` → `dist/`
-- FastAPI 静态文件挂载 `/` → `dist/`
-- DAG 用 dagre.js 渲染，纯 CSS 像素坐标
-
-### Ollama 连接
-- 当前使用生产 Ollama 服务: `https://kaiwu.hix.ink/api/ollama`
-- 模型: `qwen3:4b`
-- Embedding: `nomic-embed-text`
-- LLM API: `https://kaiwu.hix.ink/api/ollama/v1/chat/completions`
+## 文档索引
+- 根目录 `README.md`（中文） / `README_EN.md`（英文）
+- `docs/architecture_CN.md` — 系统架构、模块关系、目录结构
+- `docs/api-reference_CN.md` — 完整 HTTP API 参考
+- `docs/workflow_CN.md` — 工作流设计与配置指南
+- `docs/session_CN.md` — 会话管理与存储后端
+- `docs/metrics_CN.md` — 指标系统与执行追踪
+- `docs/tools-reference_CN.md` — 内置工具 + CLI + 工具开发指南
+- `docs/database_CN.md` — 数据库连接池 + Schema 迁移规范
+- `docs/testing_CN.md` — 测试结构与运行方法
+- `docs/local-setup_CN.md` — 本地开发环境搭建
+- `docs/deployment_CN.md` — K8s 部署 (ACK + AWS EKS)
+- `docs/manual-test_CN.md` — 手工测试计划
+- 每个文档有对应英文版 `*_EN.md`，通过顶部链接切换
 
 ### K8s Secret 管理
 - 所有凭据存储在 `kf-secrets` Secret（namespace=mb-test/mb-pr）

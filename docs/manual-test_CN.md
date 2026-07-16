@@ -1,3 +1,5 @@
+[English](manual-test_EN.md)
+
 # KF 人工测试计划 v2 — 补充任务
 
 > 创建时间: 2026-07-07
