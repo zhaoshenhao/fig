@@ -115,24 +115,33 @@ kf/
 │   ├── prometheus-rules.yaml       #    Prometheus 告警规则
 │   ├── ingress.yaml                #    ALB Ingress
 │   ├── job-build.yaml              #    文档构建 Job
-│   ├── api/                        #    API Deployment/Service/HPA
-│   ├── ollama/                     #    Ollama Deployment/Service
-│   ├── qdrant/                     #    Qdrant StatefulSet/Service
-│   └── streamlit/                  #    Streamlit Deployment/Service
+│   ├── chat-api/                   #    chat-api Deployment/Service
+│   ├── admin-api/                   #    admin-api Deployment/Service
+│   ├── embed/                       #    kf-embed Deployment/Service
+│   ├── qdrant/                      #    Qdrant StatefulSet/Service
+│   ├── oss-pvc.yaml                 #    OSS CSI 持久卷
+│   └── init-db-job.yaml             #    数据库初始化 Job
 │
-├── docs/                           # ─── 文档 ───
-│   ├── architecture.md             #    本文档
-│   ├── cli-reference.md            #    CLI 参考手册
-│   ├── tools-reference.md          #    工具参考
-│   ├── tool-dev-guide.md           #    工具开发指南
-│   ├── metrics.md                  #    指标数据库结构
-│   ├── session-design.md           #    会话架构设计
-│   ├── session-guide.md            #    会话开发指南
-│   ├── workflow-design.md          #    工作流设计
-│   ├── workflow-guide.md           #    工作流开发指南
-│   ├── db-config.md                #    数据库配置说明
-│   ├── local-setup.md              #    本地开发环境搭建
-│   └── deployment/                 #    部署文档
+├── k8s-aws/                         # ─── AWS EKS 部署清单 ───
+│   ├── storageclass.yaml            #    gp3 EBS StorageClass
+│   ├── ingress.yaml                 #    ALB Ingress
+│   └── config-pvc.yaml              #    EFS CSI 持久卷
+│
+├── docs/                            # ─── 文档 ───
+│   ├── architecture_CN.md           #    系统架构（中文）
+│   ├── api-reference_CN.md          #    HTTP API 参考
+│   ├── workflow_CN.md               #    工作流设计
+│   ├── session_CN.md                #    会话管理
+│   ├── metrics_CN.md                #    指标系统
+│   ├── tools-reference_CN.md        #    内置工具参考
+│   ├── database_CN.md               #    数据库配置
+│   ├── testing_CN.md                #    测试指南
+│   ├── local-setup_CN.md            #    本地开发
+│   ├── deployment_CN.md             #    部署指南
+│   ├── manual-test_CN.md            #    手工测试计划
+│   ├── metrics-db-setup.md          #    DB 初始化指南
+│   ├── db-schema-norm.md            #    Schema 变更规范
+│   └── (各 *_EN.md 英文版)
 │
 ├── docker-compose.yaml             # 本地一键启动
 ├── Dockerfile                      # API 镜像

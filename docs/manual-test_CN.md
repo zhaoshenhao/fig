@@ -108,9 +108,9 @@ Invoke-RestMethod -Uri http://$WIN_IP:9000/api/v1/workflows/default/run -Method 
 | V.2.1 | 选择集合 `car_film` | 分页显示文档点（id/source/text） |
 | V.2.2 | 翻页 | offset 变化，内容切换 |
 | V.2.3 | 搜索框输入"隔热" | 结果中"隔热"高亮（`<mark>`） |
-| V.2.4 | 集合列表加载失败（停 Qdrant） | 应有错误提示（**已知缺陷**: 当前静默失败，下拉空白，见 improvement-plan.md） |
+| V.2.4 | 集合列表加载失败（停 Qdrant） | 应有错误提示（**已知缺陷**: 当前静默失败，下拉空白） |
 
-> ⚠️ 注: 当前"搜索"实为对首页 browse 结果的客户端高亮，**非语义检索**（improvement-plan.md P1-1）。测试时记录实际行为。
+> ⚠️ 注: 当前"搜索"实为对首页 browse 结果的客户端高亮，**非语义检索**（已知缺陷 P1-1）。测试时记录实际行为。
 
 ### V.3 工作流状态页 (WorkflowStatusPage)
 
@@ -147,8 +147,8 @@ Invoke-RestMethod -Uri http://$WIN_IP:9000/api/v1/workflows/default/run -Method 
 |---|------|----------|
 | V.5.1 | 选"新建"模式，输入集合名，上传 .md | 提示 chunks 数，入库成功 |
 | V.5.2 | 上传 .pdf / .docx / .csv / .xlsx | 各格式被接受 |
-| V.5.3 | 选"重建"模式，选已有集合 | **已知缺陷**: new/rebuild 均调同一端点，无 rebuild 参数（improvement-plan.md P1-2），记录实际行为 |
-| V.5.4 | 一次选多个文件上传 | **已知缺陷**: 仅显示最后一个文件结果（improvement-plan.md P3），记录实际行为 |
+| V.5.3 | 选"重建"模式，选已有集合 | **已知缺陷**: new/rebuild 均调同一端点，无 rebuild 参数（P1-2），记录实际行为 |
+| V.5.4 | 一次选多个文件上传 | **已知缺陷**: 仅显示最后一个文件结果（P3），记录实际行为 |
 | V.5.5 | 设置 chunk_size / chunk_overlap | 参数生效，chunk 数随之变化 |
 
 ### V.6 全局 UI
@@ -157,9 +157,9 @@ Invoke-RestMethod -Uri http://$WIN_IP:9000/api/v1/workflows/default/run -Method 
 |---|------|----------|
 | V.6.1 | 滚动页面 | 顶栏标题 + Tab 始终 sticky |
 | V.6.2 | 侧边栏输入 API Key | 状态圆点变化（绿=连接/红=断开） |
-| V.6.3 | 切换深色/浅色主题 | 主题切换生效（**已知缺陷**: 首次加载有 FOUC 闪烁，improvement-plan.md P2） |
+| V.6.3 | 切换深色/浅色主题 | 主题切换生效（**已知缺陷**: 首次加载有 FOUC 闪烁，P2） |
 | V.6.4 | 移动端/窄屏 | 布局响应式收缩 |
-| V.6.5 | 刷新页面后 | **已知缺陷**: API Key 未持久化需重新输入（improvement-plan.md P2） |
+| V.6.5 | 刷新页面后 | **已知缺陷**: API Key 未持久化需重新输入（P2） |
 
 ---
 

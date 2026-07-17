@@ -108,9 +108,9 @@ Invoke-RestMethod -Uri http://$WIN_IP:9000/api/v1/workflows/default/run -Method 
 | V.2.1 | Select collection `car_film` | Paginated document points displayed (id/source/text) |
 | V.2.2 | Page navigation | Offset changes, content switches |
 | V.2.3 | Type "隔热" in search box | "隔热" highlighted in results (`<mark>`) |
-| V.2.4 | Collection list load failure (stop Qdrant) | Should show error (**known defect**: currently silent failure, empty dropdown, see improvement-plan.md) |
+| V.2.4 | Collection list load failure (stop Qdrant) | Should show error (**known defect**: currently silent failure, empty dropdown) |
 
-> ⚠️ Note: Current "search" is actually client-side highlighting of browse results, **not semantic search** (improvement-plan.md P1-1). Record actual behavior during testing.
+> ⚠️ Note: Current "search" is actually client-side highlighting of browse results, **not semantic search** (known defect P1-1). Record actual behavior during testing.
 
 ### V.3 Workflow Status Page (WorkflowStatusPage)
 
@@ -147,8 +147,8 @@ Invoke-RestMethod -Uri http://$WIN_IP:9000/api/v1/workflows/default/run -Method 
 |---|------|----------|
 | V.5.1 | Select "New" mode, enter collection name, upload .md | Shows chunk count, ingestion succeeds |
 | V.5.2 | Upload .pdf / .docx / .csv / .xlsx | Each format accepted |
-| V.5.3 | Select "Rebuild" mode, choose existing collection | **Known defect**: new/rebuild both call same endpoint, no rebuild param (improvement-plan.md P1-2), record actual behavior |
-| V.5.4 | Select multiple files for upload | **Known defect**: only shows last file result (improvement-plan.md P3), record actual behavior |
+| V.5.3 | Select "Rebuild" mode, choose existing collection | **Known defect**: new/rebuild both call same endpoint, no rebuild param (P1-2), record actual behavior |
+| V.5.4 | Select multiple files for upload | **Known defect**: only shows last file result (P3), record actual behavior |
 | V.5.5 | Set chunk_size / chunk_overlap | Parameters take effect, chunk count changes accordingly |
 
 ### V.6 Global UI
@@ -157,9 +157,9 @@ Invoke-RestMethod -Uri http://$WIN_IP:9000/api/v1/workflows/default/run -Method 
 |---|------|----------|
 | V.6.1 | Scroll page | Top bar title + tabs always sticky |
 | V.6.2 | Enter API Key in sidebar | Status dot changes (green=connected/red=disconnected) |
-| V.6.3 | Toggle dark/light theme | Theme switch works (**known defect**: FOUC flash on first load, improvement-plan.md P2) |
+| V.6.3 | Toggle dark/light theme | Theme switch works (**known defect**: FOUC flash on first load, P2) |
 | V.6.4 | Mobile/narrow screen | Layout shrinks responsively |
-| V.6.5 | After page refresh | **Known defect**: API Key not persisted, must re-enter (improvement-plan.md P2) |
+| V.6.5 | After page refresh | **Known defect**: API Key not persisted, must re-enter (P2) |
 
 ---
 
@@ -232,7 +232,7 @@ Description: <short description>
 | W5.4 | Token stats | Run one LLM turn (provider returns usage), check `/api/v1/sessions/<id>` | Turn contains prompt_tokens/completion_tokens |
 | W5.5 | Data retention | `POST /metrics/retention?days=1` | Returns deleted_runs; old records purged |
 | W5.6 | Node/Tool metrics | `/metrics` | Contains `node_executions_total` / `node_duration_ms` / `tool_calls_total` / `workflow_runs_total` |
-| W5.7 | Multi-engine | Set `KF_METRICS_ENGINE=mysql` + configure db pool (see metrics-db-setup.md) | Auto-creates tables on startup, read/write works; defaults to SQLite if not set |
+| W5.7 | Multi-engine | Set `KF_METRICS_ENGINE=mysql` + configure db pool (see `docs/metrics-db-setup_EN.md`) | Auto-creates tables on startup, read/write works; defaults to SQLite if not set |
 
 ---
 
