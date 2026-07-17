@@ -1,4 +1,4 @@
-pipeline {
+﻿pipeline {
     agent any
 
     parameters {
@@ -152,7 +152,7 @@ pipeline {
                             export KF_METRICS_DB_PASSWORD=\${MYSQL_PASSWORD}
                             export KF_METRICS_DB_NAME=\${MYSQL_DB}
                             export OSS_ENDPOINT=oss-cn-hangzhou.aliyuncs.com
-                            bash scripts/create-k8s-secrets.sh
+                            bash deployment/scripts/create-k8s-secrets.sh
                         """
                     }
                 }
@@ -166,7 +166,7 @@ pipeline {
                         expression { params.SERVICES.split(',').contains('chat-api') }
                     }
                     steps {
-                        deployService('k8s/chat-api', 'chat-api')
+                        deployService('deployment/k8s-aliyun/chat-api', 'chat-api')
                     }
                 }
                 stage('admin-api') {
@@ -174,7 +174,7 @@ pipeline {
                         expression { params.SERVICES.split(',').contains('admin-api') }
                     }
                     steps {
-                        deployService('k8s/admin-api', 'admin-api')
+                        deployService('deployment/k8s-aliyun/admin-api', 'admin-api')
                     }
                 }
                 stage('embed') {
@@ -182,7 +182,7 @@ pipeline {
                         expression { params.SERVICES.split(',').contains('embed') }
                     }
                     steps {
-                        deployService('k8s/embed', 'embed')
+                        deployService('deployment/k8s-aliyun/embed', 'embed')
                     }
                 }
                 stage('qdrant') {
@@ -190,16 +190,16 @@ pipeline {
                         expression { params.SERVICES.split(',').contains('qdrant') }
                     }
                     steps {
-                        deployService('k8s/qdrant', 'qdrant')
+                        deployService('deployment/k8s-aliyun/qdrant', 'qdrant')
                     }
                 }
                 stage('global') {
                     steps {
                         script {
                             def globalFiles = [
-                                'k8s/namespace.yaml',
-                                'k8s/oss-pvc.yaml',
-                                'k8s/ingress.yaml',
+                                'deployment/k8s-aliyun/namespace.yaml',
+                                'deployment/k8s-aliyun/oss-pvc.yaml',
+                                'deployment/k8s-aliyun/ingress.yaml',
                             ]
                             for (f in globalFiles) {
                                 sh "cat ${f} | sed 's/<NAMESPACE>/${NAMESPACE}/g; s/<DOMAIN>/${params.DOMAIN}/g' | kubectl apply -f -"

@@ -248,7 +248,7 @@ kubectl create secret generic kf-db-root-secret \
 在首次部署或数据库重新创建后，运行一次性 Job 创建 MySQL 数据库和应用用户：
 
 ```bash
-kubectl apply -f k8s/init-db-job.yaml
+kubectl apply -f deployment/k8s-aliyun/init-db-job.yaml
 ```
 
 查看 Job 状态：
@@ -264,12 +264,12 @@ kubectl logs job/init-metrics-db -n ${NS}
 
 ```bash
 # Qdrant StatefulSet（1 副本 + ESSD 云盘）
-kubectl apply -f k8s/qdrant/service.yaml
-cat k8s/qdrant/statefulset.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
+kubectl apply -f deployment/k8s-aliyun/qdrant/service.yaml
+cat deployment/k8s-aliyun/qdrant/statefulset.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
 
 # kf-embed Deployment（向量化微服务，模型已烘焙进镜像）
-cat k8s/embed/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
-cat k8s/embed/deployment.yaml \
+cat deployment/k8s-aliyun/embed/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
+cat deployment/k8s-aliyun/embed/deployment.yaml \
   | sed "s|<NAMESPACE>|${NS}|g" \
   | sed "s|<ACR_REGISTRY>|${ACR}|g" \
   | sed "s|<EMBED_IMAGE_TAG>|${EMBED_TAG}|g" \
@@ -284,19 +284,19 @@ kubectl wait --for=condition=ready pod -l app=embed -n ${NS} --timeout=120s
 
 ```bash
 # OSS CSI PVC（工作流 YAML 配置挂载）
-cat k8s/oss-pvc.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
+cat deployment/k8s-aliyun/oss-pvc.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
 
 # chat-api Deployment（用户流量，KF_MODE=chat）
-cat k8s/chat-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
-cat k8s/chat-api/deployment.yaml \
+cat deployment/k8s-aliyun/chat-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
+cat deployment/k8s-aliyun/chat-api/deployment.yaml \
   | sed "s|<NAMESPACE>|${NS}|g" \
   | sed "s|<ACR_REGISTRY>|${ACR}|g" \
   | sed "s|<API_IMAGE_TAG>|${API_TAG}|g" \
   | kubectl apply -f -
 
 # admin-api Deployment（内部管理，KF_MODE=admin）
-cat k8s/admin-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
-cat k8s/admin-api/deployment.yaml \
+cat deployment/k8s-aliyun/admin-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
+cat deployment/k8s-aliyun/admin-api/deployment.yaml \
   | sed "s|<NAMESPACE>|${NS}|g" \
   | sed "s|<ACR_REGISTRY>|${ACR}|g" \
   | sed "s|<API_IMAGE_TAG>|${API_TAG}|g" \
@@ -310,7 +310,7 @@ kubectl wait --for=condition=ready pod -l app=admin-api -n ${NS} --timeout=120s
 ### C.8 配置 Ingress（ALB）
 
 ```bash
-cat k8s/ingress.yaml \
+cat deployment/k8s-aliyun/ingress.yaml \
   | sed "s|<NAMESPACE>|${NS}|g" \
   | sed "s|<DOMAIN>|${DOMAIN}|g" \
   | kubectl apply -f -
@@ -479,7 +479,7 @@ kubectl create secret generic kf-db-root-secret \
 
 ```bash
 # 编辑 init-db-job.yaml 中的 DB_HOST（MySQL/PG），然后运行
-kubectl apply -f k8s/init-db-job.yaml
+kubectl apply -f deployment/k8s-aliyun/init-db-job.yaml
 
 # 查看 Job 状态，等待 Successful
 kubectl get job init-metrics-db -n ${NS} -w
@@ -568,25 +568,25 @@ AWS 部署清单与 ACK 的区别在于：
 - 无 `OSS_*` 环境变量，改为 `AWS_REGION`
 - ServiceAccount 为 `kf-s3-access`
 
-使用以下模板创建 `k8s-aws/` 目录下的清单（完整内容见附录），或直接参考 `k8s/chat-api/deployment.yaml` 修改上述差异点后部署：
+使用以下模板创建 `deployment/k8s-aws/` 目录下的清单（完整内容见附录），或直接参考 `deployment/k8s-aliyun/chat-api/deployment.yaml` 修改上述差异点后部署：
 
 ```bash
 # Qdrant StatefulSet（使用 gp3 StorageClass）
-cat k8s/qdrant/statefulset.yaml \
+cat deployment/k8s-aliyun/qdrant/statefulset.yaml \
   | sed "s|<NAMESPACE>|${NS}|g" \
   | sed "s|alicloud-disk-essd|qdrant-storage|g" \
   | kubectl apply -f -
-kubectl apply -f k8s/qdrant/service.yaml
+kubectl apply -f deployment/k8s-aliyun/qdrant/service.yaml
 
 # kf-embed
-kubectl apply -f k8s/embed/service.yaml
+kubectl apply -f deployment/k8s-aliyun/embed/service.yaml
 # 需修改 deployment.yaml 中镜像为 ECR 地址
 
 # chat-api + admin-api
 # 需修改 deployment.yaml 中镜像为 ECR 地址，新增 serviceAccountName: kf-s3-access
 
 # Config PVC (EFS)
-kubectl apply -f k8s-aws/config-pvc.yaml
+kubectl apply -f deployment/k8s-aws/config-pvc.yaml
 
 # Ingress (ALB)
 cat <<EOF | kubectl apply -f -
@@ -692,8 +692,8 @@ aws cloudfront create-invalidation --distribution-id <DISTRIBUTION_ID> --paths "
 |------|------|
 | `../deployments/metrics-db-setup.md` | 建库、建用户、环境变量、SQLite 迁移 → MySQL/PG |
 | `db-schema-norm.md` | Schema 变更规范、新增迁移步骤 |
-| `k8s/init-db-job.yaml` | K8s 一次性 Job（用 root 密码建库 + 应用用户） |
-| `scripts/init-metrics-db.sh` | 本地/单机一键初始化脚本 |
+| `deployment/k8s-aliyun/init-db-job.yaml` | K8s 一次性 Job（用 root 密码建库 + 应用用户） |
+| `deployment/scripts/init-metrics-db.sh` | 本地/单机一键初始化脚本 |
 
 **要点**：表结构（DDL）由应用启动时的 `migrate()` 自动创建，无需手动执行 SQL 建表语句。
 
@@ -753,19 +753,19 @@ Pod 环境变量
 
 | 文件 | 说明 | K8s 对象 |
 |------|------|----------|
-| `k8s/namespace.yaml` | 命名空间 | Namespace |
-| `k8s/secret.yaml` | **模板**（非运行文件） | Secret |
-| `k8s/init-db-job.yaml` | 数据库初始化 | Job |
-| `k8s/chat-api/deployment.yaml` | chat-api 部署 | Deployment |
-| `k8s/chat-api/service.yaml` | chat-api 服务 | Service |
-| `k8s/admin-api/deployment.yaml` | admin-api 部署 | Deployment |
-| `k8s/admin-api/service.yaml` | admin-api 服务 | Service |
-| `k8s/embed/deployment.yaml` | embed 向量化微服务 | Deployment |
-| `k8s/embed/service.yaml` | embed 服务 | Service |
-| `k8s/qdrant/statefulset.yaml` | Qdrant 向量数据库 | StatefulSet |
-| `k8s/qdrant/service.yaml` | Qdrant 服务 | Service |
-| `k8s/oss-pvc.yaml` | OSS CSI 持久卷（ACK） | PVC |
-| `k8s/ingress.yaml` | ALB Ingress（ACK） | Ingress |
-| `k8s/prometheus-rules.yaml` | Prometheus 告警规则 | PrometheusRule |
-| `k8s/grafana-dashboard.json` | Grafana 监控面板 | ConfigMap |
-| `k8s/job-build.yaml` | 文档构建 Job | Job |
+| `deployment/k8s-aliyun/namespace.yaml` | 命名空间 | Namespace |
+| `deployment/k8s-aliyun/secret.yaml` | **模板**（非运行文件） | Secret |
+| `deployment/k8s-aliyun/init-db-job.yaml` | 数据库初始化 | Job |
+| `deployment/k8s-aliyun/chat-api/deployment.yaml` | chat-api 部署 | Deployment |
+| `deployment/k8s-aliyun/chat-api/service.yaml` | chat-api 服务 | Service |
+| `deployment/k8s-aliyun/admin-api/deployment.yaml` | admin-api 部署 | Deployment |
+| `deployment/k8s-aliyun/admin-api/service.yaml` | admin-api 服务 | Service |
+| `deployment/k8s-aliyun/embed/deployment.yaml` | embed 向量化微服务 | Deployment |
+| `deployment/k8s-aliyun/embed/service.yaml` | embed 服务 | Service |
+| `deployment/k8s-aliyun/qdrant/statefulset.yaml` | Qdrant 向量数据库 | StatefulSet |
+| `deployment/k8s-aliyun/qdrant/service.yaml` | Qdrant 服务 | Service |
+| `deployment/k8s-aliyun/oss-pvc.yaml` | OSS CSI 持久卷（ACK） | PVC |
+| `deployment/k8s-aliyun/ingress.yaml` | ALB Ingress（ACK） | Ingress |
+| `deployment/k8s-aliyun/prometheus-rules.yaml` | Prometheus 告警规则 | PrometheusRule |
+| `deployment/k8s-aliyun/grafana-dashboard.json` | Grafana 监控面板 | ConfigMap |
+| `deployment/k8s-aliyun/job-build.yaml` | 文档构建 Job | Job |

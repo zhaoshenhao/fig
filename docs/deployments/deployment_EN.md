@@ -221,7 +221,7 @@ kubectl create secret generic kf-db-root-secret \
 Run the one-time Job to create the MySQL database and app user:
 
 ```bash
-kubectl apply -f k8s/init-db-job.yaml
+kubectl apply -f deployment/k8s-aliyun/init-db-job.yaml
 
 kubectl get job init-metrics-db -n ${NS} -w
 kubectl logs job/init-metrics-db -n ${NS}
@@ -233,12 +233,12 @@ kubectl logs job/init-metrics-db -n ${NS}
 
 ```bash
 # Qdrant StatefulSet
-kubectl apply -f k8s/qdrant/service.yaml
-cat k8s/qdrant/statefulset.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
+kubectl apply -f deployment/k8s-aliyun/qdrant/service.yaml
+cat deployment/k8s-aliyun/qdrant/statefulset.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
 
 # kf-embed
-cat k8s/embed/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
-cat k8s/embed/deployment.yaml \
+cat deployment/k8s-aliyun/embed/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
+cat deployment/k8s-aliyun/embed/deployment.yaml \
   | sed "s|<NAMESPACE>|${NS}|g" \
   | sed "s|<ACR_REGISTRY>|${ACR}|g" \
   | sed "s|<EMBED_IMAGE_TAG>|${EMBED_TAG}|g" \
@@ -253,19 +253,19 @@ kubectl wait --for=condition=ready pod -l app=embed -n ${NS} --timeout=120s
 
 ```bash
 # OSS CSI PVC (workflow configs)
-cat k8s/oss-pvc.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
+cat deployment/k8s-aliyun/oss-pvc.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
 
 # chat-api (user traffic, KF_MODE=chat)
-cat k8s/chat-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
-cat k8s/chat-api/deployment.yaml \
+cat deployment/k8s-aliyun/chat-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
+cat deployment/k8s-aliyun/chat-api/deployment.yaml \
   | sed "s|<NAMESPACE>|${NS}|g" \
   | sed "s|<ACR_REGISTRY>|${ACR}|g" \
   | sed "s|<API_IMAGE_TAG>|${API_TAG}|g" \
   | kubectl apply -f -
 
 # admin-api (internal, KF_MODE=admin)
-cat k8s/admin-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
-cat k8s/admin-api/deployment.yaml \
+cat deployment/k8s-aliyun/admin-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
+cat deployment/k8s-aliyun/admin-api/deployment.yaml \
   | sed "s|<NAMESPACE>|${NS}|g" \
   | sed "s|<ACR_REGISTRY>|${ACR}|g" \
   | sed "s|<API_IMAGE_TAG>|${API_TAG}|g" \
@@ -278,7 +278,7 @@ kubectl wait --for=condition=ready pod -l app=admin-api -n ${NS} --timeout=120s
 ### C.8 Configure Ingress (ALB)
 
 ```bash
-cat k8s/ingress.yaml \
+cat deployment/k8s-aliyun/ingress.yaml \
   | sed "s|<NAMESPACE>|${NS}|g" \
   | sed "s|<DOMAIN>|${DOMAIN}|g" \
   | kubectl apply -f -
@@ -426,7 +426,7 @@ kubectl create secret generic kf-db-root-secret \
 
 ```bash
 # Update DB_HOST in init-db-job.yaml for your MySQL/PG endpoints, then:
-kubectl apply -f k8s/init-db-job.yaml
+kubectl apply -f deployment/k8s-aliyun/init-db-job.yaml
 kubectl get job init-metrics-db -n ${NS} -w
 ```
 
@@ -533,8 +533,8 @@ aws cloudfront create-invalidation --distribution-id <DIST_ID> --paths "/*"
 |----------|---------|
 | `../deployments/metrics-db-setup_EN.md` | Create DB, user, env vars, SQLite → MySQL/PG migration |
 | `db-schema-norm_EN.md` | Schema change norm, how to add migrations |
-| `k8s/init-db-job.yaml` | K8s one-time Job (root creds → create DB + app user) |
-| `scripts/init-metrics-db.sh` | Local/single-server one-command init script |
+| `deployment/k8s-aliyun/init-db-job.yaml` | K8s one-time Job (root creds → create DB + app user) |
+| `deployment/scripts/init-metrics-db.sh` | Local/single-server one-command init script |
 
 **Key point**: Table schemas (DDL) are auto-created on app startup via `migrate()`. No manual SQL needed.
 
@@ -589,19 +589,19 @@ Pod environment variables
 
 | File | Description | Resource |
 |------|-------------|----------|
-| `k8s/namespace.yaml` | Namespace | Namespace |
-| `k8s/secret.yaml` | Template (not runnable) | Secret |
-| `k8s/init-db-job.yaml` | DB init | Job |
-| `k8s/chat-api/deployment.yaml` | chat-api | Deployment |
-| `k8s/chat-api/service.yaml` | chat-api | Service |
-| `k8s/admin-api/deployment.yaml` | admin-api | Deployment |
-| `k8s/admin-api/service.yaml` | admin-api | Service |
-| `k8s/embed/deployment.yaml` | embed microservice | Deployment |
-| `k8s/embed/service.yaml` | embed | Service |
-| `k8s/qdrant/statefulset.yaml` | Qdrant vector DB | StatefulSet |
-| `k8s/qdrant/service.yaml` | Qdrant | Service |
-| `k8s/oss-pvc.yaml` | OSS CSI PVC (ACK) | PVC |
-| `k8s/ingress.yaml` | ALB Ingress (ACK) | Ingress |
-| `k8s/prometheus-rules.yaml` | Prometheus alert rules | PrometheusRule |
-| `k8s/grafana-dashboard.json` | Grafana dashboard | ConfigMap |
-| `k8s/job-build.yaml` | Doc builder Job | Job |
+| `deployment/k8s-aliyun/namespace.yaml` | Namespace | Namespace |
+| `deployment/k8s-aliyun/secret.yaml` | Template (not runnable) | Secret |
+| `deployment/k8s-aliyun/init-db-job.yaml` | DB init | Job |
+| `deployment/k8s-aliyun/chat-api/deployment.yaml` | chat-api | Deployment |
+| `deployment/k8s-aliyun/chat-api/service.yaml` | chat-api | Service |
+| `deployment/k8s-aliyun/admin-api/deployment.yaml` | admin-api | Deployment |
+| `deployment/k8s-aliyun/admin-api/service.yaml` | admin-api | Service |
+| `deployment/k8s-aliyun/embed/deployment.yaml` | embed microservice | Deployment |
+| `deployment/k8s-aliyun/embed/service.yaml` | embed | Service |
+| `deployment/k8s-aliyun/qdrant/statefulset.yaml` | Qdrant vector DB | StatefulSet |
+| `deployment/k8s-aliyun/qdrant/service.yaml` | Qdrant | Service |
+| `deployment/k8s-aliyun/oss-pvc.yaml` | OSS CSI PVC (ACK) | PVC |
+| `deployment/k8s-aliyun/ingress.yaml` | ALB Ingress (ACK) | Ingress |
+| `deployment/k8s-aliyun/prometheus-rules.yaml` | Prometheus alert rules | PrometheusRule |
+| `deployment/k8s-aliyun/grafana-dashboard.json` | Grafana dashboard | ConfigMap |
+| `deployment/k8s-aliyun/job-build.yaml` | Doc builder Job | Job |

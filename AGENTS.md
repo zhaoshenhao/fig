@@ -1,4 +1,4 @@
-# AGENTS.md — 项目决策记录
+﻿# AGENTS.md — 项目决策记录
 
 ## 项目概述
 多产品线智能客服（智能客服）系统。Python >=3.12，FastAPI + Vue SPA + Qdrant。
@@ -88,7 +88,7 @@
 - config 烘焙进镜像，环境值经 env + Secret 覆盖（无 ConfigMap 工作流挂载）
 - 工作流 YAML 配置通过 OSS CSI PVC 挂载到 `/app/config/workflows`
 - 已移除：Ollama、Streamlit（Streamlit 被 Vue SPA 取代）
-- 部署清单见 `k8s/`，Jenkins 流水线 `Jenkinsfile`，指南见 `docs/deployments/deployment_CN.md`
+- 部署清单见 `deployment/k8s-aliyun/`，Jenkins 流水线 `Jenkinsfile`，指南见 `docs/deployments/deployment_CN.md`
 
 ### 数据库迁移规范
 - Schema 唯一定义在 `src/metrics/schema.py`（canonical source of truth）
@@ -121,8 +121,8 @@
 
 ### K8s Secret 管理
 - 所有凭据存储在 `kf-secrets` Secret（namespace=mb-test/mb-pr）
-- `k8s/secret.yaml` 是模板，含占位符，**不提交真实密钥**
-- 三种创建方式：脚本 `scripts/create-k8s-secrets.sh`、kubectl `--from-literal`、Jenkins `withCredentials`
+- `deployment/k8s-aliyun/secret.yaml` 是模板，含占位符，**不提交真实密钥**
+- 三种创建方式：脚本 `deployment/scripts/create-k8s-secrets.sh`、kubectl `--from-literal`、Jenkins `withCredentials`
 - Deployments 通过 `envFrom.secretRef` 或 `valueFrom.secretKeyRef` 引用
 - 凭据清单: DEEPSEEK_API_KEY, KF_API_KEY, EMBED_API_KEY, REDIS_URL, MYSQL_*, PG_*, OSS_AK_*
 - 未来可迁移到阿里云 KMS（ack-kms-secret 插件 → ExternalSecret CRD）

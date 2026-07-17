@@ -1,4 +1,4 @@
-[English](architecture_EN.md)
+﻿[English](architecture_EN.md)
 
 # KF 智能客服系统 — 架构文档
 
@@ -262,7 +262,7 @@ kf/
 │   ├── test_tool_impl.py            # 工具实现测试
 │   ├── test_tool_impl_extra.py      # 工具实现补充测试
 │   └── test_tools.py                # 工具系统测试
-├── k8s/                             # Kubernetes 部署清单
+├── deployment/k8s-aliyun/                             # Kubernetes 部署清单
 │   ├── namespace.yaml               # Namespace 定义
 │   ├── secret.yaml                  # Secret 模板（含占位符）
 │   ├── ingress.yaml                 # ALB Ingress 配置
@@ -275,7 +275,7 @@ kf/
 │   ├── admin-api/                   # 管理后台 Deployment
 │   ├── embed/                       # Embedding 服务 Deployment
 │   └── qdrant/                      # Qdrant StatefulSet
-├── scripts/                         # 运维脚本
+├── deployment/scripts/                         # 运维脚本
 ├── docker-compose.yaml              # 本地开发编排（embed + qdrant + api）
 ├── Dockerfile                       # API 镜像（chat-api / admin-api 共用）
 ├── Dockerfile.embed                 # kf-embed 向量化服务镜像

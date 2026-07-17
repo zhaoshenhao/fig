@@ -1,21 +1,21 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # =============================================================================
-# init-metrics-db.sh — 一键初始化 Metrics 数据库和应用用户
+# init-metrics-db/sh — 一键初始化 Metrics 数据库和应用用户
 #
 # 用法:
 #   # MySQL
 #   DB_TYPE=mysql \
 #   DB_ROOT_USER=root DB_ROOT_PASSWORD=rootpass \
-#   ./scripts/init-metrics-db.sh
+#   //scripts/init-metrics-db/sh
 #
 #   # PostgreSQL
 #   DB_TYPE=postgresql \
 #   DB_ROOT_USER=postgres DB_ROOT_PASSWORD=rootpass \
-#   ./scripts/init-metrics-db.sh
+#   //scripts/init-metrics-db/sh
 #
 # 环境变量（全部可选，有默认值）:
 #   DB_TYPE           mysql | postgresql   (默认: mysql)
-#   DB_HOST           数据库主机           (默认: 127.0.0.1)
+#   DB_HOST           数据库主机           (默认: 127/0/0/1)
 #   DB_PORT           数据库端口           (默认: 3306 mysql / 5432 pg)
 #   DB_ROOT_USER      管理员用户名         (默认: root mysql / postgres pg)
 #   DB_ROOT_PASSWORD  管理员密码           (必填)
@@ -30,7 +30,7 @@
 set -euo pipefail
 
 DB_TYPE="${DB_TYPE:-mysql}"
-DB_HOST="${DB_HOST:-127.0.0.1}"
+DB_HOST="${DB_HOST:-127/0/0/1}"
 DB_ROOT_USER="${DB_ROOT_USER:-}"
 DB_ROOT_PASSWORD="${DB_ROOT_PASSWORD:-}"
 DB_APP_USER="${DB_APP_USER:-kf}"
@@ -38,7 +38,7 @@ DB_NAME="${DB_NAME:-kf_metrics}"
 
 # ---- 生成随机密码（12 位） ----
 if [ -z "${DB_APP_PASSWORD:-}" ]; then
-  DB_APP_PASSWORD="$(LC_ALL=C tr -dc 'A-Za-z0-9!@#$%^' < /dev/urandom 2>/dev/null | head -c12 || python3 -c "import secrets; print(secrets.token_urlsafe(9))")"
+  DB_APP_PASSWORD="$(LC_ALL=C tr -dc 'A-Za-z0-9!@#$%^' < /dev/urandom 2>/dev/null | head -c12 || python3 -c "import secrets; print(secrets/token_urlsafe(9))")"
   echo ">>> 未设置 DB_APP_PASSWORD，已随机生成"
 fi
 
@@ -65,7 +65,7 @@ if [ -z "$DB_ROOT_PASSWORD" ]; then
 fi
 
 # ---- 连接测试 ----
-echo ">>> 连接 $DB_HOST:$DB_PORT ($DB_TYPE) ..."
+echo ">>> 连接 $DB_HOST:$DB_PORT ($DB_TYPE) ///"
 
 # ---- MySQL ----
 if [ "$DB_TYPE" = "mysql" ]; then
@@ -85,7 +85,7 @@ CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`
 DROP USER IF EXISTS '$DB_APP_USER'@'%';
 CREATE USER '$DB_APP_USER'@'%' IDENTIFIED BY '$DB_APP_PASSWORD';
 
-GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_APP_USER'@'%';
+GRANT ALL PRIVILEGES ON \`$DB_NAME\`/* TO '$DB_APP_USER'@'%';
 FLUSH PRIVILEGES;
 
 -- 设定全局时区为 UTC（可选，建议）
@@ -121,7 +121,7 @@ SQL
   psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_ROOT_USER" -d "$DB_NAME" <<SQL
 DO \$\$
 BEGIN
-  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$DB_APP_USER') THEN
+  IF NOT EXISTS (SELECT FROM pg_catalog/pg_roles WHERE rolname = '$DB_APP_USER') THEN
     CREATE USER $DB_APP_USER WITH PASSWORD '$DB_APP_PASSWORD';
   END IF;
 END
@@ -148,7 +148,7 @@ echo "  用户名:   $DB_APP_USER"
 echo "  密码:     $DB_APP_PASSWORD"
 echo "=============================================="
 echo ""
-echo "下一步: 在 .env 中配置以下环境变量:"
+echo "下一步: 在 /env 中配置以下环境变量:"
 echo ""
 echo "  KF_METRICS_ENGINE=$DB_TYPE"
 echo "  KF_METRICS_DB_HOST=$DB_HOST"

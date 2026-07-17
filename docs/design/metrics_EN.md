@@ -1,4 +1,4 @@
-# Metrics Execution Tracing Storage
+﻿# Metrics Execution Tracing Storage
 
 [中文](metrics_CN.md)
 
@@ -291,8 +291,8 @@ Prometheus metrics exposed on the `/metrics` endpoint:
 | `tool_calls_total` | Counter | `tool`, `status` | Tool call count |
 | `workflow_runs_total` | Counter | `workflow`, `status` | Workflow run count |
 
-- Grafana dashboard: `k8s/grafana-dashboard.json`
-- Alert rules: `k8s/prometheus-rules.yaml` (includes node/tool error rate and P95 latency alerts)
+- Grafana dashboard: `deployment/k8s-aliyun/grafana-dashboard.json`
+- Alert rules: `deployment/k8s-aliyun/prometheus-rules.yaml` (includes node/tool error rate and P95 latency alerts)
 - OpenTelemetry: Ingestible via OTel Collector's Prometheus receiver scraping the `/metrics` endpoint
 
 ## 7. RAG Retrieval Tracking

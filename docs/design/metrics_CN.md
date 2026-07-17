@@ -291,8 +291,8 @@ curl http://localhost:9000/api/v1/sessions/chat_abc123/turns/0/nodes/retrieve
 | `tool_calls_total` | Counter | `tool`, `status` | 工具调用次数 |
 | `workflow_runs_total` | Counter | `workflow`, `status` | 工作流运行次数 |
 
-- Grafana 仪表盘：`k8s/grafana-dashboard.json`
-- 告警规则：`k8s/prometheus-rules.yaml`（含节点/工具错误率与 P95 延迟告警）
+- Grafana 仪表盘：`deployment/k8s-aliyun/grafana-dashboard.json`
+- 告警规则：`deployment/k8s-aliyun/prometheus-rules.yaml`（含节点/工具错误率与 P95 延迟告警）
 - OpenTelemetry：可通过 OTel Collector 的 Prometheus receiver 抓取 `/metrics` 端点接入
 
 ## 7. RAG 检索追踪

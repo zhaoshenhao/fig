@@ -1,4 +1,4 @@
-[中文](architecture_CN.md)
+﻿[中文](architecture_CN.md)
 
 # KF Intelligent Customer Service System — Architecture Document
 
@@ -262,7 +262,7 @@ kf/
 │   ├── test_tool_impl.py            # Tool implementation tests
 │   ├── test_tool_impl_extra.py      # Tool implementation supplementary tests
 │   └── test_tools.py                # Tool system tests
-├── k8s/                             # Kubernetes deployment manifests
+├── deployment/k8s-aliyun/                             # Kubernetes deployment manifests
 │   ├── namespace.yaml               # Namespace definition
 │   ├── secret.yaml                  # Secret template (placeholder values)
 │   ├── ingress.yaml                 # ALB Ingress configuration
@@ -275,7 +275,7 @@ kf/
 │   ├── admin-api/                   # Admin management Deployment
 │   ├── embed/                       # Embedding service Deployment
 │   └── qdrant/                      # Qdrant StatefulSet
-├── scripts/                         # Operations scripts
+├── deployment/scripts/                         # Operations scripts
 ├── docker-compose.yaml              # Local dev orchestration (embed + qdrant + api)
 ├── Dockerfile                       # API image (shared by chat-api / admin-api)
 ├── Dockerfile.embed                 # kf-embed vectorization service image

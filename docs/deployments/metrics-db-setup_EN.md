@@ -41,10 +41,10 @@ docker run -d --name kf-pg \
 
 ```bash
 # MySQL
-DB_TYPE=mysql DB_ROOT_PASSWORD=your-root-password ./scripts/init-metrics-db.sh
+DB_TYPE=mysql DB_ROOT_PASSWORD=your-root-password ./deployment/scripts/init-metrics-db.sh
 
 # PostgreSQL
-DB_TYPE=postgresql DB_ROOT_PASSWORD=your-root-password ./scripts/init-metrics-db.sh
+DB_TYPE=postgresql DB_ROOT_PASSWORD=your-root-password ./deployment/scripts/init-metrics-db.sh
 ```
 
 The script handles: connection test → create DB → create app user → grant privileges → print credentials.
@@ -135,14 +135,14 @@ for run in src.execute("SELECT * FROM runs ORDER BY id"):
 
 ## 6. K8s Deployment (No Root Password)
 
-A dedicated K8s Job `k8s/init-db-job.yaml` handles DB initialization:
+A dedicated K8s Job `deployment/k8s-aliyun/init-db-job.yaml` handles DB initialization:
 
 ```
 kubectl create secret generic kf-db-root-secret \
   --from-literal=DB_ROOT_USER=root \
   --from-literal=DB_ROOT_PASSWORD=<root-password>
 
-kubectl apply -f k8s/init-db-job.yaml      # Run once
+kubectl apply -f deployment/k8s-aliyun/init-db-job.yaml      # Run once
 kubectl delete secret kf-db-root-secret    # Can delete after
 ```
 

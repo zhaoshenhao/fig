@@ -1,4 +1,4 @@
-# =============================================================================
+﻿# =============================================================================
 # init-db-job.yaml — K8s Job：在部署应用前初始化数据库和应用用户
 #
 # 用法:
@@ -8,11 +8,11 @@
 #        --from-literal=DB_ROOT_PASSWORD=<your-root-password>
 #
 #   2. 部署本 Job（一次性执行）:
-#      kubectl apply -f k8s/init-db-job.yaml
+#      kubectl apply -f deployment/k8s-aliyun/init-db-job.yaml
 #
 #   3. 确认 Job 完成后，部署 app（app 使用 kf-secrets 中的普通用户凭据）
-#      kubectl apply -f k8s/chat-api/deployment.yaml
-#      kubectl apply -f k8s/admin-api/deployment.yaml
+#      kubectl apply -f deployment/k8s-aliyun/chat-api/deployment.yaml
+#      kubectl apply -f deployment/k8s-aliyun/admin-api/deployment.yaml
 #
 #   4. 删除 kf-db-root-secret（可选，app 不需要它）:
 #      kubectl delete secret kf-db-root-secret

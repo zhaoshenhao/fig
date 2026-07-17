@@ -41,10 +41,10 @@ docker run -d --name kf-pg \
 
 ```bash
 # MySQL
-DB_TYPE=mysql DB_ROOT_PASSWORD=your-root-password ./scripts/init-metrics-db.sh
+DB_TYPE=mysql DB_ROOT_PASSWORD=your-root-password ./deployment/scripts/init-metrics-db.sh
 
 # PostgreSQL
-DB_TYPE=postgresql DB_ROOT_PASSWORD=your-root-password ./scripts/init-metrics-db.sh
+DB_TYPE=postgresql DB_ROOT_PASSWORD=your-root-password ./deployment/scripts/init-metrics-db.sh
 ```
 
 脚本自动完成：连接测试 → 建库 → 建应用用户 → 授权 → 打印凭据。
@@ -136,14 +136,14 @@ for run in src.execute("SELECT * FROM runs ORDER BY id"):
 
 ## 6. K8s 部署（不需要 root 密码）
 
-K8s 环境下有专门的 `k8s/init-db-job.yaml`（一次性 Job）：
+K8s 环境下有专门的 `deployment/k8s-aliyun/init-db-job.yaml`（一次性 Job）：
 
 ```
 kubectl create secret generic kf-db-root-secret \
   --from-literal=DB_ROOT_USER=root \
   --from-literal=DB_ROOT_PASSWORD=<root密码>
 
-kubectl apply -f k8s/init-db-job.yaml      # 只执行一次
+kubectl apply -f deployment/k8s-aliyun/init-db-job.yaml      # 只执行一次
 kubectl delete secret kf-db-root-secret    # 之后可以删除
 ```
 
