@@ -1,0 +1,149 @@
+# =============================================================================
+# init-db-job.yaml — K8s Job：在部署应用前初始化数据库和应用用户
+#
+# 用法:
+#   1. 先创建 kf-db-root-secret（一次性，不交给 app）:
+#      kubectl create secret generic kf-db-root-secret \
+#        --from-literal=DB_ROOT_USER=root \
+#        --from-literal=DB_ROOT_PASSWORD=<your-root-password>
+#
+#   2. 部署本 Job（一次性执行）:
+#      kubectl apply -f k8s/init-db-job.yaml
+#
+#   3. 确认 Job 完成后，部署 app（app 使用 kf-secrets 中的普通用户凭据）
+#      kubectl apply -f k8s/chat-api/deployment.yaml
+#      kubectl apply -f k8s/admin-api/deployment.yaml
+#
+#   4. 删除 kf-db-root-secret（可选，app 不需要它）:
+#      kubectl delete secret kf-db-root-secret
+#
+# =============================================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: init-metrics-db
+  namespace: mb-test   # ← 按实际环境修改
+  labels:
+    app: kf
+    task: db-init
+spec:
+  ttlSecondsAfterFinished: 300   # 5 分钟后自动清理
+  template:
+    metadata:
+      labels:
+        app: kf
+        task: db-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        # ── MySQL 初始化 ──────────────────────────────────────────
+        - name: init-mysql
+          image: mysql:8.0
+          command:
+            - sh
+            - -c
+            - |
+              echo ">>> 创建数据库和应用用户..."
+              mysql -h"${DB_HOST}" -P"${DB_PORT}" -u"${DB_ROOT_USER}" -p"${DB_ROOT_PASSWORD}" -e "
+                CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`
+                  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+                DROP USER IF EXISTS '${DB_APP_USER}'@'%';
+                CREATE USER '${DB_APP_USER}'@'%' IDENTIFIED BY '${DB_APP_PASSWORD}';
+                GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_APP_USER}'@'%';
+                FLUSH PRIVILEGES;
+              "
+              echo ">>> MySQL 初始化完成"
+
+          env:
+            # DB 连接信息（来自 kf-db-root-secret + 配置文件/ConfigMap）
+            - name: DB_HOST
+              value: "YOUR_MYSQL_HOST"     # ← 替换为实际地址
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: "kf_metrics"
+
+            # 管理员凭据（仅在这个 Job 中使用，不暴露给 app）
+            - name: DB_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: kf-db-root-secret
+                  key: DB_ROOT_USER
+            - name: DB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kf-db-root-secret
+                  key: DB_ROOT_PASSWORD
+
+            # 应用凭据（与 kf-secrets 中的值一致）
+            - name: DB_APP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: kf-secrets
+                  key: MYSQL_USER
+            - name: DB_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kf-secrets
+                  key: MYSQL_PASSWORD
+
+        # ── PostgreSQL 初始化 ─────────────────────────────────────
+        - name: init-postgresql
+          image: postgres:16
+          command:
+            - sh
+            - -c
+            - |
+              echo ">>> 创建数据库..."
+              PGPASSWORD="${DB_ROOT_PASSWORD}" psql \
+                -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_ROOT_USER}" -d postgres \
+                -c "CREATE DATABASE \"${DB_NAME}\" ENCODING 'UTF8'" 2>/dev/null \
+                || echo "数据库已存在，跳过"
+
+              echo ">>> 创建应用用户并授权..."
+              PGPASSWORD="${DB_ROOT_PASSWORD}" psql \
+                -h "${DB_HOST}" -p "${DB_PORT}" -U "${DB_ROOT_USER}" -d "${DB_NAME}" -c "
+                DO \$\$
+                BEGIN
+                  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${DB_APP_USER}') THEN
+                    CREATE USER ${DB_APP_USER} WITH PASSWORD '${DB_APP_PASSWORD}';
+                  END IF;
+                END
+                \$\$;
+                GRANT ALL PRIVILEGES ON DATABASE \"${DB_NAME}\" TO ${DB_APP_USER};
+                GRANT ALL ON SCHEMA public TO ${DB_APP_USER};
+                ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ${DB_APP_USER};
+              "
+              echo ">>> PostgreSQL 初始化完成"
+
+          env:
+            - name: DB_HOST
+              value: "YOUR_PG_HOST"        # ← 替换为实际地址
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "kf_metrics"
+
+            # 管理员凭据（仅 Job 使用）
+            - name: DB_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: kf-db-root-secret
+                  key: DB_ROOT_USER
+            - name: DB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kf-db-root-secret
+                  key: DB_ROOT_PASSWORD
+
+            # 应用凭据（与 kf-secrets 一致）
+            - name: DB_APP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: kf-secrets
+                  key: PG_USER
+            - name: DB_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kf-secrets
+                  key: PG_PASSWORD
