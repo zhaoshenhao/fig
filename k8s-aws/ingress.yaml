@@ -1,0 +1,88 @@
+# AWS ALB Ingress (EKS)
+# 前提：已安装 AWS Load Balancer Controller
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kf-ingress
+  namespace: kf-prod
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+spec:
+  ingressClassName: alb
+  rules:
+    - host: <DOMAIN>
+      http:
+        paths:
+          - path: /api/v1/workflows
+            pathType: Prefix
+            backend:
+              service:
+                name: chat-api
+                port:
+                  number: 8000
+          - path: /api/v1/sessions
+            pathType: Prefix
+            backend:
+              service:
+                name: chat-api
+                port:
+                  number: 8000
+          - path: /export
+            pathType: Prefix
+            backend:
+              service:
+                name: chat-api
+                port:
+                  number: 8000
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: chat-api
+                port:
+                  number: 8000
+          - path: /ready
+            pathType: Exact
+            backend:
+              service:
+                name: chat-api
+                port:
+                  number: 8000
+          - path: /reload
+            pathType: Exact
+            backend:
+              service:
+                name: chat-api
+                port:
+                  number: 8000
+          - path: /metrics
+            pathType: Prefix
+            backend:
+              service:
+                name: admin-api
+                port:
+                  number: 8000
+          - path: /collections
+            pathType: Prefix
+            backend:
+              service:
+                name: admin-api
+                port:
+                  number: 8000
+          - path: /documents
+            pathType: Prefix
+            backend:
+              service:
+                name: admin-api
+                port:
+                  number: 8000
+          - path: /status
+            pathType: Exact
+            backend:
+              service:
+                name: admin-api
+                port:
+                  number: 8000

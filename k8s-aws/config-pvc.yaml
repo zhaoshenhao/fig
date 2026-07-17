@@ -1,0 +1,14 @@
+# EFS CSI PersistentVolumeClaim (AWS EKS)
+# 前提：已创建 EFS 文件系统 + EFS CSI Driver + StorageClass "efs-sc"
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: workflow-config
+  namespace: kf-prod
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: efs-sc
+  resources:
+    requests:
+      storage: 1Gi
