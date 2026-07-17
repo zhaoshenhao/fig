@@ -1,4 +1,4 @@
-[中文](metrics-db-setup.md)
+﻿[中文](metrics-db-setup.md)
 
 # Metrics Database Setup Guide
 
@@ -129,7 +129,7 @@ for run in src.execute("SELECT * FROM runs ORDER BY id"):
     )
 ```
 
-> Full script: see `docs/metrics_EN.md`.
+> Full script: see `../design/metrics_EN.md`.
 
 ---
 

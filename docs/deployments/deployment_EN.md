@@ -1,4 +1,4 @@
-[中文](deployment_CN.md)
+﻿[中文](deployment_CN.md)
 
 # KF AI Customer Service — Deployment Guide
 
@@ -55,7 +55,7 @@ EMBED_API_KEY=               # optional
 KF_API_KEY=                  # optional, leave empty for dev
 ```
 
-For MySQL/PostgreSQL, see `docs/metrics-db-setup_EN.md`.
+For MySQL/PostgreSQL, see `../deployments/metrics-db-setup_EN.md`.
 
 ### B.3 Start All Services
 
@@ -531,8 +531,8 @@ aws cloudfront create-invalidation --distribution-id <DIST_ID> --paths "/*"
 
 | Resource | Purpose |
 |----------|---------|
-| `docs/metrics-db-setup_EN.md` | Create DB, user, env vars, SQLite → MySQL/PG migration |
-| `docs/db-schema-norm_EN.md` | Schema change norm, how to add migrations |
+| `../deployments/metrics-db-setup_EN.md` | Create DB, user, env vars, SQLite → MySQL/PG migration |
+| `db-schema-norm_EN.md` | Schema change norm, how to add migrations |
 | `k8s/init-db-job.yaml` | K8s one-time Job (root creds → create DB + app user) |
 | `scripts/init-metrics-db.sh` | Local/single-server one-command init script |
 

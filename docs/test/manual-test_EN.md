@@ -1,4 +1,4 @@
-[中文](manual-test_CN.md)
+﻿[中文](manual-test_CN.md)
 
 # KF Manual Test Plan v2 — Supplemental Tasks
 
@@ -232,7 +232,7 @@ Description: <short description>
 | W5.4 | Token stats | Run one LLM turn (provider returns usage), check `/api/v1/sessions/<id>` | Turn contains prompt_tokens/completion_tokens |
 | W5.5 | Data retention | `POST /metrics/retention?days=1` | Returns deleted_runs; old records purged |
 | W5.6 | Node/Tool metrics | `/metrics` | Contains `node_executions_total` / `node_duration_ms` / `tool_calls_total` / `workflow_runs_total` |
-| W5.7 | Multi-engine | Set `KF_METRICS_ENGINE=mysql` + configure db pool (see `docs/metrics-db-setup_EN.md`) | Auto-creates tables on startup, read/write works; defaults to SQLite if not set |
+| W5.7 | Multi-engine | Set `KF_METRICS_ENGINE=mysql` + configure db pool (see `../deployments/metrics-db-setup_EN.md`) | Auto-creates tables on startup, read/write works; defaults to SQLite if not set |
 
 ---
 

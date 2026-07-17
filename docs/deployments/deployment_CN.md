@@ -1,4 +1,4 @@
-[English](deployment_EN.md)
+﻿[English](deployment_EN.md)
 
 # KF 智能客服 — 部署指南
 
@@ -63,7 +63,7 @@ EMBED_API_KEY=                            # 可选：embed 内部鉴权，留空
 KF_API_KEY=                               # 可选：API 鉴权，留空则不鉴权（开发推荐）
 ```
 
-如需 MySQL/PostgreSQL，参考 `config/metrics.yaml` 和 `docs/metrics-db-setup.md`。
+如需 MySQL/PostgreSQL，参考 `config/metrics.yaml` 和 `../deployments/metrics-db-setup.md`。
 
 ### B.3 启动所有服务
 
@@ -690,8 +690,8 @@ aws cloudfront create-invalidation --distribution-id <DISTRIBUTION_ID> --paths "
 
 | 文档 | 内容 |
 |------|------|
-| `docs/metrics-db-setup.md` | 建库、建用户、环境变量、SQLite 迁移 → MySQL/PG |
-| `docs/db-schema-norm.md` | Schema 变更规范、新增迁移步骤 |
+| `../deployments/metrics-db-setup.md` | 建库、建用户、环境变量、SQLite 迁移 → MySQL/PG |
+| `db-schema-norm.md` | Schema 变更规范、新增迁移步骤 |
 | `k8s/init-db-job.yaml` | K8s 一次性 Job（用 root 密码建库 + 应用用户） |
 | `scripts/init-metrics-db.sh` | 本地/单机一键初始化脚本 |
 

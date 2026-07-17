@@ -1,6 +1,6 @@
-default: mysql_main
+﻿default: mysql_main
 
-# 本地开发默认指向 WSL Docker 中的 MySQL/PG（见 docs/metrics-db-setup.md）
+# 本地开发默认指向 WSL Docker 中的 MySQL/PG（见 docs/deployments/metrics-db-setup.md）
 # 密码用 ${VAR:-default} 语法，生产用环境变量覆盖。
 pools:
   mysql_main:

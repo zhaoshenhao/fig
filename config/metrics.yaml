@@ -1,9 +1,9 @@
-# Metrics 存储引擎配置
+﻿# Metrics 存储引擎配置
 # engine: sqlite | mysql | postgresql（默认 sqlite，当前生产使用 sqlite）
 # 环境变量可覆盖：KF_METRICS_ENGINE / KF_METRICS_DB_PATH / KF_METRICS_POOL
 #
 # 说明：切换到 mysql / postgresql 前，请先在 config/db.yaml 中配置对应的
-# 连接池（pool 名默认 "metrics"），并参考 docs/metrics-db-setup.md 建库建表。
+# 连接池（pool 名默认 "metrics"），并参考 docs/deployments/metrics-db-setup.md 建库建表。
 
 engine: ${KF_METRICS_ENGINE:-sqlite}
 

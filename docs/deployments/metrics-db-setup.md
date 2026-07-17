@@ -1,4 +1,4 @@
-[English](metrics-db-setup_EN.md)
+﻿[English](metrics-db-setup_EN.md)
 
 # Metrics 数据库初始化指南
 
@@ -130,7 +130,7 @@ for run in src.execute("SELECT * FROM runs ORDER BY id"):
     # 按 run_id 映射迁移 node_logs / tool_logs / feedback
 ```
 
-> 完整脚本参见 `docs/metrics_CN.md` 第 430-449 行。
+> 完整脚本参见 `../design/metrics_CN.md` 第 430-449 行。
 
 ---
 

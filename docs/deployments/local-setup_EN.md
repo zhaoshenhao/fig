@@ -1,4 +1,4 @@
-[中文](local-setup_CN.md)
+﻿[中文](local-setup_CN.md)
 
 # Local Development
 
@@ -54,7 +54,7 @@ curl http://localhost:9000/health
 
 ## Database
 
-Default is SQLite (`data/metrics.db`, auto-created). To switch to MySQL/PostgreSQL see `docs/metrics-db-setup_EN.md`.
+Default is SQLite (`data/metrics.db`, auto-created). To switch to MySQL/PostgreSQL see `../deployments/metrics-db-setup_EN.md`.
 
 ## Stopping Services
 

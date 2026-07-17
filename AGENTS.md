@@ -88,13 +88,13 @@
 - config 烘焙进镜像，环境值经 env + Secret 覆盖（无 ConfigMap 工作流挂载）
 - 工作流 YAML 配置通过 OSS CSI PVC 挂载到 `/app/config/workflows`
 - 已移除：Ollama、Streamlit（Streamlit 被 Vue SPA 取代）
-- 部署清单见 `k8s/`，Jenkins 流水线 `Jenkinsfile`，指南见 `docs/deployment_CN.md`
+- 部署清单见 `k8s/`，Jenkins 流水线 `Jenkinsfile`，指南见 `docs/deployments/deployment_CN.md`
 
 ### 数据库迁移规范
 - Schema 唯一定义在 `src/metrics/schema.py`（canonical source of truth）
 - 版本化迁移在 `src/metrics/migration.py`（`Migration` 数据类 + `MIGRATIONS` 列表）
 - 启动时自动执行 `migrate(conn, dialect)`，检测 schema 漂移并备份旧表
-- 新增迁移步骤见 `docs/db-schema-norm.md`
+- 新增迁移步骤见 `docs/deployments/db-schema-norm.md`
 - 版本号递增，已执行的迁移自动跳过
 
 ## 操作规范（重要）
@@ -107,16 +107,16 @@
 ## 文档索引
 - 根目录 `README.md`（中文） / `README_EN.md`（英文）
 - `docs/architecture_CN.md` — 系统架构、模块关系、目录结构
-- `docs/api-reference_CN.md` — 完整 HTTP API 参考
-- `docs/workflow_CN.md` — 工作流设计与配置指南
-- `docs/session_CN.md` — 会话管理与存储后端
-- `docs/metrics_CN.md` — 指标系统与执行追踪
-- `docs/tools-reference_CN.md` — 内置工具 + CLI + 工具开发指南
-- `docs/database_CN.md` — 数据库连接池 + Schema 迁移规范
-- `docs/testing_CN.md` — 测试结构与运行方法
-- `docs/local-setup_CN.md` — 本地开发环境搭建
-- `docs/deployment_CN.md` — K8s 部署 (ACK + AWS EKS)
-- `docs/manual-test_CN.md` — 手工测试计划
+- `docs/reference/api-reference_CN.md` — 完整 HTTP API 参考
+- `docs/design/workflow_CN.md` — 工作流设计与配置指南
+- `docs/design/session_CN.md` — 会话管理与存储后端
+- `docs/design/metrics_CN.md` — 指标系统与执行追踪
+- `docs/reference/tools-reference_CN.md` — 内置工具 + CLI + 工具开发指南
+- `docs/database/database_CN.md` — 数据库连接池 + Schema 迁移规范
+- `docs/test/testing_CN.md` — 测试结构与运行方法
+- `docs/deployments/local-setup_CN.md` — 本地开发环境搭建
+- `docs/deployments/deployment_CN.md` — K8s 部署 (ACK + AWS EKS)
+- `docs/test/manual-test_CN.md` — 手工测试计划
 - 每个文档有对应英文版 `*_EN.md`，通过顶部链接切换
 
 ### K8s Secret 管理

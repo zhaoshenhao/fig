@@ -1,4 +1,4 @@
-# KF - Multi-Product Intelligent Customer Service
+﻿# KF - Multi-Product Intelligent Customer Service
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-teal.svg)](https://fastapi.tiangolo.com)
@@ -63,16 +63,16 @@ uvicorn src.api.main:app --port 9000
 | Document | Description |
 |----------|-------------|
 | [Architecture](docs/architecture_EN.md) | System architecture, modules, directory structure |
-| [API Reference](docs/api-reference_EN.md) | Complete HTTP API documentation |
-| [Workflow Guide](docs/workflow_EN.md) | Workflow design, node config, routing rules |
-| [Session Management](docs/session_EN.md) | Multi-turn dialog, storage backends, history compression |
-| [Metrics](docs/metrics_EN.md) | Execution tracing, Prometheus, dashboards |
-| [Tools Reference](docs/tools-reference_EN.md) | 10 built-in tools + CLI tools |
-| [Database](docs/database_EN.md) | Connection pools, schema norms, migrations |
-| [Testing](docs/testing_EN.md) | Test structure, running tests, coverage requirements |
-| [Local Setup](docs/local-setup_EN.md) | Environment setup, Docker, configuration |
-| [Deployment](docs/deployment_EN.md) | K8s deployment (ACK + AWS EKS) |
-| [Manual Test](docs/manual-test_EN.md) | Feature verification test plan |
+| [API Reference](docs/reference/api-reference_EN.md) | Complete HTTP API documentation |
+| [Workflow Guide](docs/design/workflow_EN.md) | Workflow design, node config, routing rules |
+| [Session Management](docs/design/session_EN.md) | Multi-turn dialog, storage backends, history compression |
+| [Metrics](docs/design/metrics_EN.md) | Execution tracing, Prometheus, dashboards |
+| [Tools Reference](docs/reference/tools-reference_EN.md) | 10 built-in tools + CLI tools |
+| [Database](docs/database/database_EN.md) | Connection pools, schema norms, migrations |
+| [Testing](docs/test/testing_EN.md) | Test structure, running tests, coverage requirements |
+| [Local Setup](docs/deployments/local-setup_EN.md) | Environment setup, Docker, configuration |
+| [Deployment](docs/deployments/deployment_EN.md) | K8s deployment (ACK + AWS EKS) |
+| [Manual Test](docs/test/manual-test_EN.md) | Feature verification test plan |
 
 ## Tech Stack
 

@@ -1,4 +1,4 @@
-[English](local-setup_EN.md)
+﻿[English](local-setup_EN.md)
 
 # 本地开发环境
 
@@ -54,7 +54,7 @@ curl http://localhost:9000/health
 
 ## 数据库
 
-默认使用 SQLite（`data/metrics.db`，自动创建）。切换 MySQL/PostgreSQL 见 `docs/metrics-db-setup.md`。
+默认使用 SQLite（`data/metrics.db`，自动创建）。切换 MySQL/PostgreSQL 见 `../deployments/metrics-db-setup.md`。
 
 ## 停止服务
 

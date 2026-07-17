@@ -1,4 +1,4 @@
-# KF - 多产品线智能客服系统
+﻿# KF - 多产品线智能客服系统
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-teal.svg)](https://fastapi.tiangolo.com/)
@@ -61,16 +61,16 @@ uvicorn src.api.main:app --port 9000
 | 文档 | 说明 |
 |------|------|
 | [架构设计](docs/architecture_CN.md) | 系统架构、模块关系、目录结构 |
-| [API 参考](docs/api-reference_CN.md) | 完整 HTTP API 文档 |
-| [工作流指南](docs/workflow_CN.md) | 工作流设计、节点配置、路由规则 |
-| [会话管理](docs/session_CN.md) | 多轮对话、存储后端、历史压缩 |
-| [指标系统](docs/metrics_CN.md) | 执行追踪、Prometheus、仪表盘 |
-| [工具参考](docs/tools-reference_CN.md) | 10 种内置工具详解 + CLI 工具 |
-| [数据库](docs/database_CN.md) | 连接池配置、Schema 规范、迁移 |
-| [测试](docs/testing_CN.md) | 测试结构、运行方法、覆盖要求 |
-| [本地开发](docs/local-setup_CN.md) | 环境搭建、Docker、配置说明 |
-| [部署指南](docs/deployment_CN.md) | K8s 部署 (ACK + AWS EKS) |
-| [手动测试](docs/manual-test_CN.md) | 功能验证测试计划 |
+| [API 参考](docs/reference/api-reference_CN.md) | 完整 HTTP API 文档 |
+| [工作流指南](docs/design/workflow_CN.md) | 工作流设计、节点配置、路由规则 |
+| [会话管理](docs/design/session_CN.md) | 多轮对话、存储后端、历史压缩 |
+| [指标系统](docs/design/metrics_CN.md) | 执行追踪、Prometheus、仪表盘 |
+| [工具参考](docs/reference/tools-reference_CN.md) | 10 种内置工具详解 + CLI 工具 |
+| [数据库](docs/database/database_CN.md) | 连接池配置、Schema 规范、迁移 |
+| [测试](docs/test/testing_CN.md) | 测试结构、运行方法、覆盖要求 |
+| [本地开发](docs/deployments/local-setup_CN.md) | 环境搭建、Docker、配置说明 |
+| [部署指南](docs/deployments/deployment_CN.md) | K8s 部署 (ACK + AWS EKS) |
+| [手动测试](docs/test/manual-test_CN.md) | 功能验证测试计划 |
 
 ## 技术栈
 

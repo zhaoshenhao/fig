@@ -1,4 +1,4 @@
-# AWS EKS K8s Manifests
+﻿# AWS EKS K8s Manifests
 
 > 这些清单与 `k8s/` 目录的差异点：
 > - 镜像仓库：ECR 替代 ACR
@@ -36,4 +36,4 @@ cat k8s-aws/ingress.yaml | sed "s|<DOMAIN>|${DOMAIN}|g" | kubectl apply -f -
 
 ## 参考
 
-完整部署步骤见 `docs/deployment_CN.md` 场景 D。
+完整部署步骤见 `docs/deployments/deployment_CN.md` 场景 D。

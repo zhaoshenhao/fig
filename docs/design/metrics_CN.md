@@ -1,4 +1,4 @@
-# Metrics 执行追踪存储
+﻿# Metrics 执行追踪存储
 
 [English](metrics_EN.md)
 
@@ -46,7 +46,7 @@ retention_days: 0                      # 0 = 不限制
 | `KF_METRICS_DB_PATH` | SQLite 文件路径 | `data/metrics.db` |
 | `KF_METRICS_POOL` | MySQL/PG 连接池名 | `metrics` |
 
-> 切换引擎不会自动迁移历史数据；如需保留，请使用迁移脚本（见 `docs/metrics-db-setup.md` 末尾示例）。
+> 切换引擎不会自动迁移历史数据；如需保留，请使用迁移脚本（见 `../deployments/metrics-db-setup.md` 末尾示例）。
 
 **SQL 方言差异**（由 `src/metrics/dialect.py` 自动处理）：
 
@@ -355,7 +355,7 @@ curl http://localhost:9000/api/v1/sessions/chat_abc123/turns/0/nodes/retrieve
 # 环境变量可覆盖：KF_METRICS_ENGINE / KF_METRICS_DB_PATH / KF_METRICS_POOL
 #
 # 切换到 mysql / postgresql 前，请先在 config/db.yaml 中配置对应的连接池，
-# 并参考 docs/metrics-db-setup.md 建库建表。
+# 并参考 ../deployments/metrics-db-setup.md 建库建表。
 
 engine: ${KF_METRICS_ENGINE:-sqlite}
 
