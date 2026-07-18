@@ -35,12 +35,14 @@ spec:
               value: "/app/config"
             - name: KF_METRICS_ENGINE
               value: "mysql"
+            - name: OSS_PATH_PREFIX
+              valueFrom:
+                secretKeyRef:
+                  name: kf-secrets
+                  key: OSS_PATH_PREFIX
           envFrom:
             - secretRef:
                 name: kf-secrets
-          volumeMounts:
-            - name: workflows
-              mountPath: /app/config/workflows
           resources:
             requests:
               cpu: "500m"
@@ -60,7 +62,3 @@ spec:
               port: 8000
             initialDelaySeconds: 5
             periodSeconds: 5
-      volumes:
-        - name: workflows
-          persistentVolumeClaim:
-            claimName: workflow-config

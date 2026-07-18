@@ -25,6 +25,7 @@ prod = [
     "redis>=5.0",
     "hiredis>=3.0",
     "openpyxl>=3.1",
+    "oss2>=2.18",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -4,12 +4,9 @@ metadata:
   name: kf-ingress
   namespace: <NAMESPACE>
   annotations:
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
-    alb.ingress.kubernetes.io/healthcheck-enabled: "true"
-    alb.ingress.kubernetes.io/healthcheck-path: "/health"
-    alb.ingress.kubernetes.io/healthcheck-protocol: "HTTP"
+    konghq.com/strip-path: "true"
 spec:
-  ingressClassName: alb
+  ingressClassName: kong-ext
   rules:
     - host: <DOMAIN>
       http:

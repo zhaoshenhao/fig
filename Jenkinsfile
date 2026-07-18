@@ -10,7 +10,7 @@
         extendedChoice(
             name: 'SERVICES',
             type: 'CHECKBOX',
-            value: 'chat-api,admin-api,web-gui,embed,qdrant',
+            value: 'chat-api,admin-api,embed,qdrant,web-gui',
             description: '选择需要部署的服务'
         )
         string(
@@ -23,19 +23,17 @@
             defaultValue: true,
             description: '若镜像已存在是否重新 Build。生产环境建议关闭，直接复用测试环境已验证的镜像'
         )
-        string(
-            name: 'DOMAIN',
-            defaultValue: '<DOMAIN>',
-            description: 'Ingress 域名（如 kf-test.example.com）'
-        )
     }
 
     environment {
         NAMESPACE = "${params.ENV == 'test' ? 'mb-test' : 'mb-pr'}"
         ACR = 'registry.cn-hangzhou.aliyuncs.com/kf'
+        DOMAIN = 'kf.dev.youbanban.com'
         OSS_ENDPOINT = 'oss-cn-hangzhou.aliyuncs.com'
-        OSS_CONFIG_BUCKET = "kf-config-${params.ENV}"
-        OSS_UI_BUCKET = "kf-ui-${params.ENV}"
+        OSS_WORKFLOW_BUCKET = 'kf-workflow'
+        OSS_UI_BUCKET = 'kf-ui'
+        OSS_PATH_PREFIX = "${params.ENV == 'test' ? 'mb-test' : 'mb-pr'}"
+        QDRANT_STORAGE_SIZE = '2Gi'
     }
 
     stages {
@@ -51,6 +49,13 @@
                     steps {
                         script {
                             env.API_IMAGE_TAG = resolveImageTag('kf-api')
+                            withCredentials([usernamePassword(
+                                credentialsId: 'ali_dockerhub',
+                                usernameVariable: 'ACR_USER',
+                                passwordVariable: 'ACR_PASS'
+                            )]) {
+                                sh "echo \${ACR_PASS} | docker login registry.cn-hangzhou.aliyuncs.com -u \${ACR_USER} --password-stdin"
+                            }
                             sh "docker build -t ${ACR}/kf-api:${env.API_IMAGE_TAG} -f Dockerfile ."
                             sh "docker push ${ACR}/kf-api:${env.API_IMAGE_TAG}"
                         }
@@ -65,6 +70,13 @@
                     steps {
                         script {
                             env.EMBED_IMAGE_TAG = resolveImageTag('kf-embed')
+                            withCredentials([usernamePassword(
+                                credentialsId: 'ali_dockerhub',
+                                usernameVariable: 'ACR_USER',
+                                passwordVariable: 'ACR_PASS'
+                            )]) {
+                                sh "echo \${ACR_PASS} | docker login registry.cn-hangzhou.aliyuncs.com -u \${ACR_USER} --password-stdin"
+                            }
                             sh "docker build -t ${ACR}/kf-embed:${env.EMBED_IMAGE_TAG} -f Dockerfile.embed ."
                             sh "docker push ${ACR}/kf-embed:${env.EMBED_IMAGE_TAG}"
                         }
@@ -75,9 +87,7 @@
 
         stage('Resolve Image Tags') {
             when {
-                expression {
-                    !params.REBUILD_IMAGES
-                }
+                expression { !params.REBUILD_IMAGES }
             }
             steps {
                 script {
@@ -86,7 +96,6 @@
                     env.EMBED_IMAGE_TAG = apiTag
 
                     def apiImage = "${ACR}/kf-api:${apiTag}"
-
                     def apiCheck = sh(
                         script: "docker manifest inspect ${apiImage} > /dev/null 2>&1",
                         returnStatus: true
@@ -118,7 +127,7 @@
             steps {
                 dir('src/gui/ui') {
                     sh 'npm ci && npm run build'
-                    sh "ossutil cp -r dist/ oss://${OSS_UI_BUCKET}/ --update"
+                    sh "ossutil cp -r dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update"
                 }
             }
         }
@@ -126,32 +135,36 @@
         stage('Deploy Secrets to K8s') {
             steps {
                 script {
+                    def kfApiKey = sh(script: 'uuidgen', returnStdout: true).trim()
+                    def embedApiKey = sh(script: 'uuidgen', returnStdout: true).trim()
+
                     withCredentials([
-                        string(credentialsId: 'kf-deepseek-api-key',   variable: 'DEEPSEEK_API_KEY'),
-                        string(credentialsId: 'kf-api-key',            variable: 'KF_API_KEY'),
-                        string(credentialsId: 'kf-embed-api-key',      variable: 'EMBED_API_KEY'),
-                        string(credentialsId: 'kf-redis-url',          variable: 'REDIS_URL'),
-                        string(credentialsId: 'kf-mysql-host',         variable: 'MYSQL_HOST'),
-                        string(credentialsId: 'kf-mysql-user',         variable: 'MYSQL_USER'),
-                        string(credentialsId: 'kf-mysql-password',     variable: 'MYSQL_PASSWORD'),
-                        string(credentialsId: 'kf-pg-host',            variable: 'PG_HOST'),
-                        string(credentialsId: 'kf-pg-user',            variable: 'PG_USER'),
-                        string(credentialsId: 'kf-pg-password',        variable: 'PG_PASSWORD'),
-                        string(credentialsId: 'kf-oss-access-key-id',  variable: 'OSS_ACCESS_KEY_ID'),
-                        string(credentialsId: 'kf-oss-access-key-secret', variable: 'OSS_ACCESS_KEY_SECRET'),
+                        string(credentialsId: 'kf-deepseek-api-key', variable: 'DEEPSEEK_API_KEY'),
+                        string(credentialsId: 'kf-oss-ak',            variable: 'OSS_ACCESS_KEY_ID'),
+                        string(credentialsId: 'kf-oss-sk',            variable: 'OSS_ACCESS_KEY_SECRET'),
                     ]) {
                         sh """
                             export NAMESPACE=${NAMESPACE}
+                            export KF_API_KEY=${kfApiKey}
+                            export EMBED_API_KEY=${embedApiKey}
+                            export REDIS_URL=redis://<PLACEHOLDER_REDIS_HOST>:6379/0
+                            export MYSQL_HOST=<PLACEHOLDER_MYSQL_HOST>
                             export MYSQL_PORT=3306
+                            export MYSQL_USER=kf_app
+                            export MYSQL_PASSWORD=<PLACEHOLDER_MYSQL_PASSWORD_OLD>
                             export MYSQL_DB=kf_metrics
+                            export KF_METRICS_DB_HOST=<PLACEHOLDER_MYSQL_HOST>
+                            export KF_METRICS_DB_PORT=3306
+                            export KF_METRICS_DB_USER=kf_app
+                            export KF_METRICS_DB_PASSWORD=<PLACEHOLDER_MYSQL_PASSWORD_OLD>
+                            export KF_METRICS_DB_NAME=kf_metrics
+                            export PG_HOST=placeholder
                             export PG_PORT=5432
+                            export PG_USER=placeholder
+                            export PG_PASSWORD=placeholder
                             export PG_DB=kf_analytics
-                            export KF_METRICS_DB_HOST=\${MYSQL_HOST}
-                            export KF_METRICS_DB_PORT=\${MYSQL_PORT}
-                            export KF_METRICS_DB_USER=\${MYSQL_USER}
-                            export KF_METRICS_DB_PASSWORD=\${MYSQL_PASSWORD}
-                            export KF_METRICS_DB_NAME=\${MYSQL_DB}
-                            export OSS_ENDPOINT=oss-cn-hangzhou.aliyuncs.com
+                            export OSS_ENDPOINT=${OSS_ENDPOINT}
+                            export OSS_PATH_PREFIX=${OSS_PATH_PREFIX}
                             bash deployment/scripts/create-k8s-secrets.sh
                         """
                     }
@@ -165,44 +178,35 @@
                     when {
                         expression { params.SERVICES.split(',').contains('chat-api') }
                     }
-                    steps {
-                        deployService('deployment/k8s-aliyun/chat-api', 'chat-api')
-                    }
+                    steps { deployService('deployment/k8s-aliyun/chat-api', 'chat-api') }
                 }
                 stage('admin-api') {
                     when {
                         expression { params.SERVICES.split(',').contains('admin-api') }
                     }
-                    steps {
-                        deployService('deployment/k8s-aliyun/admin-api', 'admin-api')
-                    }
+                    steps { deployService('deployment/k8s-aliyun/admin-api', 'admin-api') }
                 }
                 stage('embed') {
                     when {
                         expression { params.SERVICES.split(',').contains('embed') }
                     }
-                    steps {
-                        deployService('deployment/k8s-aliyun/embed', 'embed')
-                    }
+                    steps { deployService('deployment/k8s-aliyun/embed', 'embed') }
                 }
                 stage('qdrant') {
                     when {
                         expression { params.SERVICES.split(',').contains('qdrant') }
                     }
-                    steps {
-                        deployService('deployment/k8s-aliyun/qdrant', 'qdrant')
-                    }
+                    steps { deployService('deployment/k8s-aliyun/qdrant', 'qdrant') }
                 }
                 stage('global') {
                     steps {
                         script {
                             def globalFiles = [
                                 'deployment/k8s-aliyun/namespace.yaml',
-                                'deployment/k8s-aliyun/oss-pvc.yaml',
                                 'deployment/k8s-aliyun/ingress.yaml',
                             ]
                             for (f in globalFiles) {
-                                sh "cat ${f} | sed 's/<NAMESPACE>/${NAMESPACE}/g; s/<DOMAIN>/${params.DOMAIN}/g' | kubectl apply -f -"
+                                sh "cat ${f} | sed 's/<NAMESPACE>/${NAMESPACE}/g; s/<DOMAIN>/${DOMAIN}/g' | kubectl apply -f -"
                             }
                         }
                     }
@@ -244,8 +248,8 @@
 }
 
 def resolveImageTag(String imageName) {
-    def tag = params.IMAGE_TAG ?: "${env.BUILD_NUMBER}-${env.GIT_BRANCH ?: 'main'}"
-    def full = "${params.ACR ?: ACR}/${imageName}:${tag}"
+    def tag = params.IMAGE_TAG ?: "${env.BUILD_NUMBER}"
+    def full = "${ACR}/${imageName}:${tag}"
     def check = sh(script: "docker manifest inspect ${full} > /dev/null 2>&1", returnStatus: true)
     if (check == 0 && !params.REBUILD_IMAGES) {
         echo "镜像已存在，跳过构建: ${full}"
@@ -261,6 +265,7 @@ def deployService(String dir, String serviceName) {
                 -e 's/<ACR_REGISTRY>/${ACR}/g' \
                 -e 's/<API_IMAGE_TAG>/${API_IMAGE_TAG}/g' \
                 -e 's/<EMBED_IMAGE_TAG>/${EMBED_IMAGE_TAG}/g' \
+                -e 's/<QDRANT_STORAGE_SIZE>/${QDRANT_STORAGE_SIZE}/g' \
                 \$f | kubectl apply -f -
         done
     """

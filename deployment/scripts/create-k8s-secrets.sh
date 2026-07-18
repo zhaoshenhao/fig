@@ -6,17 +6,17 @@
 #   方式 1 — 从环境变量读取（Jenkins / CI 推荐）
 #     export NAMESPACE=mb-test
 #     export DEEPSEEK_API_KEY=sk-xxx
-#     /// (设置其他变量)
-#     //scripts/create-k8s-secrets/sh
+#     ... (设置其他变量)
+#     ./deployment/scripts/create-k8s-secrets.sh
 #
-#   方式 2 — 从 /env 文件读取（本地开发推荐）
-#     NAMESPACE=mb-test //scripts/create-k8s-secrets/sh /env/test
+#   方式 2 — 从 .env 文件读取（本地开发推荐）
+#     NAMESPACE=mb-test ./deployment/scripts/create-k8s-secrets.sh .env.test
 #
 #   方式 3 — 仅查看当前 Secret 内容（不修改）
-#     NAMESPACE=mb-test //scripts/create-k8s-secrets/sh --show
+#     NAMESPACE=mb-test ./deployment/scripts/create-k8s-secrets.sh --show
 #
-#   方式 4 — 从 /env 文件读取并创建
-#     NAMESPACE=mb-test ENV_FILE=/env/test //scripts/create-k8s-secrets/sh
+#   方式 4 — 从 .env 文件读取并创建
+#     NAMESPACE=mb-test ENV_FILE=.env.test ./deployment/scripts/create-k8s-secrets.sh
 #
 # 前置条件:
 #   - kubectl 已配置到目标集群
@@ -30,10 +30,10 @@ ENV_FILE="${ENV_FILE:-${1:-}}"
 
 # ---- 帮助 ----
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-    echo "用法: NAMESPACE=<ns> [ENV_FILE=<file>] //scripts/create-k8s-secrets/sh [--show]"
+    echo "用法: NAMESPACE=<ns> [ENV_FILE=<file>] ./deployment/scripts/create-k8s-secrets.sh [--show]"
     echo ""
     echo "  NAMESPACE       目标 K8s 命名空间 (mb-test / mb-pr)"
-    echo "  ENV_FILE         /env 文件路径（可选，缺省从环境变量读取）"
+    echo "  ENV_FILE         .env 文件路径（可选，缺省从环境变量读取）"
     echo "  --show           仅显示当前 Secret 内容"
     echo "  -h, --help       显示帮助"
     exit 0
@@ -73,7 +73,7 @@ for var in DEEPSEEK_API_KEY KF_API_KEY EMBED_API_KEY \
            KF_METRICS_DB_HOST KF_METRICS_DB_PORT KF_METRICS_DB_USER \
            KF_METRICS_DB_PASSWORD KF_METRICS_DB_NAME \
            PG_HOST PG_PORT PG_USER PG_PASSWORD PG_DB \
-           OSS_ACCESS_KEY_ID OSS_ACCESS_KEY_SECRET; do
+           OSS_ACCESS_KEY_ID OSS_ACCESS_KEY_SECRET OSS_PATH_PREFIX; do
     if [[ -z "${!var:-}" ]]; then
         MISSING+=("$var")
     fi
@@ -88,13 +88,14 @@ if [[ ${#MISSING[@]} -gt 0 ]]; then
 fi
 
 # ---- 默认值 ----
-OSS_ENDPOINT="${OSS_ENDPOINT:-oss-cn-hangzhou/aliyuncs/com}"
+OSS_ENDPOINT="${OSS_ENDPOINT:-oss-cn-hangzhou.aliyuncs.com}"
+OSS_PATH_PREFIX="${OSS_PATH_PREFIX:-mb-test}"
 KF_METRICS_DB_TYPE="${KF_METRICS_DB_TYPE:-mysql}"
 MYSQL_PORT="${MYSQL_PORT:-3306}"
 PG_PORT="${PG_PORT:-5432}"
 
 # ---- 构建 Secret ----
-echo "创建/更新 Secret kf-secrets (namespace=$NAMESPACE) ///"
+echo "创建/更新 Secret kf-secrets (namespace=$NAMESPACE) ..."
 
 kubectl create secret generic kf-secrets \
     --namespace="$NAMESPACE" \
@@ -122,6 +123,7 @@ kubectl create secret generic kf-secrets \
     --from-literal=OSS_ACCESS_KEY_ID="$OSS_ACCESS_KEY_ID" \
     --from-literal=OSS_ACCESS_KEY_SECRET="$OSS_ACCESS_KEY_SECRET" \
     --from-literal=OSS_ENDPOINT="$OSS_ENDPOINT" \
+    --from-literal=OSS_PATH_PREFIX="$OSS_PATH_PREFIX" \
 | kubectl apply -f -
 
 echo "完成: Secret kf-secrets 已更新 (namespace=$NAMESPACE)"
@@ -129,9 +131,9 @@ echo "完成: Secret kf-secrets 已更新 (namespace=$NAMESPACE)"
 # ---- 校验 ----
 echo ""
 echo "验证:"
-kubectl get secret kf-secrets -n "$NAMESPACE" -o jsonpath='{/data}' | python3 -c "
+kubectl get secret kf-secrets -n "$NAMESPACE" -o jsonpath='{.data}' | python3 -c "
 import json, sys
-data = json/load(sys/stdin)
+data = json.load(sys.stdin)
 for k in sorted(data):
     v = data[k]
     masked = v[:4] + '***' if len(v) > 6 else '***'

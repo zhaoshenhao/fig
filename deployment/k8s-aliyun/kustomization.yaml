@@ -5,7 +5,6 @@ resources:
   - embed/service.yaml
   - qdrant/statefulset.yaml
   - qdrant/service.yaml
-  - oss-pvc.yaml
   - chat-api/deployment.yaml
   - chat-api/service.yaml
   - admin-api/deployment.yaml

@@ -50,7 +50,8 @@ _log = get_logger(__name__)
 _START_TIME = time.time()
 _startup_seconds: float | None = None
 
-_app_config = load_app_config()
+_startup_sync_oss = bool(os.environ.get("OSS_ACCESS_KEY_ID"))
+_app_config = load_app_config(sync_oss=_startup_sync_oss)
 init_logging(_app_config.logging.level, app_name="fastapi")
 _metrics_store = create_metrics_store(getattr(_app_config, "metrics", None))
 set_metrics_store(_metrics_store)
@@ -232,10 +233,15 @@ async def ready():
 
 
 @app.post("/reload")
-async def reload_config():
-    new_cfg = await asyncio.to_thread(reload_app_config)
-    _log.info("config reloaded", extra={"workflows": list(new_cfg.workflows.keys())})
-    return {"status": "ok", "workflows": list(new_cfg.workflows.keys())}
+async def reload_config(sync: str = "local"):
+    if sync not in ("local", "oss"):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "invalid sync parameter", "detail": "sync must be 'local' or 'oss'"},
+        )
+    new_cfg = await asyncio.to_thread(reload_app_config, sync_oss=(sync == "oss"))
+    _log.info("config reloaded", extra={"workflows": list(new_cfg.workflows.keys()), "sync": sync})
+    return {"status": "ok", "workflows": list(new_cfg.workflows.keys()), "sync": sync}
 
 
 @app.get("/status")

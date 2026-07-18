@@ -235,19 +235,75 @@ class AppConfig:
 # 公共 API
 # ---------------------------------------------------------------------------
 
-def load_app_config(config_dir: str | Path = "config", env_file: str = ".env") -> AppConfig:
+def _sync_workflows_from_oss(config_dir: Path) -> int:
+    """从 OSS bucket 下载 workflow yaml 到本地 config/workflows/ 目录。
+
+    读取环境变量:
+        OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET: 阿里云 AK/SK（缺一则跳过）
+        OSS_ENDPOINT:       OSS endpoint（默认 oss-cn-hangzhou.aliyuncs.com）
+        OSS_WORKFLOW_BUCKET: OSS bucket 名（默认 kf-workflow）
+        OSS_PATH_PREFIX:     bucket 内路径前缀，如 mb-test / mb-pr
+
+    返回下载的文件数；若未配置 OSS 则返回 -1。
+    """
+    ak = os.environ.get("OSS_ACCESS_KEY_ID")
+    sk = os.environ.get("OSS_ACCESS_KEY_SECRET")
+    if not ak or not sk:
+        return -1
+
+    endpoint = os.environ.get("OSS_ENDPOINT", "oss-cn-hangzhou.aliyuncs.com")
+    bucket_name = os.environ.get("OSS_WORKFLOW_BUCKET", "kf-workflow")
+    env_prefix = os.environ.get("OSS_PATH_PREFIX", "mb-test")
+
+    import oss2
+
+    auth = oss2.Auth(ak, sk)
+    bucket = oss2.Bucket(auth, endpoint, bucket_name)
+
+    prefix = f"{env_prefix}/workflows/"
+    workflows_dir = (config_dir / "workflows").resolve()
+    workflows_dir.mkdir(parents=True, exist_ok=True)
+
+    count = 0
+    for obj in oss2.ObjectIteratorV2(bucket, prefix=prefix):
+        if not obj.key.endswith((".yaml", ".yml")):
+            continue
+        rel = obj.key[len(prefix):]
+        target = (workflows_dir / rel).resolve()
+        if not str(target).startswith(str(workflows_dir)):
+            _log.warning("oss object path escapes workflows dir, skipped",
+                         extra={"key": obj.key, "target": str(target)})
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        bucket.get_object_to_file(obj.key, str(target))
+        count += 1
+
+    _log.info("synced workflows from oss",
+              extra={"count": count, "bucket": bucket_name, "prefix": prefix})
+    return count
+
+
+def load_app_config(
+    config_dir: str | Path = "config",
+    env_file: str = ".env",
+    sync_oss: bool = False,
+) -> AppConfig:
     """加载完整应用配置（应用启动时调用一次）。
 
     加载顺序:
         1. 初始化环境变量 (.env)
-        2. 解析顶层配置文件 (llm / embed / session / db / auth / logging)
-        3. 扫描 config/workflows/ 下各产品线的 workflow.yaml + nodes/*.yaml
-        4. 组装为 AppConfig 实例并缓存为全局单例
+        2. 可选：从 OSS 同步 workflow yaml 到本地（sync_oss=True 时）
+        3. 解析顶层配置文件 (llm / embed / session / db / auth / logging)
+        4. 扫描 config/workflows/ 下各产品线的 workflow.yaml + nodes/*.yaml
+        5. 组装为 AppConfig 实例并缓存为全局单例
     """
     global _APP_CONFIG
 
     config_dir = Path(config_dir)
     _init_env(env_file)  # 先注入 .env 环境变量
+
+    if sync_oss:
+        _sync_workflows_from_oss(config_dir)
 
     # ---- 顶层配置文件 ----
     llm = _load_optional_config(config_dir, "llm")
@@ -336,15 +392,16 @@ def release_config_lock() -> None:
     _CONFIG_LOCK.release()
 
 
-def reload_app_config(config_dir: str | Path = "config") -> AppConfig:
+def reload_app_config(config_dir: str | Path = "config", sync_oss: bool = False) -> AppConfig:
     """热重载配置（不重启进程）。
 
     流程：
       1. 加写锁 → 在旧 config 上设 need_reload=True（阻止新请求）
-      2. 调用 load_app_config 构建新配置
-      3. 原子替换 _APP_CONFIG
-      4. 释放写锁
-      5. 触发 reload 回调
+      2. 可选：从 OSS 同步 workflow yaml 到本地（sync_oss=True 时）
+      3. 调用 load_app_config 构建新配置
+      4. 原子替换 _APP_CONFIG
+      5. 释放写锁
+      6. 触发 reload 回调
 
     安全：加锁期间通过旧 config 的待处理请求仍可读到未过期的配置；
     新请求在 step.1 后返回 503；回调可更新 DAG 引擎等持有旧引用的组件。
@@ -355,6 +412,9 @@ def reload_app_config(config_dir: str | Path = "config") -> AppConfig:
         # 标记旧配置为"重载中"（已有请求不受影响，新请求将见 need_reload=True）
         if _APP_CONFIG is not None:
             _APP_CONFIG.need_reload = True
+
+        if sync_oss:
+            _sync_workflows_from_oss(Path(config_dir))
 
         # 构建全新配置
         new_cfg = load_app_config(config_dir)
