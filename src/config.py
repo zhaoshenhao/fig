@@ -240,9 +240,10 @@ def _sync_workflows_from_oss(config_dir: Path) -> int:
 
     读取环境变量:
         OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET: 阿里云 AK/SK（缺一则跳过）
-        OSS_ENDPOINT:       OSS endpoint（默认 oss-cn-hangzhou.aliyuncs.com）
-        OSS_WORKFLOW_BUCKET: OSS bucket 名（默认 kf-workflow）
-        OSS_PATH_PREFIX:     bucket 内路径前缀，如 mb-test / mb-pr
+        OSS_INT_ENDPOINT:     OSS 内网 endpoint（K8s 集群内使用，优先）
+        OSS_ENDPOINT:         OSS 外网 endpoint（回退，默认 oss-cn-hangzhou.aliyuncs.com）
+        OSS_WORKFLOW_BUCKET:  OSS bucket 名（默认 kf-workflow）
+        OSS_PATH_PREFIX:      bucket 内路径前缀，如 mb-test / mb-pr
 
     返回下载的文件数；若未配置 OSS 则返回 -1。
     """
@@ -251,7 +252,7 @@ def _sync_workflows_from_oss(config_dir: Path) -> int:
     if not ak or not sk:
         return -1
 
-    endpoint = os.environ.get("OSS_ENDPOINT", "oss-cn-hangzhou.aliyuncs.com")
+    endpoint = os.environ.get("OSS_INT_ENDPOINT") or os.environ.get("OSS_ENDPOINT", "oss-cn-hangzhou.aliyuncs.com")
     bucket_name = os.environ.get("OSS_WORKFLOW_BUCKET", "kf-workflow")
     env_prefix = os.environ.get("OSS_PATH_PREFIX", "mb-test")
 

@@ -73,7 +73,7 @@ for var in DEEPSEEK_API_KEY KF_API_KEY EMBED_API_KEY \
            KF_METRICS_DB_HOST KF_METRICS_DB_PORT KF_METRICS_DB_USER \
            KF_METRICS_DB_PASSWORD KF_METRICS_DB_NAME \
            PG_HOST PG_PORT PG_USER PG_PASSWORD PG_DB \
-           OSS_ACCESS_KEY_ID OSS_ACCESS_KEY_SECRET OSS_PATH_PREFIX; do
+            OSS_ACCESS_KEY_ID OSS_ACCESS_KEY_SECRET OSS_ENDPOINT OSS_INT_ENDPOINT OSS_PATH_PREFIX; do
     if [[ -z "${!var:-}" ]]; then
         MISSING+=("$var")
     fi
@@ -88,6 +88,7 @@ if [[ ${#MISSING[@]} -gt 0 ]]; then
 fi
 
 # ---- 默认值 ----
+OSS_INT_ENDPOINT="${OSS_INT_ENDPOINT:-oss-cn-hangzhou-internal.aliyuncs.com}"
 OSS_ENDPOINT="${OSS_ENDPOINT:-oss-cn-hangzhou.aliyuncs.com}"
 OSS_PATH_PREFIX="${OSS_PATH_PREFIX:-mb-test}"
 KF_METRICS_DB_TYPE="${KF_METRICS_DB_TYPE:-mysql}"
@@ -122,6 +123,7 @@ kubectl create secret generic kf-secrets \
     --from-literal=PG_DB="$PG_DB" \
     --from-literal=OSS_ACCESS_KEY_ID="$OSS_ACCESS_KEY_ID" \
     --from-literal=OSS_ACCESS_KEY_SECRET="$OSS_ACCESS_KEY_SECRET" \
+    --from-literal=OSS_INT_ENDPOINT="$OSS_INT_ENDPOINT" \
     --from-literal=OSS_ENDPOINT="$OSS_ENDPOINT" \
     --from-literal=OSS_PATH_PREFIX="$OSS_PATH_PREFIX" \
 | kubectl apply -f -

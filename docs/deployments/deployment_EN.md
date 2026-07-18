@@ -198,6 +198,7 @@ kubectl create secret generic kf-secrets \
   --from-literal=OSS_ACCESS_KEY_ID="LTAI..." \
   --from-literal=OSS_ACCESS_KEY_SECRET="..." \
   --from-literal=OSS_ENDPOINT="oss-cn-hangzhou.aliyuncs.com" \
+  --from-literal=OSS_INT_ENDPOINT="oss-cn-hangzhou-internal.aliyuncs.com" \
   --from-literal=OSS_WORKFLOW_BUCKET="kf-config-${NS}" \
   --from-literal=OSS_UI_BUCKET="kf-ui-${NS}"
 

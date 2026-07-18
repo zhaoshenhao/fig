@@ -30,6 +30,7 @@ pipeline {
         ACR = 'registry.cn-hangzhou.aliyuncs.com/kf'
         DOMAIN = 'kf.dev.youbanban.com'
         OSS_ENDPOINT = 'oss-cn-hangzhou.aliyuncs.com'
+        OSS_INT_ENDPOINT = 'oss-cn-hangzhou-internal.aliyuncs.com'
         OSS_WORKFLOW_BUCKET = 'kf-workflow'
         OSS_UI_BUCKET = 'kf-ui'
         OSS_PATH_PREFIX = "${params.ENV == 'test' ? 'mb-test' : 'mb-pr'}"
