@@ -132,46 +132,6 @@ pipeline {
             }
         }
 
-        stage('Deploy Secrets to K8s') {
-            steps {
-                script {
-                    def kfApiKey = sh(script: 'uuidgen', returnStdout: true).trim()
-                    def embedApiKey = sh(script: 'uuidgen', returnStdout: true).trim()
-
-                    withCredentials([
-                        string(credentialsId: 'kf-deepseek-api-key', variable: 'DEEPSEEK_API_KEY'),
-                        string(credentialsId: 'kf-oss-ak',            variable: 'OSS_ACCESS_KEY_ID'),
-                        string(credentialsId: 'kf-oss-sk',            variable: 'OSS_ACCESS_KEY_SECRET'),
-                    ]) {
-                        sh """
-                            export NAMESPACE=${NAMESPACE}
-                            export KF_API_KEY=${kfApiKey}
-                            export EMBED_API_KEY=${embedApiKey}
-                            export REDIS_URL=redis://:<PLACEHOLDER_REDIS_PASSWORD>@<PLACEHOLDER_REDIS_HOST>:6379/0
-                            export MYSQL_HOST=<PLACEHOLDER_MYSQL_HOST>
-                            export MYSQL_PORT=3306
-                            export MYSQL_USER=kf_app
-                            export MYSQL_PASSWORD=<PLACEHOLDER_MYSQL_PASSWORD>
-                            export MYSQL_DB=kf_metrics
-                            export KF_METRICS_DB_HOST=<PLACEHOLDER_MYSQL_HOST>
-                            export KF_METRICS_DB_PORT=3306
-                            export KF_METRICS_DB_USER=kf_app
-                            export KF_METRICS_DB_PASSWORD=<PLACEHOLDER_MYSQL_PASSWORD>
-                            export KF_METRICS_DB_NAME=kf_metrics
-                            export PG_HOST=placeholder
-                            export PG_PORT=5432
-                            export PG_USER=placeholder
-                            export PG_PASSWORD=placeholder
-                            export PG_DB=kf_analytics
-                            export OSS_ENDPOINT=${OSS_ENDPOINT}
-                            export OSS_PATH_PREFIX=${OSS_PATH_PREFIX}
-                            bash deployment/scripts/create-k8s-secrets.sh
-                        """
-                    }
-                }
-            }
-        }
-
         stage('Deploy to K8s') {
             parallel {
                 stage('chat-api') {
