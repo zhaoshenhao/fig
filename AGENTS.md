@@ -1,5 +1,25 @@
 ﻿# AGENTS.md — 项目决策记录
 
+## 🚨 最高优先级安全规则（必须始终遵守）
+
+**禁止在任何提交到源代码仓库的文件中包含敏感信息。** 包括但不限于：
+- 密码、passwords、passwd
+- AccessKey、SecretKey、AK/SK、Access Key ID/Secret
+- API Key、Token、Bearer Token
+- 连接字符串中的用户名和密码（如 `mysql://user:pass@host`）
+- 数据库账号密码、Redis 密码
+- 任何形式的私钥、证书
+
+**所有敏感信息只能通过以下方式注入：**
+- 环境变量（`.env` 文件已在 `.gitignore` 中排除）
+- Kubernetes Secret（模板文件中使用占位符 `<PLACEHOLDER>`，真实值不提交）
+- CI/CD 凭据管理系统（如 Jenkins Credentials）
+- `Jenkinsfile` 中必须使用 `withCredentials` 引用凭据 ID，**严禁**直接在文件中写密码
+
+**后果：一旦推送到 GitHub/Gitea，即视为凭证泄露，必须立即轮换。**
+
+---
+
 ## 项目概述
 多产品线智能客服（智能客服）系统。Python >=3.12，FastAPI + Vue SPA + Qdrant。
 
