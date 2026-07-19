@@ -123,27 +123,22 @@ docker compose down
 ```
                       阿里云 ALB Ingress
                      ┌────────────────────────────────────┐
-                     │  /api/v1/workflows/*/run → chat-api │
-                     │  /metrics/*              → admin-api│
+                     │  所有 /api/* 路径        → kf-api  │
                      │  SPA 静态资源            → OSS + CDN│
                      └────────────────────────────────────┘
                                      │
            ┌─────────────────────────┼──────────────────────┐
            │                         │                      │
-     ┌─────▼──────┐          ┌──────▼──────┐       ┌───────▼──────┐
-     │  chat-api   │          │  admin-api  │       │   kf-embed   │
-     │ KF_MODE=chat│          │KF_MODE=admin│       │   :8100      │
-     │   :8000     │          │   :8000     │       └──────────────┘
-     └──────┬──────┘          └──────┬──────┘
-            │                        │
-            │  ┌──────────────┐      │
-            ├──►  Qdrant      │◄─────┘
-            │  gRPC :6334    │
-            │  └──────────────┘
+     ┌─────▼──────┐                                ┌───────▼──────┐
+     │   kf-api    │                                │   kf-embed   │
+     │ KF_MODE=full│                                │   :8100      │
+     │   :8000     │                                └──────────────┘
+     └──────┬──────┘
             │
-            ├──► Redis (外部)     — 会话共享
-            ├──► MySQL RDS (外部)  — metrics 存储
-            ├──► PG RDS (外部)     — 分析查询
+            ├──► Qdrant gRPC :6334     — 向量检索
+            ├──► Redis (外部)           — 会话共享
+            ├──► MySQL RDS (外部)        — metrics 存储
+            ├──► PG RDS (外部)           — 分析查询
             └──► DeepSeek API (外部)
 ```
 
@@ -281,31 +276,22 @@ kubectl wait --for=condition=ready pod -l app=qdrant -n ${NS} --timeout=120s
 kubectl wait --for=condition=ready pod -l app=embed -n ${NS} --timeout=120s
 ```
 
-### C.7 部署应用（chat-api + admin-api）
+### C.7 部署应用（kf-api）
 
 ```bash
 # OSS CSI PVC（工作流 YAML 配置挂载）
 cat deployment/k8s-aliyun/oss-pvc.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
 
-# chat-api Deployment（用户流量，KF_MODE=chat）
-cat deployment/k8s-aliyun/chat-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
-cat deployment/k8s-aliyun/chat-api/deployment.yaml \
-  | sed "s|<NAMESPACE>|${NS}|g" \
-  | sed "s|<ACR_REGISTRY>|${ACR}|g" \
-  | sed "s|<API_IMAGE_TAG>|${API_TAG}|g" \
-  | kubectl apply -f -
-
-# admin-api Deployment（内部管理，KF_MODE=admin）
-cat deployment/k8s-aliyun/admin-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
-cat deployment/k8s-aliyun/admin-api/deployment.yaml \
+# kf-api Deployment（统一承载用户流量 + 内部管理，KF_MODE=full）
+cat deployment/k8s-aliyun/kf-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
+cat deployment/k8s-aliyun/kf-api/deployment.yaml \
   | sed "s|<NAMESPACE>|${NS}|g" \
   | sed "s|<ACR_REGISTRY>|${ACR}|g" \
   | sed "s|<API_IMAGE_TAG>|${API_TAG}|g" \
   | kubectl apply -f -
 
 # 等待就绪
-kubectl wait --for=condition=ready pod -l app=chat-api -n ${NS} --timeout=120s
-kubectl wait --for=condition=ready pod -l app=admin-api -n ${NS} --timeout=120s
+kubectl wait --for=condition=ready pod -l app=kf-api -n ${NS} --timeout=120s
 ```
 
 ### C.8 配置 Ingress（ALB）
@@ -325,7 +311,7 @@ kubectl get ingress -n ${NS} -w
 ```bash
 # ── 1. 检查 Pod 状态 ──
 kubectl get pods -n ${NS}
-# 期望: 5 个 Pod，全部 Running 且 1/1 Ready
+# 期望: 3 个 Pod，全部 Running 且 1/1 Ready
 
 # ── 2. 检查 Service ──
 kubectl get svc -n ${NS}
@@ -369,8 +355,7 @@ kubectl delete secret kf-db-root-secret -n ${NS}
 
 | 组件 | requests | limits | 副本 | 存储 |
 |------|----------|--------|------|------|
-| chat-api | 0.5 CPU / 512Mi | 2 CPU / 2Gi | 1 | — |
-| admin-api | 0.5 CPU / 512Mi | 2 CPU / 2Gi | 1 | — |
+| kf-api | 0.5 CPU / 512Mi | 2 CPU / 2Gi | 1 | — |
 | kf-embed | 0.2 CPU / 256Mi | 0.5 CPU / 512Mi | 1 | — |
 | Qdrant | 1 CPU / 2Gi | 2 CPU / 4Gi | 1 | ESSD 20Gi |
 
@@ -569,7 +554,7 @@ AWS 部署清单与 ACK 的区别在于：
 - 无 `OSS_*` 环境变量，改为 `AWS_REGION`
 - ServiceAccount 为 `kf-s3-access`
 
-使用以下模板创建 `deployment/k8s-aws/` 目录下的清单（完整内容见附录），或直接参考 `deployment/k8s-aliyun/chat-api/deployment.yaml` 修改上述差异点后部署：
+使用以下模板创建 `deployment/k8s-aws/` 目录下的清单（完整内容见附录），或直接参考 `deployment/k8s-aliyun/kf-api/deployment.yaml` 修改上述差异点后部署：
 
 ```bash
 # Qdrant StatefulSet（使用 gp3 StorageClass）
@@ -583,7 +568,7 @@ kubectl apply -f deployment/k8s-aliyun/qdrant/service.yaml
 kubectl apply -f deployment/k8s-aliyun/embed/service.yaml
 # 需修改 deployment.yaml 中镜像为 ECR 地址
 
-# chat-api + admin-api
+# kf-api
 # 需修改 deployment.yaml 中镜像为 ECR 地址，新增 serviceAccountName: kf-s3-access
 
 # Config PVC (EFS)
@@ -607,43 +592,14 @@ spec:
     - host: ${DOMAIN}
       http:
         paths:
-          - path: /api/v1/workflows
+          - path: /
             pathType: Prefix
             backend:
-              service: { name: chat-api, port: { number: 8000 } }
-          - path: /api/v1/sessions
-            pathType: Prefix
-            backend:
-              service: { name: chat-api, port: { number: 8000 } }
-          - path: /export
-            pathType: Prefix
-            backend:
-              service: { name: chat-api, port: { number: 8000 } }
-          - path: /health
-            pathType: Exact
-            backend:
-              service: { name: chat-api, port: { number: 8000 } }
-          - path: /metrics
-            pathType: Prefix
-            backend:
-              service: { name: admin-api, port: { number: 8000 } }
-          - path: /collections
-            pathType: Prefix
-            backend:
-              service: { name: admin-api, port: { number: 8000 } }
-          - path: /documents
-            pathType: Prefix
-            backend:
-              service: { name: admin-api, port: { number: 8000 } }
-          - path: /status
-            pathType: Exact
-            backend:
-              service: { name: admin-api, port: { number: 8000 } }
+              service: { name: kf-api, port: { number: 8000 } }
 EOF
 
 # 等待就绪
-kubectl wait --for=condition=ready pod -l app=chat-api -n ${NS} --timeout=120s
-kubectl wait --for=condition=ready pod -l app=admin-api -n ${NS} --timeout=120s
+kubectl wait --for=condition=ready pod -l app=kf-api -n ${NS} --timeout=120s
 kubectl wait --for=condition=ready pod -l app=embed -n ${NS} --timeout=120s
 kubectl wait --for=condition=ready pod -l app=qdrant -n ${NS} --timeout=120s
 ```
@@ -678,8 +634,7 @@ aws cloudfront create-invalidation --distribution-id <DISTRIBUTION_ID> --paths "
 
 | 组件 | requests | limits | 副本 | 存储 |
 |------|----------|--------|------|------|
-| chat-api | 0.5 CPU / 512Mi | 2 CPU / 2Gi | 1 | — |
-| admin-api | 0.5 CPU / 512Mi | 2 CPU / 2Gi | 1 | — |
+| kf-api | 0.5 CPU / 512Mi | 2 CPU / 2Gi | 1 | — |
 | kf-embed | 0.2 CPU / 256Mi | 0.5 CPU / 512Mi | 1 | — |
 | Qdrant | 1 CPU / 2Gi | 2 CPU / 4Gi | 1 | gp3 EBS 20Gi |
 
@@ -722,7 +677,7 @@ kubectl create secret kf-secrets  ← 手工 / Jenkins withCredentials
 Secret "kf-secrets" (Opaque)
     │ 包含 22 个 key-value
     │
-    ├── envFrom.secretRef → chat-api / admin-api Pod
+    ├── envFrom.secretRef → kf-api Pod
     │    注入全部 key 作为环境变量
     │
     └── valueFrom.secretKeyRef → kf-embed Pod
@@ -757,10 +712,8 @@ Pod 环境变量
 | `deployment/k8s-aliyun/namespace.yaml` | 命名空间 | Namespace |
 | `deployment/k8s-aliyun/secret.yaml` | **模板**（非运行文件） | Secret |
 | `deployment/k8s-aliyun/init-db-job.yaml` | 数据库初始化 | Job |
-| `deployment/k8s-aliyun/chat-api/deployment.yaml` | chat-api 部署 | Deployment |
-| `deployment/k8s-aliyun/chat-api/service.yaml` | chat-api 服务 | Service |
-| `deployment/k8s-aliyun/admin-api/deployment.yaml` | admin-api 部署 | Deployment |
-| `deployment/k8s-aliyun/admin-api/service.yaml` | admin-api 服务 | Service |
+| `deployment/k8s-aliyun/kf-api/deployment.yaml` | kf-api 部署 | Deployment |
+| `deployment/k8s-aliyun/kf-api/service.yaml` | kf-api 服务 | Service |
 | `deployment/k8s-aliyun/embed/deployment.yaml` | embed 向量化微服务 | Deployment |
 | `deployment/k8s-aliyun/embed/service.yaml` | embed 服务 | Service |
 | `deployment/k8s-aliyun/qdrant/statefulset.yaml` | Qdrant 向量数据库 | StatefulSet |

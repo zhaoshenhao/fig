@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: chat-api
+  name: kf-api
   namespace: <NAMESPACE>
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: chat-api
+      app: kf-api
   template:
     metadata:
       labels:
-        app: chat-api
+        app: kf-api
     spec:
       containers:
-        - name: chat-api
+        - name: kf-api
           image: <ACR_REGISTRY>/kf-api:<API_IMAGE_TAG>
           ports:
             - containerPort: 8000
           env:
             - name: KF_MODE
-              value: "chat"
+              value: "full"
             - name: QDRANT_HOST
               value: "qdrant.<NAMESPACE>.svc.cluster.local"
             - name: QDRANT_PORT

@@ -7,8 +7,7 @@ pipeline {
             choices: ['test', 'production'],
             description: '部署环境 (mb-test / mb-pr)'
         )
-        string(name: 'CHAT_API_TAG', defaultValue: 'latest', description: 'chat-api 镜像标签（空/-/0 跳过）')
-        string(name: 'ADMIN_API_TAG', defaultValue: 'latest', description: 'admin-api 镜像标签（空/-/0 跳过）')
+        string(name: 'API_TAG', defaultValue: 'latest', description: 'kf-api 镜像标签（空/-/0 跳过）')
         string(name: 'EMBED_TAG', defaultValue: 'latest', description: 'embed 镜像标签（空/-/0 跳过）')
         string(name: 'QDRANT_TAG', defaultValue: 'latest', description: 'qdrant 镜像标签（空/-/0 跳过）')
         string(name: 'WORKFLOW_TAG', defaultValue: 'latest', description: 'workflow OSS 同步（空/-/0 跳过；latest=HEAD；其他=Tag）')
@@ -54,18 +53,14 @@ pipeline {
         stage('Validate Tags') {
             steps {
                 script {
-                    def deploying = false
-                    for (t in [params.CHAT_API_TAG, params.ADMIN_API_TAG, params.EMBED_TAG, params.QDRANT_TAG]) {
-                        if (!isSkipped(t)) { deploying = true; break }
-                    }
+                    def deploying = !isSkipped(params.API_TAG) || !isSkipped(params.EMBED_TAG) || !isSkipped(params.QDRANT_TAG)
                     if (!deploying && isSkipped(params.WORKFLOW_TAG) && isSkipped(params.WEBUI_TAG)) {
                         error("至少需要一个有效的部署目标（所有 TAG 为空）")
                     }
-                    if (!isSkipped(params.CHAT_API_TAG) || !isSkipped(params.ADMIN_API_TAG) || !isSkipped(params.EMBED_TAG) || !isSkipped(params.QDRANT_TAG)) {
+                    if (!isSkipped(params.API_TAG) || !isSkipped(params.EMBED_TAG) || !isSkipped(params.QDRANT_TAG)) {
                         sh """
                             APPHOME=${TOOLS} . ${TOOLS}/env.sh
-                            docker manifest inspect \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${params.CHAT_API_TAG} > /dev/null 2>&1 || \
-                            docker manifest inspect \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${params.ADMIN_API_TAG} > /dev/null 2>&1 || \
+                            docker manifest inspect \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${params.API_TAG} > /dev/null 2>&1 || \
                             docker manifest inspect \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-embed:${params.EMBED_TAG} > /dev/null 2>&1 || true
                             echo "镜像验证完成"
                         """
@@ -124,13 +119,9 @@ pipeline {
 
         stage('Deploy to K8s') {
             parallel {
-                stage('chat-api') {
-                    when { expression { !isSkipped(params.CHAT_API_TAG) } }
-                    steps { deployService('deployment/k8s-aliyun/chat-api', params.CHAT_API_TAG) }
-                }
-                stage('admin-api') {
-                    when { expression { !isSkipped(params.ADMIN_API_TAG) } }
-                    steps { deployService('deployment/k8s-aliyun/admin-api', params.ADMIN_API_TAG) }
+                stage('kf-api') {
+                    when { expression { !isSkipped(params.API_TAG) } }
+                    steps { deployService('deployment/k8s-aliyun/kf-api', params.API_TAG) }
                 }
                 stage('embed') {
                     when { expression { !isSkipped(params.EMBED_TAG) } }
@@ -157,13 +148,9 @@ pipeline {
 
         stage('Health Check') {
             parallel {
-                stage('chat-api') {
-                    when { expression { !isSkipped(params.CHAT_API_TAG) } }
-                    steps { checkHealth('chat-api') }
-                }
-                stage('admin-api') {
-                    when { expression { !isSkipped(params.ADMIN_API_TAG) } }
-                    steps { checkHealth('admin-api') }
+                stage('kf-api') {
+                    when { expression { !isSkipped(params.API_TAG) } }
+                    steps { checkHealth('kf-api') }
                 }
                 stage('embed') {
                     when { expression { !isSkipped(params.EMBED_TAG) } }

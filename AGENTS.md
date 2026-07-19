@@ -40,11 +40,12 @@
 | pyyaml | 配置文件解析 |
 | python-multipart | 文件上传 |
 
-### API 拆分
-- **chat-api**: 用户流量，`KF_MODE=chat`，暴露 `/api/v1/workflows/*/run`, `/api/v1/sessions/*`
-- **admin-api**: 内部管理，`KF_MODE=admin`，暴露 `/metrics/*`, `/collections/*`, `/documents/*`
-- 同一 Docker 镜像，通过 `KF_MODE` 环境变量选择加载的路由组
-- 共享代码在 `src/api/state.py`（单例 getter/setter），路由在 `src/api/routes_chat.py` / `routes_admin.py` |
+### API 路由
+- 单 Deployment（`KF_MODE=full`），同时承载 chat 和 admin 全部路由
+- chat 路由：`/api/v1/workflows/*/run`, `/api/v1/sessions/*`, `/export/*`
+- admin 路由：`/api/v1/sessions` (管理), `/metrics/*`, `/collections/*`, `/documents/*`
+- Ingress 所有路径均指向 kf-api Service
+- 代码模块：路由在 `src/api/routes_chat.py` / `routes_admin.py`，模式选择在 `main.py`
 
 ### 禁止项
 - 禁止使用 openai/anthropic 等 LLM 供应商 SDK → 统一 httpx2 REST API
@@ -101,9 +102,9 @@
 ### 生产部署
 - ACK 托管版 K8s（阿里云容器服务）
 - 已有现有 ACK 集群
-- ALB Ingress（`/api` 流量 → chat-api/admin-api 双 backend，SPA 走 OSS/CDN）
+- ALB Ingress（`/api` 流量 → kf-api 单 backend，SPA 走 OSS/CDN）
 - 3 个容器镜像：kf-api（FastAPI）、kf-embed（FastEmbed 向量化）、Qdrant
-- kf-api: 2 个 Deployment（chat-api + admin-api），同一镜像，通过 `KF_MODE` 环境变量区分路由组
+- kf-api: 1 个 Deployment（`KF_MODE=full`，统一承载 chat + admin 路由）
 - kf-embed: Deployment 1副本（模型烘焙进镜像，无需 PVC）
 - Qdrant: StatefulSet 1副本 + ESSD 云盘（测试环境无冗余）
 - 外部托管：Redis（会话共享）、MySQL RDS（metrics/主库）、PostgreSQL RDS（分析）、DeepSeek API（LLM）

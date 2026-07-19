@@ -25,10 +25,9 @@ kubectl apply -f deployment/k8s-aws/storageclass.yaml
 kubectl apply -f deployment/k8s-aws/config-pvc.yaml
 
 # 3. 部署服务（参考 k8s/ 目录，替换镜像地址为 ECR）
-#   - deployment/k8s-aliyun/chat-api/deployment.yaml  → image: ${ECR}/kf-api:${API_TAG}, serviceAccountName: kf-s3-access
-#   - deployment/k8s-aliyun/admin-api/deployment.yaml  → image: ${ECR}/kf-api:${API_TAG}, serviceAccountName: kf-s3-access
-#   - deployment/k8s-aliyun/embed/deployment.yaml     → image: ${ECR}/kf-embed:${EMBED_TAG}
-#   - deployment/k8s-aliyun/qdrant/statefulset.yaml   → storageClassName: qdrant-storage
+#   - deployment/k8s-aliyun/kf-api/deployment.yaml     → image: ${ECR}/kf-api:${API_TAG}, serviceAccountName: kf-s3-access
+#   - deployment/k8s-aliyun/embed/deployment.yaml      → image: ${ECR}/kf-embed:${EMBED_TAG}
+#   - deployment/k8s-aliyun/qdrant/statefulset.yaml    → storageClassName: qdrant-storage
 
 # 4. 部署 Ingress
 cat deployment/k8s-aws/ingress.yaml | sed "s|<DOMAIN>|${DOMAIN}|g" | kubectl apply -f -

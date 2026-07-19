@@ -102,30 +102,25 @@ docker compose down
 ### System Architecture
 
 ```
-                      Alibaba ALB Ingress
-                   ┌──────────────────────────────┐
-                   │  /api/v1/workflows/*/run  → chat-api
-                   │  /metrics/*               → admin-api
-                   │  SPA static assets        → OSS + CDN
-                   └──────────────────────────────┘
-                                  │
-        ┌─────────────────────────┼──────────────────────┐
-        │                         │                      │
-  ┌─────▼──────┐          ┌──────▼──────┐       ┌───────▼──────┐
-  │  chat-api   │          │  admin-api  │       │   kf-embed   │
-  │ KF_MODE=chat│          │KF_MODE=admin│       │   :8100      │
-  │   :8000     │          │   :8000     │       └──────────────┘
-  └──────┬──────┘          └──────┬──────┘
-         │                        │
-         │  ┌──────────────┐      │
-         ├──►  Qdrant      │◄─────┘
-         │  gRPC :6334    │
-         │  └──────────────┘
-         │
-         ├──► Redis (external)     — session sharing
-         ├──► MySQL RDS (external)  — metrics storage
-         ├──► PG RDS (external)     — analytics
-         └──► DeepSeek API (external)
+                       Alibaba ALB Ingress
+                    ┌──────────────────────────────┐
+                    │  All /api/* paths     → kf-api
+                    │  SPA static assets    → OSS + CDN
+                    └──────────────────────────────┘
+                                   │
+           ┌─────────────────────────┼──────────────────────┐
+           │                         │                      │
+     ┌─────▼──────┐                                ┌───────▼──────┐
+     │   kf-api    │                                │   kf-embed   │
+     │ KF_MODE=full│                                │   :8100      │
+     │   :8000     │                                └──────────────┘
+     └──────┬──────┘
+            │
+            ├──► Qdrant gRPC :6334     — vector search
+            ├──► Redis (external)       — session sharing
+            ├──► MySQL RDS (external)    — metrics storage
+            ├──► PG RDS (external)       — analytics
+            └──► DeepSeek API (external)
 ```
 
 ### C.1 Set Deployment Variables
@@ -250,30 +245,21 @@ kubectl wait --for=condition=ready pod -l app=qdrant -n ${NS} --timeout=120s
 kubectl wait --for=condition=ready pod -l app=embed -n ${NS} --timeout=120s
 ```
 
-### C.7 Deploy Applications (chat-api + admin-api)
+### C.7 Deploy Application (kf-api)
 
 ```bash
 # OSS CSI PVC (workflow configs)
 cat deployment/k8s-aliyun/oss-pvc.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
 
-# chat-api (user traffic, KF_MODE=chat)
-cat deployment/k8s-aliyun/chat-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
-cat deployment/k8s-aliyun/chat-api/deployment.yaml \
+# kf-api (user traffic + admin, KF_MODE=full)
+cat deployment/k8s-aliyun/kf-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
+cat deployment/k8s-aliyun/kf-api/deployment.yaml \
   | sed "s|<NAMESPACE>|${NS}|g" \
   | sed "s|<ACR_REGISTRY>|${ACR}|g" \
   | sed "s|<API_IMAGE_TAG>|${API_TAG}|g" \
   | kubectl apply -f -
 
-# admin-api (internal, KF_MODE=admin)
-cat deployment/k8s-aliyun/admin-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
-cat deployment/k8s-aliyun/admin-api/deployment.yaml \
-  | sed "s|<NAMESPACE>|${NS}|g" \
-  | sed "s|<ACR_REGISTRY>|${ACR}|g" \
-  | sed "s|<API_IMAGE_TAG>|${API_TAG}|g" \
-  | kubectl apply -f -
-
-kubectl wait --for=condition=ready pod -l app=chat-api -n ${NS} --timeout=120s
-kubectl wait --for=condition=ready pod -l app=admin-api -n ${NS} --timeout=120s
+kubectl wait --for=condition=ready pod -l app=kf-api -n ${NS} --timeout=120s
 ```
 
 ### C.8 Configure Ingress (ALB)
@@ -291,7 +277,7 @@ kubectl get ingress -n ${NS} -w
 
 ```bash
 kubectl get pods -n ${NS}
-# Expected: 5 pods, all Running, 1/1 Ready
+# Expected: 3 pods, all Running, 1/1 Ready
 
 INGRESS_ADDR=$(kubectl get ingress kf-ingress -n ${NS} \
   -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
@@ -321,8 +307,7 @@ kubectl delete secret kf-db-root-secret -n ${NS}
 
 | Component | requests | limits | Replicas | Storage |
 |-----------|----------|--------|----------|---------|
-| chat-api | 0.5 CPU / 512Mi | 2 CPU / 2Gi | 1 | — |
-| admin-api | 0.5 CPU / 512Mi | 2 CPU / 2Gi | 1 | — |
+| kf-api | 0.5 CPU / 512Mi | 2 CPU / 2Gi | 1 | — |
 | kf-embed | 0.2 CPU / 256Mi | 0.5 CPU / 512Mi | 1 | — |
 | Qdrant | 1 CPU / 2Gi | 2 CPU / 4Gi | 1 | ESSD 20Gi |
 
@@ -521,8 +506,7 @@ aws cloudfront create-invalidation --distribution-id <DIST_ID> --paths "/*"
 
 | Component | requests | limits | Replicas | Storage |
 |-----------|----------|--------|----------|---------|
-| chat-api | 0.5 CPU / 512Mi | 2 CPU / 2Gi | 1 | — |
-| admin-api | 0.5 CPU / 512Mi | 2 CPU / 2Gi | 1 | — |
+| kf-api | 0.5 CPU / 512Mi | 2 CPU / 2Gi | 1 | — |
 | kf-embed | 0.2 CPU / 256Mi | 0.5 CPU / 512Mi | 1 | — |
 | Qdrant | 1 CPU / 2Gi | 2 CPU / 4Gi | 1 | gp3 EBS 20Gi |
 
@@ -560,7 +544,7 @@ kubectl create secret kf-secrets
     ▼
 Secret "kf-secrets" (Opaque, 22 keys)
     │
-    ├── envFrom.secretRef → chat-api / admin-api Pods
+    ├── envFrom.secretRef → kf-api Pod
     │    Injects all keys as environment variables
     │
     └── valueFrom.secretKeyRef → kf-embed Pod
@@ -593,10 +577,8 @@ Pod environment variables
 | `deployment/k8s-aliyun/namespace.yaml` | Namespace | Namespace |
 | `deployment/k8s-aliyun/secret.yaml` | Template (not runnable) | Secret |
 | `deployment/k8s-aliyun/init-db-job.yaml` | DB init | Job |
-| `deployment/k8s-aliyun/chat-api/deployment.yaml` | chat-api | Deployment |
-| `deployment/k8s-aliyun/chat-api/service.yaml` | chat-api | Service |
-| `deployment/k8s-aliyun/admin-api/deployment.yaml` | admin-api | Deployment |
-| `deployment/k8s-aliyun/admin-api/service.yaml` | admin-api | Service |
+| `deployment/k8s-aliyun/kf-api/deployment.yaml` | kf-api | Deployment |
+| `deployment/k8s-aliyun/kf-api/service.yaml` | kf-api | Service |
 | `deployment/k8s-aliyun/embed/deployment.yaml` | embed microservice | Deployment |
 | `deployment/k8s-aliyun/embed/service.yaml` | embed | Service |
 | `deployment/k8s-aliyun/qdrant/statefulset.yaml` | Qdrant vector DB | StatefulSet |

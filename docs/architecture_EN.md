@@ -19,10 +19,10 @@ The Vue SPA uses Vite dev proxy to forward `/api/v1` → local FastAPI (port 900
 
 Application entry point: `src/api/main.py`, FastAPI app factory pattern.
 
-**Dual-mode deployment via `KF_MODE`**:
+**KF_MODE runtime modes** (code supports three modes, production uses `full`):
 - `KF_MODE=chat`: loads user-facing routes (`routes_chat.py`)
 - `KF_MODE=admin`: loads admin management routes (`routes_admin.py`)
-- `KF_MODE=full` (default): loads both route groups
+- `KF_MODE=full` (production default): loads both route groups, single Deployment
 
 **Middleware stack** (in registration order):
 ```
@@ -143,12 +143,11 @@ embed (8100) + qdrant (6333/6334) + api (8000)
 
 | Resource | Type | Description |
 |----------|------|-------------|
-| chat-api | Deployment | User traffic, `KF_MODE=chat` |
-| admin-api | Deployment | Internal management, `KF_MODE=admin` |
+| kf-api | Deployment | User traffic + admin management, `KF_MODE=full` |
 | kf-embed | Deployment | FastEmbed ONNX embeddings (1 replica, model baked into image) |
 | Qdrant | StatefulSet | Vector database (EBS/ESSD persistent storage) |
 
-Same Docker image (`Dockerfile`) builds both chat-api and admin-api, differentiated by `KF_MODE` environment variable.
+Same Docker image (`Dockerfile`), `KF_MODE=full` serves all routes in a single Deployment for simplified architecture.
 
 **External Managed Services**:
 - DeepSeek API: LLM inference
@@ -271,13 +270,12 @@ kf/
 │   ├── job-build.yaml               # Document build Job
 │   ├── grafana-dashboard.json       # Grafana monitoring dashboard
 │   ├── prometheus-rules.yaml        # Prometheus alerting rules
-│   ├── chat-api/                    # User traffic Deployment
-│   ├── admin-api/                   # Admin management Deployment
+│   ├── kf-api/                      # kf-api Deployment (KF_MODE=full, all routes)
 │   ├── embed/                       # Embedding service Deployment
 │   └── qdrant/                      # Qdrant StatefulSet
 ├── deployment/scripts/                         # Operations scripts
 ├── docker-compose.yaml              # Local dev orchestration (embed + qdrant + api)
-├── Dockerfile                       # API image (shared by chat-api / admin-api)
+├── Dockerfile                       # kf-api image
 ├── Dockerfile.embed                 # kf-embed vectorization service image
 ├── pyproject.toml                   # Project metadata and tool configuration
 └── Jenkinsfile                      # CI/CD pipeline
@@ -369,6 +367,6 @@ runs (conversation turns)
 
 Supports SQLite (dev) / MySQL (production) / PostgreSQL (analytics) storage backends, with `dialect.py` adapting multi-database SQL dialects. Simultaneously exports Prometheus metrics for Grafana visualization.
 
-### 8. Single Image, Dual Deployment
+### 8. Single Image, Single Deployment
 
-chat-api and admin-api use the same image built from a single `Dockerfile`, differentiated by the `KF_MODE` environment variable for route group selection. Reduces image build and maintenance overhead while ensuring version consistency.
+kf-api uses the same image built from a single `Dockerfile`, with `KF_MODE=full` serving all chat + admin routes in one Deployment. Simplifies architecture and reduces resource overhead.

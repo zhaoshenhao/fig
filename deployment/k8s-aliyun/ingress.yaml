@@ -11,96 +11,67 @@ spec:
     - host: <DOMAIN>
       http:
         paths:
-          # ── Chat API (user-facing) ──
-          - path: /api/v1/workflows/{name}/run
-            pathType: Exact
-            backend:
-              service:
-                name: chat-api
-                port:
-                  number: 8000
-          - path: /api/v1/workflows/{name}/regenerate
-            pathType: Exact
-            backend:
-              service:
-                name: chat-api
-                port:
-                  number: 8000
-          - path: /api/v1/usage
-            pathType: Exact
-            backend:
-              service:
-                name: chat-api
-                port:
-                  number: 8000
-          - path: /api/v1/sessions/
+          # ── Chat & Admin API (unified) ──
+          - path: /api/v1/
             pathType: Prefix
             backend:
               service:
-                name: chat-api
+                name: kf-api
                 port:
                   number: 8000
           - path: /export/
             pathType: Prefix
             backend:
               service:
-                name: chat-api
-                port:
-                  number: 8000
-          - path: /health
-            pathType: Exact
-            backend:
-              service:
-                name: chat-api
-                port:
-                  number: 8000
-          - path: /ready
-            pathType: Exact
-            backend:
-              service:
-                name: chat-api
-                port:
-                  number: 8000
-          - path: /reload
-            pathType: Exact
-            backend:
-              service:
-                name: chat-api
-                port:
-                  number: 8000
-          # ── Admin API (internal management) ──
-          - path: /api/v1/workflows
-            pathType: Prefix
-            backend:
-              service:
-                name: admin-api
+                name: kf-api
                 port:
                   number: 8000
           - path: /metrics
             pathType: Prefix
             backend:
               service:
-                name: admin-api
+                name: kf-api
                 port:
                   number: 8000
           - path: /collections
             pathType: Prefix
             backend:
               service:
-                name: admin-api
+                name: kf-api
                 port:
                   number: 8000
           - path: /documents
             pathType: Prefix
             backend:
               service:
-                name: admin-api
+                name: kf-api
+                port:
+                  number: 8000
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: kf-api
+                port:
+                  number: 8000
+          - path: /ready
+            pathType: Exact
+            backend:
+              service:
+                name: kf-api
+                port:
+                  number: 8000
+          - path: /reload
+            pathType: Exact
+            backend:
+              service:
+                name: kf-api
                 port:
                   number: 8000
           - path: /status
             pathType: Exact
             backend:
               service:
-                name: admin-api
+                name: kf-api
                 port:
                   number: 8000

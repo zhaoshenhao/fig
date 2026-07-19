@@ -11,8 +11,8 @@
 #      kubectl apply -f deployment/k8s-aliyun/init-db-job.yaml
 #
 #   3. 确认 Job 完成后，部署 app（app 使用 kf-secrets 中的普通用户凭据）
-#      kubectl apply -f deployment/k8s-aliyun/chat-api/deployment.yaml
-#      kubectl apply -f deployment/k8s-aliyun/admin-api/deployment.yaml
+#      kubectl apply -f deployment/k8s-aliyun/kf-api/deployment.yaml
+#      kubectl apply -f deployment/k8s-aliyun/kf-api/service.yaml
 #
 #   4. 删除 kf-db-root-secret（可选，app 不需要它）:
 #      kubectl delete secret kf-db-root-secret

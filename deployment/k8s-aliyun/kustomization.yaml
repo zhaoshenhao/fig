@@ -1,12 +1,10 @@
 resources:
   - namespace.yaml
   - secret.yaml
+  - kf-api/deployment.yaml
+  - kf-api/service.yaml
   - embed/deployment.yaml
   - embed/service.yaml
   - qdrant/statefulset.yaml
   - qdrant/service.yaml
-  - chat-api/deployment.yaml
-  - chat-api/service.yaml
-  - admin-api/deployment.yaml
-  - admin-api/service.yaml
   - ingress.yaml
