@@ -193,6 +193,9 @@ def deployService(String dir, String tag) {
                 -e 's/<NAS_PVC_NAME>/${NAS_PVC}/g' \\
                 \$f | \$KUBECTL apply -f -
         done
+        # Force restart to pick up any config changes (NAS PVC, env, etc.)
+        DEPLOY_NAME=\$(basename ${dir})
+        \$KUBECTL rollout restart deployment/\$DEPLOY_NAME -n ${NAMESPACE} --ignore-not-found 2>/dev/null || true
     """
 }
 
@@ -217,6 +220,7 @@ def deployQdrant() {
         sed 's/<NAMESPACE>/${NAMESPACE}/g' \$QD_DIR/statefulset.yaml | \\
             sed 's|<QDRANT_STORAGE_SIZE>|${QDRANT_STORAGE_SIZE}|g' | \\
             \$KUBECTL apply -f -
+        \$KUBECTL rollout restart statefulset/qdrant -n ${NAMESPACE} --ignore-not-found 2>/dev/null || true
     """
 }
 
