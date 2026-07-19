@@ -13,6 +13,8 @@ spec:
       labels:
         app: kf-api
     spec:
+      imagePullSecrets:
+        - name: aliyun-acr-secret
       containers:
         - name: kf-api
           image: <ACR_REGISTRY>/kf-api:<API_IMAGE_TAG>
