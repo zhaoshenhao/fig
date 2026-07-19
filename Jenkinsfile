@@ -1,3 +1,7 @@
+def hasService(String name) {
+    return params.SERVICES?.split(',')?.toList()?.contains(name) ?: false
+}
+
 pipeline {
     agent any
 
@@ -7,11 +11,10 @@ pipeline {
             choices: ['test', 'production'],
             description: '部署环境 (mb-test / mb-pr)'
         )
-        extendedChoice(
+        string(
             name: 'SERVICES',
-            type: 'CHECKBOX',
-            value: 'chat-api,admin-api,embed,qdrant,web-gui',
-            description: '选择需要部署的服务'
+            defaultValue: 'chat-api,admin-api',
+            description: '部署的服务（逗号分隔: chat-api,admin-api,embed,qdrant,web-gui）'
         )
         string(
             name: 'IMAGE_TAG',
@@ -51,8 +54,7 @@ pipeline {
                 stage('kf-api') {
                     when {
                         expression {
-                            def s = params.SERVICES.split(',')
-                            (s.contains('chat-api') || s.contains('admin-api')) && params.REBUILD_IMAGES
+                            (hasService('chat-api') || hasService('admin-api')) && params.REBUILD_IMAGES
                         }
                     }
                     steps {
@@ -70,7 +72,7 @@ pipeline {
                 stage('kf-embed') {
                     when {
                         expression {
-                            params.SERVICES.split(',').contains('embed') && params.REBUILD_IMAGES
+                            hasService('embed') && params.REBUILD_IMAGES
                         }
                     }
                     steps {
@@ -113,7 +115,7 @@ pipeline {
 
         stage('Upload Web GUI to OSS') {
             when {
-                expression { params.SERVICES.split(',').contains('web-gui') }
+                expression { hasService('web-gui') }
             }
             steps {
                 dir('src/gui/ui') {
@@ -130,7 +132,7 @@ pipeline {
             parallel {
                 stage('chat-api') {
                     when {
-                        expression { params.SERVICES.split(',').contains('chat-api') }
+                        expression { hasService('chat-api') }
                     }
                     steps {
                         deployService('deployment/k8s-aliyun/chat-api', 'chat-api')
@@ -138,7 +140,7 @@ pipeline {
                 }
                 stage('admin-api') {
                     when {
-                        expression { params.SERVICES.split(',').contains('admin-api') }
+                        expression { hasService('admin-api') }
                     }
                     steps {
                         deployService('deployment/k8s-aliyun/admin-api', 'admin-api')
@@ -146,7 +148,7 @@ pipeline {
                 }
                 stage('embed') {
                     when {
-                        expression { params.SERVICES.split(',').contains('embed') }
+                        expression { hasService('embed') }
                     }
                     steps {
                         deployService('deployment/k8s-aliyun/embed', 'embed')
@@ -154,7 +156,7 @@ pipeline {
                 }
                 stage('qdrant') {
                     when {
-                        expression { params.SERVICES.split(',').contains('qdrant') }
+                        expression { hasService('qdrant') }
                     }
                     steps {
                         deployService('deployment/k8s-aliyun/qdrant', 'qdrant')
@@ -170,7 +172,7 @@ pipeline {
                             for (f in globalFiles) {
                                 sh """
                                     APPHOME=${TOOLS} . ${TOOLS}/env.sh
-                                    cat ${f} | sed 's/<NAMESPACE>/${NAMESPACE}/g; s/<DOMAIN>/${DOMAIN}/g' | kubectl apply -f -
+                                    cat ${f} | sed 's/<NAMESPACE>/${NAMESPACE}/g; s/<DOMAIN>/${DOMAIN}/g' | \$KUBECTL apply -f -
                                 """
                             }
                         }
@@ -183,7 +185,7 @@ pipeline {
             parallel {
                 stage('chat-api') {
                     when {
-                        expression { params.SERVICES.split(',').contains('chat-api') }
+                        expression { hasService('chat-api') }
                     }
                     steps {
                         checkHealth('chat-api')
@@ -191,7 +193,7 @@ pipeline {
                 }
                 stage('admin-api') {
                     when {
-                        expression { params.SERVICES.split(',').contains('admin-api') }
+                        expression { hasService('admin-api') }
                     }
                     steps {
                         checkHealth('admin-api')
@@ -199,7 +201,7 @@ pipeline {
                 }
                 stage('embed') {
                     when {
-                        expression { params.SERVICES.split(',').contains('embed') }
+                        expression { hasService('embed') }
                     }
                     steps {
                         checkHealth('embed')
@@ -207,12 +209,12 @@ pipeline {
                 }
                 stage('qdrant') {
                     when {
-                        expression { params.SERVICES.split(',').contains('qdrant') }
+                        expression { hasService('qdrant') }
                     }
                     steps {
                         sh """
                             APPHOME=${TOOLS} . ${TOOLS}/env.sh
-                            kubectl wait --for=condition=ready pod -l app=qdrant -n ${NAMESPACE} --timeout=120s
+                            \$KUBECTL wait --for=condition=ready pod -l app=qdrant -n ${NAMESPACE} --timeout=120s
                         """
                     }
                 }
@@ -240,7 +242,7 @@ def deployService(String dir, String serviceName) {
                 -e 's/<API_IMAGE_TAG>/${API_IMAGE_TAG}/g' \
                 -e 's/<EMBED_IMAGE_TAG>/${EMBED_IMAGE_TAG}/g' \
                 -e 's/<QDRANT_STORAGE_SIZE>/${QDRANT_STORAGE_SIZE}/g' \
-                \$f | kubectl apply -f -
+                \$f | \$KUBECTL apply -f -
         done
     """
 }
@@ -248,8 +250,8 @@ def deployService(String dir, String serviceName) {
 def checkHealth(String serviceName) {
     sh """
         APPHOME=${TOOLS} . ${TOOLS}/env.sh
-        kubectl wait --for=condition=ready pod -l app=${serviceName} -n ${NAMESPACE} --timeout=120s
-        POD=\$(kubectl get pods -l app=${serviceName} -n ${NAMESPACE} -o jsonpath='{.items[0].metadata.name}')
-        kubectl exec \$POD -n ${NAMESPACE} -- curl -s http://localhost:8000/health || echo "health check fallback: pod ready"
+        \$KUBECTL wait --for=condition=ready pod -l app=${serviceName} -n ${NAMESPACE} --timeout=120s
+        POD=\$(\$KUBECTL get pods -l app=${serviceName} -n ${NAMESPACE} -o jsonpath='{.items[0].metadata.name}')
+        \$KUBECTL exec \$POD -n ${NAMESPACE} -- curl -s http://localhost:8000/health || echo "health check fallback: pod ready"
     """
 }
