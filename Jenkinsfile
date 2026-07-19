@@ -27,17 +27,25 @@ pipeline {
 
     environment {
         NAMESPACE = "${params.ENV == 'test' ? 'mb-test' : 'mb-pr'}"
-        ACR = 'registry.cn-hangzhou.aliyuncs.com/kf'
         DOMAIN = 'kf.dev.youbanban.com'
-        OSS_ENDPOINT = 'oss-cn-hangzhou.aliyuncs.com'
-        OSS_INT_ENDPOINT = 'oss-cn-hangzhou-internal.aliyuncs.com'
         OSS_WORKFLOW_BUCKET = 'kf-workflow'
         OSS_UI_BUCKET = 'kf-ui'
         OSS_PATH_PREFIX = "${params.ENV == 'test' ? 'mb-test' : 'mb-pr'}"
         QDRANT_STORAGE_SIZE = '2Gi'
+        TOOLS = '/mnt/devops-tools'
     }
 
     stages {
+        stage('Env Setup') {
+            steps {
+                sh """
+                    source ${TOOLS}/env.sh
+                    echo "Registry: \$DOCKER_REG_BASE_URL/\$DOCKER_NS"
+                    echo "Namespace: ${NAMESPACE}"
+                """
+            }
+        }
+
         stage('Build Images') {
             parallel {
                 stage('kf-api') {
@@ -50,15 +58,12 @@ pipeline {
                     steps {
                         script {
                             env.API_IMAGE_TAG = resolveImageTag('kf-api')
-                            withCredentials([usernamePassword(
-                                credentialsId: 'ali_dockerhub',
-                                usernameVariable: 'ACR_USER',
-                                passwordVariable: 'ACR_PASS'
-                            )]) {
-                                sh "echo \${ACR_PASS} | docker login registry.cn-hangzhou.aliyuncs.com -u \${ACR_USER} --password-stdin"
-                            }
-                            sh "docker build -t ${ACR}/kf-api:${env.API_IMAGE_TAG} -f Dockerfile ."
-                            sh "docker push ${ACR}/kf-api:${env.API_IMAGE_TAG}"
+                            sh """
+                                source ${TOOLS}/env.sh
+                                echo "\$DOCKER_REG_PASSWORD" | docker login \$DOCKER_REG_BASE_URL -u \$DOCKER_REG_USER --password-stdin
+                                docker build -t \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${env.API_IMAGE_TAG} -f Dockerfile .
+                                docker push \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${env.API_IMAGE_TAG}
+                            """
                         }
                     }
                 }
@@ -71,15 +76,12 @@ pipeline {
                     steps {
                         script {
                             env.EMBED_IMAGE_TAG = resolveImageTag('kf-embed')
-                            withCredentials([usernamePassword(
-                                credentialsId: 'ali_dockerhub',
-                                usernameVariable: 'ACR_USER',
-                                passwordVariable: 'ACR_PASS'
-                            )]) {
-                                sh "echo \${ACR_PASS} | docker login registry.cn-hangzhou.aliyuncs.com -u \${ACR_USER} --password-stdin"
-                            }
-                            sh "docker build -t ${ACR}/kf-embed:${env.EMBED_IMAGE_TAG} -f Dockerfile.embed ."
-                            sh "docker push ${ACR}/kf-embed:${env.EMBED_IMAGE_TAG}"
+                            sh """
+                                source ${TOOLS}/env.sh
+                                echo "\$DOCKER_REG_PASSWORD" | docker login \$DOCKER_REG_BASE_URL -u \$DOCKER_REG_USER --password-stdin
+                                docker build -t \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-embed:${env.EMBED_IMAGE_TAG} -f Dockerfile.embed .
+                                docker push \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-embed:${env.EMBED_IMAGE_TAG}
+                            """
                         }
                     }
                 }
@@ -96,27 +98,15 @@ pipeline {
                     env.API_IMAGE_TAG = apiTag
                     env.EMBED_IMAGE_TAG = apiTag
 
-                    def apiImage = "${ACR}/kf-api:${apiTag}"
-                    def apiCheck = sh(
-                        script: "docker manifest inspect ${apiImage} > /dev/null 2>&1",
-                        returnStatus: true
-                    )
-                    if (apiCheck != 0) {
-                        error("镜像不存在: ${apiImage}。请先构建并推送到 ACR，或启用 REBUILD_IMAGES")
-                    }
-
-                    if (params.SERVICES.split(',').contains('embed')) {
-                        def embedImage = "${ACR}/kf-embed:${apiTag}"
-                        def embedCheck = sh(
-                            script: "docker manifest inspect ${embedImage} > /dev/null 2>&1",
-                            returnStatus: true
-                        )
-                        if (embedCheck != 0) {
-                            error("镜像不存在: ${embedImage}。请先构建并推送到 ACR，或启用 REBUILD_IMAGES")
+                    sh """
+                        source ${TOOLS}/env.sh
+                        docker manifest inspect \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${apiTag} > /dev/null 2>&1 || {
+                            echo "镜像不存在: \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${apiTag}"
+                            echo "请先构建并推送到容器仓库，或启用 REBUILD_IMAGES"
+                            exit 1
                         }
-                    }
-
-                    echo "使用已有镜像: ${apiImage}"
+                        echo "使用已有镜像: \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${apiTag}"
+                    """
                 }
             }
         }
@@ -128,7 +118,10 @@ pipeline {
             steps {
                 dir('src/gui/ui') {
                     sh 'npm ci && npm run build'
-                    sh "ossutil cp -r dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update"
+                    sh """
+                        source ${TOOLS}/env.sh
+                        ossutil cp -r dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
+                    """
                 }
             }
         }
@@ -139,25 +132,33 @@ pipeline {
                     when {
                         expression { params.SERVICES.split(',').contains('chat-api') }
                     }
-                    steps { deployService('deployment/k8s-aliyun/chat-api', 'chat-api') }
+                    steps {
+                        deployService('deployment/k8s-aliyun/chat-api', 'chat-api')
+                    }
                 }
                 stage('admin-api') {
                     when {
                         expression { params.SERVICES.split(',').contains('admin-api') }
                     }
-                    steps { deployService('deployment/k8s-aliyun/admin-api', 'admin-api') }
+                    steps {
+                        deployService('deployment/k8s-aliyun/admin-api', 'admin-api')
+                    }
                 }
                 stage('embed') {
                     when {
                         expression { params.SERVICES.split(',').contains('embed') }
                     }
-                    steps { deployService('deployment/k8s-aliyun/embed', 'embed') }
+                    steps {
+                        deployService('deployment/k8s-aliyun/embed', 'embed')
+                    }
                 }
                 stage('qdrant') {
                     when {
                         expression { params.SERVICES.split(',').contains('qdrant') }
                     }
-                    steps { deployService('deployment/k8s-aliyun/qdrant', 'qdrant') }
+                    steps {
+                        deployService('deployment/k8s-aliyun/qdrant', 'qdrant')
+                    }
                 }
                 stage('global') {
                     steps {
@@ -167,7 +168,10 @@ pipeline {
                                 'deployment/k8s-aliyun/ingress.yaml',
                             ]
                             for (f in globalFiles) {
-                                sh "cat ${f} | sed 's/<NAMESPACE>/${NAMESPACE}/g; s/<DOMAIN>/${DOMAIN}/g' | kubectl apply -f -"
+                                sh """
+                                    source ${TOOLS}/env.sh
+                                    cat ${f} | sed 's/<NAMESPACE>/${NAMESPACE}/g; s/<DOMAIN>/${DOMAIN}/g' | kubectl apply -f -
+                                """
                             }
                         }
                     }
@@ -181,26 +185,35 @@ pipeline {
                     when {
                         expression { params.SERVICES.split(',').contains('chat-api') }
                     }
-                    steps { checkHealth('chat-api') }
+                    steps {
+                        checkHealth('chat-api')
+                    }
                 }
                 stage('admin-api') {
                     when {
                         expression { params.SERVICES.split(',').contains('admin-api') }
                     }
-                    steps { checkHealth('admin-api') }
+                    steps {
+                        checkHealth('admin-api')
+                    }
                 }
                 stage('embed') {
                     when {
                         expression { params.SERVICES.split(',').contains('embed') }
                     }
-                    steps { checkHealth('embed') }
+                    steps {
+                        checkHealth('embed')
+                    }
                 }
                 stage('qdrant') {
                     when {
                         expression { params.SERVICES.split(',').contains('qdrant') }
                     }
                     steps {
-                        sh "kubectl wait --for=condition=ready pod -l app=qdrant -n ${NAMESPACE} --timeout=120s"
+                        sh """
+                            source ${TOOLS}/env.sh
+                            kubectl wait --for=condition=ready pod -l app=qdrant -n ${NAMESPACE} --timeout=120s
+                        """
                     }
                 }
             }
@@ -210,20 +223,20 @@ pipeline {
 
 def resolveImageTag(String imageName) {
     def tag = params.IMAGE_TAG ?: "${env.BUILD_NUMBER}"
-    def full = "${ACR}/${imageName}:${tag}"
-    def check = sh(script: "docker manifest inspect ${full} > /dev/null 2>&1", returnStatus: true)
-    if (check == 0 && !params.REBUILD_IMAGES) {
-        echo "镜像已存在，跳过构建: ${full}"
-        return tag
-    }
+    def imgBase = "\$DOCKER_REG_BASE_URL/\$DOCKER_NS/${imageName}"
+    sh """
+        source ${TOOLS}/env.sh
+        docker manifest inspect ${imgBase}:${tag} > /dev/null 2>&1 && echo "镜像已存在: ${imgBase}:${tag}" || true
+    """
     return tag
 }
 
 def deployService(String dir, String serviceName) {
     sh script: """
+        source ${TOOLS}/env.sh
         for f in \$(ls ${dir}/*.yaml 2>/dev/null); do
             sed -e 's/<NAMESPACE>/${NAMESPACE}/g' \
-                -e 's/<ACR_REGISTRY>/${ACR}/g' \
+                -e 's/<ACR_REGISTRY>/\$DOCKER_REG_BASE_URL\/\$DOCKER_NS/g' \
                 -e 's/<API_IMAGE_TAG>/${API_IMAGE_TAG}/g' \
                 -e 's/<EMBED_IMAGE_TAG>/${EMBED_IMAGE_TAG}/g' \
                 -e 's/<QDRANT_STORAGE_SIZE>/${QDRANT_STORAGE_SIZE}/g' \
@@ -233,8 +246,9 @@ def deployService(String dir, String serviceName) {
 }
 
 def checkHealth(String serviceName) {
-    sh "kubectl wait --for=condition=ready pod -l app=${serviceName} -n ${NAMESPACE} --timeout=120s"
-    sh script: """
+    sh """
+        source ${TOOLS}/env.sh
+        kubectl wait --for=condition=ready pod -l app=${serviceName} -n ${NAMESPACE} --timeout=120s
         POD=\$(kubectl get pods -l app=${serviceName} -n ${NAMESPACE} -o jsonpath='{.items[0].metadata.name}')
         kubectl exec \$POD -n ${NAMESPACE} -- curl -s http://localhost:8000/health || echo "health check fallback: pod ready"
     """
