@@ -33,6 +33,7 @@ pipeline {
         QDRANT_STORAGE_SIZE = '2Gi'
         TOOLS = '/mnt/devops-tools'
         DOCKER_HUB_MIRROR = 'docker.m.daocloud.io'
+        KUBECONFIG = '/mnt/kubeconf/config'
     }
 
     stages {
