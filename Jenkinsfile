@@ -33,6 +33,12 @@ pipeline {
                     APPHOME=${TOOLS} . ${TOOLS}/env.sh
                     echo "Registry: \$DOCKER_REG_BASE_URL/\$DOCKER_NS"
                     echo "Namespace: ${NAMESPACE}"
+                    # Download ossutil if not present
+                    if ! command -v ossutil >/dev/null 2>&1 && [ ! -f ossutil ]; then
+                        curl -sL -o ossutil https://gosspublic.alicdn.com/ossutil/1.7.19/ossutil64
+                        chmod +x ossutil
+                        echo "ossutil downloaded"
+                    fi
                 """
             }
         }
@@ -68,14 +74,14 @@ pipeline {
                     if (isLatest(params.WORKFLOW_TAG)) {
                         sh """
                             APPHOME=${TOOLS} . ${TOOLS}/env.sh
-                            ossutil cp -r config/workflows/ oss://${OSS_WORKFLOW_BUCKET}/${OSS_PATH_PREFIX}/ --update
+                            ./ossutil cp -r config/workflows/ oss://${OSS_WORKFLOW_BUCKET}/${OSS_PATH_PREFIX}/ --update
                         """
                     } else {
                         sh """
                             APPHOME=${TOOLS} . ${TOOLS}/env.sh
                             rm -rf /tmp/wf-export && mkdir -p /tmp/wf-export
                             git archive ${params.WORKFLOW_TAG} -- config/workflows/ | tar xf - -C /tmp/wf-export
-                            ossutil cp -r /tmp/wf-export/config/workflows/ oss://${OSS_WORKFLOW_BUCKET}/${OSS_PATH_PREFIX}/ --update
+                            ./ossutil cp -r /tmp/wf-export/config/workflows/ oss://${OSS_WORKFLOW_BUCKET}/${OSS_PATH_PREFIX}/ --update
                             rm -rf /tmp/wf-export
                         """
                     }
@@ -93,7 +99,7 @@ pipeline {
                             sh 'npm ci && npm run build'
                             sh """
                                 APPHOME=${TOOLS} . ${TOOLS}/env.sh
-                                ossutil cp -r dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
+                                ./ossutil cp -r dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
                             """
                         }
                     } else {
@@ -102,7 +108,7 @@ pipeline {
                             git archive ${params.WEBUI_TAG} -- src/gui/ui/ | tar xf - -C /tmp/ui-export
                             cd /tmp/ui-export/src/gui/ui && npm ci && npm run build
                             APPHOME=${TOOLS} . ${TOOLS}/env.sh
-                            ossutil cp -r dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
+                            ./ossutil cp -r dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
                             cd ${WORKSPACE} && rm -rf /tmp/ui-export
                         """
                     }
