@@ -7,16 +7,12 @@ pipeline {
             choices: ['test', 'production'],
             description: '部署环境 (mb-test / mb-pr)'
         )
-        string(
-            name: 'IMAGE_TAG',
-            defaultValue: '',
-            description: '镜像标签（必填，由 kf-build 构建输出版本号）'
-        )
-        string(
-            name: 'SERVICES',
-            defaultValue: 'chat-api,admin-api,embed,qdrant',
-            description: '部署的服务（逗号分隔: chat-api,admin-api,embed,qdrant）'
-        )
+        string(name: 'CHAT_API_TAG', defaultValue: 'latest', description: 'chat-api 镜像标签（空/-/0 跳过）')
+        string(name: 'ADMIN_API_TAG', defaultValue: 'latest', description: 'admin-api 镜像标签（空/-/0 跳过）')
+        string(name: 'EMBED_TAG', defaultValue: 'latest', description: 'embed 镜像标签（空/-/0 跳过）')
+        string(name: 'QDRANT_TAG', defaultValue: 'latest', description: 'qdrant 镜像标签（空/-/0 跳过）')
+        string(name: 'WORKFLOW_TAG', defaultValue: 'latest', description: 'workflow OSS 同步（空/-/0 跳过；latest=HEAD；其他=Tag）')
+        string(name: 'WEBUI_TAG', defaultValue: 'latest', description: 'Web GUI OSS 发布（空/-/0 跳过；latest=HEAD；其他=Tag）')
     }
 
     environment {
@@ -25,24 +21,91 @@ pipeline {
         QDRANT_STORAGE_SIZE = '2Gi'
         TOOLS = '/mnt/devops-tools'
         KUBECONFIG = '/mnt/kubeconf/config'
+        OSS_WORKFLOW_BUCKET = 'kf-workflow'
+        OSS_UI_BUCKET = 'kf-ui'
+        OSS_PATH_PREFIX = "${params.ENV == 'test' ? 'mb-test' : 'mb-pr'}"
     }
 
     stages {
-        stage('Validate Image Tag') {
+        stage('Env Setup') {
+            steps {
+                sh """
+                    APPHOME=${TOOLS} . ${TOOLS}/env.sh
+                    echo "Registry: \$DOCKER_REG_BASE_URL/\$DOCKER_NS"
+                    echo "Namespace: ${NAMESPACE}"
+                """
+            }
+        }
+
+        stage('Validate Tags') {
             steps {
                 script {
-                    if (!params.IMAGE_TAG) {
-                        error("IMAGE_TAG 不能为空，请填入 kf-build 构建的版本号")
+                    def deploying = false
+                    for (t in [params.CHAT_API_TAG, params.ADMIN_API_TAG, params.EMBED_TAG, params.QDRANT_TAG]) {
+                        if (!isSkipped(t)) { deploying = true; break }
                     }
-                    sh """
-                        APPHOME=${TOOLS} . ${TOOLS}/env.sh
-                        docker manifest inspect \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${params.IMAGE_TAG} > /dev/null 2>&1 || {
-                            echo "镜像不存在: \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${params.IMAGE_TAG}"
-                            echo "请先运行 kf-build 构建此版本"
-                            exit 1
+                    if (!deploying && isSkipped(params.WORKFLOW_TAG) && isSkipped(params.WEBUI_TAG)) {
+                        error("至少需要一个有效的部署目标（所有 TAG 为空）")
+                    }
+                    if (!isSkipped(params.CHAT_API_TAG) || !isSkipped(params.ADMIN_API_TAG) || !isSkipped(params.EMBED_TAG) || !isSkipped(params.QDRANT_TAG)) {
+                        sh """
+                            APPHOME=${TOOLS} . ${TOOLS}/env.sh
+                            docker manifest inspect \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${params.CHAT_API_TAG} > /dev/null 2>&1 || \
+                            docker manifest inspect \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${params.ADMIN_API_TAG} > /dev/null 2>&1 || \
+                            docker manifest inspect \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-embed:${params.EMBED_TAG} > /dev/null 2>&1 || true
+                            echo "镜像验证完成"
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('OSS: Workflow Config') {
+            when { expression { !isSkipped(params.WORKFLOW_TAG) } }
+            steps {
+                script {
+                    sh "git fetch --tags"
+                    if (isLatest(params.WORKFLOW_TAG)) {
+                        sh """
+                            APPHOME=${TOOLS} . ${TOOLS}/env.sh
+                            ossutil cp -r config/workflows/ oss://${OSS_WORKFLOW_BUCKET}/${OSS_PATH_PREFIX}/ --update
+                        """
+                    } else {
+                        sh """
+                            APPHOME=${TOOLS} . ${TOOLS}/env.sh
+                            rm -rf /tmp/wf-export && mkdir -p /tmp/wf-export
+                            git archive ${params.WORKFLOW_TAG} -- config/workflows/ | tar xf - -C /tmp/wf-export
+                            ossutil cp -r /tmp/wf-export/config/workflows/ oss://${OSS_WORKFLOW_BUCKET}/${OSS_PATH_PREFIX}/ --update
+                            rm -rf /tmp/wf-export
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('OSS: Web GUI') {
+            when { expression { !isSkipped(params.WEBUI_TAG) } }
+            steps {
+                script {
+                    sh "git fetch --tags"
+                    if (isLatest(params.WEBUI_TAG)) {
+                        dir('src/gui/ui') {
+                            sh 'npm ci && npm run build'
+                            sh """
+                                APPHOME=${TOOLS} . ${TOOLS}/env.sh
+                                ossutil cp -r dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
+                            """
                         }
-                        echo "使用镜像标签: ${params.IMAGE_TAG}"
-                    """
+                    } else {
+                        sh """
+                            rm -rf /tmp/ui-export && mkdir -p /tmp/ui-export
+                            git archive ${params.WEBUI_TAG} -- src/gui/ui/ | tar xf - -C /tmp/ui-export
+                            cd /tmp/ui-export/src/gui/ui && npm ci && npm run build
+                            APPHOME=${TOOLS} . ${TOOLS}/env.sh
+                            ossutil cp -r dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
+                            cd ${WORKSPACE} && rm -rf /tmp/ui-export
+                        """
+                    }
                 }
             }
         }
@@ -50,45 +113,25 @@ pipeline {
         stage('Deploy to K8s') {
             parallel {
                 stage('chat-api') {
-                    when {
-                        expression { params.SERVICES.split(',').contains('chat-api') }
-                    }
-                    steps {
-                        deployService('deployment/k8s-aliyun/chat-api', 'chat-api')
-                    }
+                    when { expression { !isSkipped(params.CHAT_API_TAG) } }
+                    steps { deployService('deployment/k8s-aliyun/chat-api', params.CHAT_API_TAG) }
                 }
                 stage('admin-api') {
-                    when {
-                        expression { params.SERVICES.split(',').contains('admin-api') }
-                    }
-                    steps {
-                        deployService('deployment/k8s-aliyun/admin-api', 'admin-api')
-                    }
+                    when { expression { !isSkipped(params.ADMIN_API_TAG) } }
+                    steps { deployService('deployment/k8s-aliyun/admin-api', params.ADMIN_API_TAG) }
                 }
                 stage('embed') {
-                    when {
-                        expression { params.SERVICES.split(',').contains('embed') }
-                    }
-                    steps {
-                        deployService('deployment/k8s-aliyun/embed', 'embed')
-                    }
+                    when { expression { !isSkipped(params.EMBED_TAG) } }
+                    steps { deployService('deployment/k8s-aliyun/embed', params.EMBED_TAG) }
                 }
                 stage('qdrant') {
-                    when {
-                        expression { params.SERVICES.split(',').contains('qdrant') }
-                    }
-                    steps {
-                        deployService('deployment/k8s-aliyun/qdrant', 'qdrant')
-                    }
+                    when { expression { !isSkipped(params.QDRANT_TAG) } }
+                    steps { deployService('deployment/k8s-aliyun/qdrant', params.QDRANT_TAG) }
                 }
                 stage('global') {
                     steps {
                         script {
-                            def globalFiles = [
-                                'deployment/k8s-aliyun/namespace.yaml',
-                                'deployment/k8s-aliyun/ingress.yaml',
-                            ]
-                            for (f in globalFiles) {
+                            for (f in ['deployment/k8s-aliyun/namespace.yaml', 'deployment/k8s-aliyun/ingress.yaml']) {
                                 sh """
                                     APPHOME=${TOOLS} . ${TOOLS}/env.sh
                                     cat ${f} | sed 's/<NAMESPACE>/${NAMESPACE}/g; s/<DOMAIN>/${DOMAIN}/g' | \$KUBECTL apply -f -
@@ -103,33 +146,19 @@ pipeline {
         stage('Health Check') {
             parallel {
                 stage('chat-api') {
-                    when {
-                        expression { params.SERVICES.split(',').contains('chat-api') }
-                    }
-                    steps {
-                        checkHealth('chat-api')
-                    }
+                    when { expression { !isSkipped(params.CHAT_API_TAG) } }
+                    steps { checkHealth('chat-api') }
                 }
                 stage('admin-api') {
-                    when {
-                        expression { params.SERVICES.split(',').contains('admin-api') }
-                    }
-                    steps {
-                        checkHealth('admin-api')
-                    }
+                    when { expression { !isSkipped(params.ADMIN_API_TAG) } }
+                    steps { checkHealth('admin-api') }
                 }
                 stage('embed') {
-                    when {
-                        expression { params.SERVICES.split(',').contains('embed') }
-                    }
-                    steps {
-                        checkHealth('embed')
-                    }
+                    when { expression { !isSkipped(params.EMBED_TAG) } }
+                    steps { checkHealth('embed') }
                 }
                 stage('qdrant') {
-                    when {
-                        expression { params.SERVICES.split(',').contains('qdrant') }
-                    }
+                    when { expression { !isSkipped(params.QDRANT_TAG) } }
                     steps {
                         sh """
                             APPHOME=${TOOLS} . ${TOOLS}/env.sh
@@ -142,15 +171,23 @@ pipeline {
     }
 }
 
-def deployService(String dir, String serviceName) {
+def isSkipped(String val) {
+    return val == null || val == '' || val == '-' || val == '0'
+}
+
+def isLatest(String val) {
+    return val == 'latest'
+}
+
+def deployService(String dir, String tag) {
     sh script: """
         APPHOME=${TOOLS} . ${TOOLS}/env.sh
         for f in \$(ls ${dir}/*.yaml 2>/dev/null); do
-            sed -e 's/<NAMESPACE>/${NAMESPACE}/g' \
-                -e 's|<ACR_REGISTRY>|\$DOCKER_REG_BASE_URL/\$DOCKER_NS|g' \
-                -e 's/<API_IMAGE_TAG>/${params.IMAGE_TAG}/g' \
-                -e 's/<EMBED_IMAGE_TAG>/${params.IMAGE_TAG}/g' \
-                -e 's/<QDRANT_STORAGE_SIZE>/${QDRANT_STORAGE_SIZE}/g' \
+            sed -e 's/<NAMESPACE>/${NAMESPACE}/g' \\
+                -e 's|<ACR_REGISTRY>|\$DOCKER_REG_BASE_URL/\$DOCKER_NS|g' \\
+                -e 's/<API_IMAGE_TAG>/${tag}/g' \\
+                -e 's/<EMBED_IMAGE_TAG>/${tag}/g' \\
+                -e 's/<QDRANT_STORAGE_SIZE>/${QDRANT_STORAGE_SIZE}/g' \\
                 \$f | \$KUBECTL apply -f -
         done
     """

@@ -9,8 +9,8 @@ pipeline {
         )
         string(
             name: 'SERVICES',
-            defaultValue: 'kf-api,kf-embed,web-gui',
-            description: '构建目标（逗号分隔: kf-api,kf-embed,web-gui）'
+            defaultValue: 'kf-api,kf-embed',
+            description: '构建目标（逗号分隔: kf-api,kf-embed）'
         )
         string(
             name: 'IMAGE_TAG',
@@ -22,8 +22,6 @@ pipeline {
     environment {
         TOOLS = '/mnt/devops-tools'
         DOCKER_HUB_MIRROR = 'docker.m.daocloud.io'
-        OSS_UI_BUCKET = 'kf-ui'
-        OSS_PATH_PREFIX = "${params.ENV == 'test' ? 'mb-test' : 'mb-pr'}"
     }
 
     stages {
@@ -75,21 +73,6 @@ pipeline {
                             echo "kf-embed:${tag} pushed"
                         }
                     }
-                }
-            }
-        }
-
-        stage('Upload Web GUI to OSS') {
-            when {
-                expression { params.SERVICES.split(',').contains('web-gui') }
-            }
-            steps {
-                dir('src/gui/ui') {
-                    sh 'npm ci && npm run build'
-                    sh """
-                        APPHOME=${TOOLS} . ${TOOLS}/env.sh
-                        ossutil cp -r dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
-                    """
                 }
             }
         }
