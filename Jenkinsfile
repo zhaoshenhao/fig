@@ -39,6 +39,14 @@ pipeline {
                     else
                         echo "WARN: /mnt/ossutil not found, OSS steps will fail"
                     fi
+                    # Init ossutil config from K8s Secret
+                    if [ -x ./ossutil ]; then
+                        export OSS_ACCESS_KEY_ID=\$(\$KUBECTL get secret kf-secrets -n ${NAMESPACE} -o jsonpath='{.data.OSS_ACCESS_KEY_ID}' | base64 -d)
+                        export OSS_ACCESS_KEY_SECRET=\$(\$KUBECTL get secret kf-secrets -n ${NAMESPACE} -o jsonpath='{.data.OSS_ACCESS_KEY_SECRET}' | base64 -d)
+                        export OSS_ENDPOINT=oss-cn-shanghai-internal.aliyuncs.com
+                        ./ossutil config -e \$OSS_ENDPOINT -i \$OSS_ACCESS_KEY_ID -k \$OSS_ACCESS_KEY_SECRET -L CH 2>&1 || true
+                        echo "ossutil configured"
+                    fi
                 """
             }
         }
