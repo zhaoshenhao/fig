@@ -119,6 +119,7 @@ pipeline {
         }
 
         stage('Deploy to K8s') {
+            failFast false
             parallel {
                 stage('kf-api') {
                     when { expression { !isSkipped(params.API_TAG) } }
@@ -130,7 +131,7 @@ pipeline {
                 }
                 stage('qdrant') {
                     when { expression { !isSkipped(params.QDRANT_TAG) } }
-                    steps { deployService('deployment/k8s-aliyun/qdrant', params.QDRANT_TAG) }
+                    steps { deployQdrant() }
                 }
                 stage('global') {
                     steps {
@@ -148,6 +149,7 @@ pipeline {
         }
 
         stage('Health Check') {
+            failFast false
             parallel {
                 stage('kf-api') {
                     when { expression { !isSkipped(params.API_TAG) } }
@@ -191,6 +193,30 @@ def deployService(String dir, String tag) {
                 -e 's/<NAS_PVC_NAME>/${NAS_PVC}/g' \\
                 \$f | \$KUBECTL apply -f -
         done
+    """
+}
+
+def deployQdrant() {
+    sh script: """
+        APPHOME=${TOOLS} . ${TOOLS}/env.sh
+        QD_DIR=deployment/k8s-aliyun/qdrant
+
+        sed 's/<NAMESPACE>/${NAMESPACE}/g' \$QD_DIR/service.yaml | \$KUBECTL apply -f -
+
+        if \$KUBECTL get statefulset qdrant -n ${NAMESPACE} >/dev/null 2>&1; then
+            CUR=\$(\$KUBECTL get statefulset qdrant -n ${NAMESPACE} -o jsonpath='{.spec.volumeClaimTemplates[0].spec.resources.requests.storage}')
+            echo "Qdrant PVC: current=\$CUR, desired=${QDRANT_STORAGE_SIZE}"
+            if [ "\$CUR" != "${QDRANT_STORAGE_SIZE}" ]; then
+                echo "Storage changed, recreating StatefulSet + PVC..."
+                \$KUBECTL delete statefulset qdrant -n ${NAMESPACE} --cascade=orphan --ignore-not-found
+                \$KUBECTL delete pvc qdrant-storage-qdrant-0 -n ${NAMESPACE} --ignore-not-found
+                sleep 3
+            fi
+        fi
+
+        sed 's/<NAMESPACE>/${NAMESPACE}/g' \$QD_DIR/statefulset.yaml | \\
+            sed 's|<QDRANT_STORAGE_SIZE>|${QDRANT_STORAGE_SIZE}|g' | \\
+            \$KUBECTL apply -f -
     """
 }
 
