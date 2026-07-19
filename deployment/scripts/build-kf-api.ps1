@@ -8,9 +8,12 @@
 # 前置: 先执行 docker login
 #   wsl bash -c "docker login registry.cn-shanghai.aliyuncs.com -u <user> --password-stdin"
 
+# 如果设置了 -Latest，额外打 latest 标签并推送
+
 param(
     [string]$Tag = "latest",
     [switch]$Native,
+    [switch]$Latest,
     [string]$Registry = "registry.cn-shanghai.aliyuncs.com",
     [string]$Namespace = "ybbmb",
     [string]$Mirror = "docker.m.daocloud.io"
@@ -45,5 +48,12 @@ if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 
 cmd /c "$docker push $Image 2>&1"
 if ($LASTEXITCODE -ne 0) { throw "Push failed" }
+
+if ($Latest) {
+    $latestImg = "$Registry/$Namespace/kf-api:latest"
+    cmd /c "$docker tag $Image $latestImg 2>&1"
+    cmd /c "$docker push $latestImg 2>&1"
+    Write-Host "==> Also pushed: $latestImg"
+}
 
 Write-Host "==> Done: $Image"
