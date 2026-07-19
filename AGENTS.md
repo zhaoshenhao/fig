@@ -2,7 +2,9 @@
 
 ## 🚨 最高优先级安全规则（必须始终遵守）
 
-**禁止在任何提交到源代码仓库的文件中包含敏感信息。** 包括但不限于：
+**禁止在任何提交到源代码仓库的文件中包含敏感信息。**
+
+**🚨 Git 操作必须经用户同意**: 任何 `git add`、`git commit`、`git push` 操作执行前，必须获得用户明确同意。禁止自动提交和推送。 包括但不限于：
 - 密码、passwords、passwd
 - AccessKey、SecretKey、AK/SK、Access Key ID/Secret
 - API Key、Token、Bearer Token

@@ -38,6 +38,9 @@ data/*
 logs/
 *.log
 
+# Local dev scripts
+scripts/
+
 # Environment
 .env
 .env.*
