@@ -39,7 +39,7 @@ pipeline {
         stage('Env Setup') {
             steps {
                 sh """
-                    . ${TOOLS}/env.sh
+                    APPHOME=${TOOLS} . ${TOOLS}/env.sh
                     echo "Registry: \$DOCKER_REG_BASE_URL/\$DOCKER_NS"
                     echo "Namespace: ${NAMESPACE}"
                 """
@@ -59,7 +59,7 @@ pipeline {
                         script {
                             env.API_IMAGE_TAG = resolveImageTag('kf-api')
                             sh """
-                                . ${TOOLS}/env.sh
+                                APPHOME=${TOOLS} . ${TOOLS}/env.sh
                                 echo "\$DOCKER_REG_PASSWORD" | docker login \$DOCKER_REG_BASE_URL -u \$DOCKER_REG_USER --password-stdin
                                 docker build -t \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${env.API_IMAGE_TAG} -f Dockerfile .
                                 docker push \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${env.API_IMAGE_TAG}
@@ -77,7 +77,7 @@ pipeline {
                         script {
                             env.EMBED_IMAGE_TAG = resolveImageTag('kf-embed')
                             sh """
-                                . ${TOOLS}/env.sh
+                                APPHOME=${TOOLS} . ${TOOLS}/env.sh
                                 echo "\$DOCKER_REG_PASSWORD" | docker login \$DOCKER_REG_BASE_URL -u \$DOCKER_REG_USER --password-stdin
                                 docker build -t \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-embed:${env.EMBED_IMAGE_TAG} -f Dockerfile.embed .
                                 docker push \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-embed:${env.EMBED_IMAGE_TAG}
@@ -99,7 +99,7 @@ pipeline {
                     env.EMBED_IMAGE_TAG = apiTag
 
                     sh """
-                        . ${TOOLS}/env.sh
+                        APPHOME=${TOOLS} . ${TOOLS}/env.sh
                         docker manifest inspect \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${apiTag} > /dev/null 2>&1 || {
                             echo "镜像不存在: \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${apiTag}"
                             echo "请先构建并推送到容器仓库，或启用 REBUILD_IMAGES"
@@ -119,7 +119,7 @@ pipeline {
                 dir('src/gui/ui') {
                     sh 'npm ci && npm run build'
                     sh """
-                        . ${TOOLS}/env.sh
+                        APPHOME=${TOOLS} . ${TOOLS}/env.sh
                         ossutil cp -r dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
                     """
                 }
@@ -169,7 +169,7 @@ pipeline {
                             ]
                             for (f in globalFiles) {
                                 sh """
-                                    . ${TOOLS}/env.sh
+                                    APPHOME=${TOOLS} . ${TOOLS}/env.sh
                                     cat ${f} | sed 's/<NAMESPACE>/${NAMESPACE}/g; s/<DOMAIN>/${DOMAIN}/g' | kubectl apply -f -
                                 """
                             }
@@ -211,7 +211,7 @@ pipeline {
                     }
                     steps {
                         sh """
-                            . ${TOOLS}/env.sh
+                            APPHOME=${TOOLS} . ${TOOLS}/env.sh
                             kubectl wait --for=condition=ready pod -l app=qdrant -n ${NAMESPACE} --timeout=120s
                         """
                     }
@@ -225,7 +225,7 @@ def resolveImageTag(String imageName) {
     def tag = params.IMAGE_TAG ?: "${env.BUILD_NUMBER}"
     def imgBase = "\$DOCKER_REG_BASE_URL/\$DOCKER_NS/${imageName}"
     sh """
-        . ${TOOLS}/env.sh
+        APPHOME=${TOOLS} . ${TOOLS}/env.sh
         docker manifest inspect ${imgBase}:${tag} > /dev/null 2>&1 && echo "镜像已存在: ${imgBase}:${tag}" || true
     """
     return tag
@@ -233,7 +233,7 @@ def resolveImageTag(String imageName) {
 
 def deployService(String dir, String serviceName) {
     sh script: """
-        . ${TOOLS}/env.sh
+        APPHOME=${TOOLS} . ${TOOLS}/env.sh
         for f in \$(ls ${dir}/*.yaml 2>/dev/null); do
             sed -e 's/<NAMESPACE>/${NAMESPACE}/g' \
                 -e 's|<ACR_REGISTRY>|\$DOCKER_REG_BASE_URL/\$DOCKER_NS|g' \
@@ -247,7 +247,7 @@ def deployService(String dir, String serviceName) {
 
 def checkHealth(String serviceName) {
     sh """
-        . ${TOOLS}/env.sh
+        APPHOME=${TOOLS} . ${TOOLS}/env.sh
         kubectl wait --for=condition=ready pod -l app=${serviceName} -n ${NAMESPACE} --timeout=120s
         POD=\$(kubectl get pods -l app=${serviceName} -n ${NAMESPACE} -o jsonpath='{.items[0].metadata.name}')
         kubectl exec \$POD -n ${NAMESPACE} -- curl -s http://localhost:8000/health || echo "health check fallback: pod ready"
