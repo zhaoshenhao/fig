@@ -184,6 +184,10 @@ def isLatest(String val) {
 def deployService(String dir, String tag) {
     sh script: """
         APPHOME=${TOOLS} . ${TOOLS}/env.sh
+        DEPLOY_NAME=\$(basename ${dir})
+        echo "Deleting old \$DEPLOY_NAME..."
+        \$KUBECTL delete deployment/\$DEPLOY_NAME -n ${NAMESPACE} --ignore-not-found 2>&1 || true
+        sleep 3
         for f in \$(ls ${dir}/*.yaml 2>/dev/null); do
             sed -e 's/<NAMESPACE>/${NAMESPACE}/g' \\
                 -e 's|<ACR_REGISTRY>|\$DOCKER_REG_BASE_URL/\$DOCKER_NS|g' \\
@@ -193,9 +197,6 @@ def deployService(String dir, String tag) {
                 -e 's/<NAS_PVC_NAME>/${NAS_PVC}/g' \\
                 \$f | \$KUBECTL apply -f -
         done
-        DEPLOY_NAME=\$(basename ${dir})
-        echo "Restarting \$DEPLOY_NAME..."
-        \$KUBECTL rollout restart deployment/\$DEPLOY_NAME -n ${NAMESPACE} 2>&1 || \$KUBECTL delete pod -l app=\$DEPLOY_NAME -n ${NAMESPACE} 2>&1
     """
 }
 
@@ -220,7 +221,6 @@ def deployQdrant() {
         sed 's/<NAMESPACE>/${NAMESPACE}/g' \$QD_DIR/statefulset.yaml | \\
             sed 's|<QDRANT_STORAGE_SIZE>|${QDRANT_STORAGE_SIZE}|g' | \\
             \$KUBECTL apply -f -
-        \$KUBECTL rollout restart statefulset/qdrant -n ${NAMESPACE} --ignore-not-found 2>/dev/null || true
     """
 }
 
