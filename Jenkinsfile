@@ -32,6 +32,7 @@ pipeline {
         OSS_PATH_PREFIX = "${params.ENV == 'test' ? 'mb-test' : 'mb-pr'}"
         QDRANT_STORAGE_SIZE = '2Gi'
         TOOLS = '/mnt/devops-tools'
+        DOCKER_HUB_MIRROR = 'docker.m.daocloud.io'
     }
 
     stages {
@@ -59,6 +60,8 @@ pipeline {
                             sh """
                                 APPHOME=${TOOLS} . ${TOOLS}/env.sh
                                 echo "\$DOCKER_REG_PASSWORD" | docker login \$DOCKER_REG_BASE_URL -u \$DOCKER_REG_USER --password-stdin
+                                docker pull ${DOCKER_HUB_MIRROR}/library/python:3.14-slim
+                                docker tag ${DOCKER_HUB_MIRROR}/library/python:3.14-slim python:3.14-slim
                                 docker build -t \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${env.API_IMAGE_TAG} -f Dockerfile .
                                 docker push \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${env.API_IMAGE_TAG}
                             """
@@ -77,6 +80,8 @@ pipeline {
                             sh """
                                 APPHOME=${TOOLS} . ${TOOLS}/env.sh
                                 echo "\$DOCKER_REG_PASSWORD" | docker login \$DOCKER_REG_BASE_URL -u \$DOCKER_REG_USER --password-stdin
+                                docker pull ${DOCKER_HUB_MIRROR}/library/python:3.14-slim
+                                docker tag ${DOCKER_HUB_MIRROR}/library/python:3.14-slim python:3.14-slim
                                 docker build -t \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-embed:${env.EMBED_IMAGE_TAG} -f Dockerfile.embed .
                                 docker push \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-embed:${env.EMBED_IMAGE_TAG}
                             """
