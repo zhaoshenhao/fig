@@ -236,7 +236,7 @@ def deployService(String dir, String serviceName) {
         source ${TOOLS}/env.sh
         for f in \$(ls ${dir}/*.yaml 2>/dev/null); do
             sed -e 's/<NAMESPACE>/${NAMESPACE}/g' \
-                -e 's/<ACR_REGISTRY>/\$DOCKER_REG_BASE_URL\/\$DOCKER_NS/g' \
+                -e 's|<ACR_REGISTRY>|\$DOCKER_REG_BASE_URL/\$DOCKER_NS|g' \
                 -e 's/<API_IMAGE_TAG>/${API_IMAGE_TAG}/g' \
                 -e 's/<EMBED_IMAGE_TAG>/${EMBED_IMAGE_TAG}/g' \
                 -e 's/<QDRANT_STORAGE_SIZE>/${QDRANT_STORAGE_SIZE}/g' \
