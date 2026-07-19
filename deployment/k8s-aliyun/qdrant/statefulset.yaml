@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: qdrant
-          image: qdrant/qdrant:latest
+          image: qdrant/qdrant:v1.12.6
           ports:
             - containerPort: 6333
               name: http
@@ -34,13 +34,13 @@ spec:
               memory: "4Gi"
           livenessProbe:
             httpGet:
-              path: /health
+              path: /healthz
               port: 6333
             initialDelaySeconds: 10
             periodSeconds: 5
           readinessProbe:
             httpGet:
-              path: /readyz
+              path: /healthz
               port: 6333
             initialDelaySeconds: 5
             periodSeconds: 5
