@@ -12,6 +12,7 @@ pipeline {
         string(name: 'EMBED_TAG', defaultValue: 'latest', description: 'embed 镜像标签（空/-/0 跳过）')
         string(name: 'QDRANT_TAG', defaultValue: 'latest', description: 'qdrant 镜像标签（空/-/0 跳过）')
         string(name: 'WORKFLOW_TAG', defaultValue: 'latest', description: 'workflow OSS 同步（空/-/0 跳过；latest=HEAD；其他=Tag）')
+        string(name: 'WEBUI_TAG', defaultValue: 'latest', description: 'Web GUI OSS 发布（空/-/0 跳过；latest=HEAD；其他=Tag）')
     }
 
     environment {
@@ -57,7 +58,7 @@ pipeline {
                     for (t in [params.CHAT_API_TAG, params.ADMIN_API_TAG, params.EMBED_TAG, params.QDRANT_TAG]) {
                         if (!isSkipped(t)) { deploying = true; break }
                     }
-                    if (!deploying && isSkipped(params.WORKFLOW_TAG)) {
+                    if (!deploying && isSkipped(params.WORKFLOW_TAG) && isSkipped(params.WEBUI_TAG)) {
                         error("至少需要一个有效的部署目标（所有 TAG 为空）")
                     }
                     if (!isSkipped(params.CHAT_API_TAG) || !isSkipped(params.ADMIN_API_TAG) || !isSkipped(params.EMBED_TAG) || !isSkipped(params.QDRANT_TAG)) {
@@ -90,6 +91,31 @@ pipeline {
                             git archive ${params.WORKFLOW_TAG} -- config/workflows/ | tar xf - -C /tmp/wf-export
                             ./ossutil cp -r /tmp/wf-export/config/workflows/ oss://${OSS_WORKFLOW_BUCKET}/${OSS_PATH_PREFIX}/ --update
                             rm -rf /tmp/wf-export
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('OSS: Web GUI') {
+            when { expression { !isSkipped(params.WEBUI_TAG) } }
+            steps {
+                script {
+                    sh "git fetch --tags"
+                    if (isLatest(params.WEBUI_TAG)) {
+                        sh """
+                            APPHOME=${TOOLS} . ${TOOLS}/env.sh
+                            echo "window.KF_API_URL = \\"https://${DOMAIN}\\";" > src/gui/ui/dist/config.js
+                            ./ossutil cp -r src/gui/ui/dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
+                        """
+                    } else {
+                        sh """
+                            APPHOME=${TOOLS} . ${TOOLS}/env.sh
+                            rm -rf /tmp/ui-export && mkdir -p /tmp/ui-export
+                            git archive ${params.WEBUI_TAG} -- src/gui/ui/dist/ | tar xf - -C /tmp/ui-export
+                            echo "window.KF_API_URL = \\"https://${DOMAIN}\\";" > /tmp/ui-export/src/gui/ui/dist/config.js
+                            ./ossutil cp -r /tmp/ui-export/src/gui/ui/dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
+                            rm -rf /tmp/ui-export
                         """
                     }
                 }

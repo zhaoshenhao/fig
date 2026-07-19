@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 dist/
+!/src/gui/ui/dist/
 build/
 .venv/
 .venv-wsl/
