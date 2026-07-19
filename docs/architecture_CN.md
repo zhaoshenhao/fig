@@ -266,7 +266,7 @@ kf/
 │   ├── secret.yaml                  # Secret 模板（含占位符）
 │   ├── ingress.yaml                 # ALB Ingress 配置
 │   ├── kustomization.yaml           # Kustomize 编排
-│   ├── oss-pvc.yaml                 # OSS CSI 持久卷声明
+│   ├── oss-pvc.yaml                 # OSS CSI 持久卷声明（工作流配置改用 NAS PVC）
 │   ├── job-build.yaml               # 文档构建 Job
 │   ├── grafana-dashboard.json       # Grafana 监控面板
 │   ├── prometheus-rules.yaml        # Prometheus 告警规则

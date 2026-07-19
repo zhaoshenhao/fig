@@ -109,7 +109,7 @@
 - Qdrant: StatefulSet 1副本 + ESSD 云盘（测试环境无冗余）
 - 外部托管：Redis（会话共享）、MySQL RDS（metrics/主库）、PostgreSQL RDS（分析）、DeepSeek API（LLM）
 - config 烘焙进镜像，环境值经 env + Secret 覆盖（无 ConfigMap 工作流挂载）
-- 工作流 YAML 配置通过 OSS CSI PVC 挂载到 `/app/config/workflows`
+- 工作流 YAML 配置通过 NAS PVC（`devops-nas1`，subPath `kf/workflows`）挂载到 `/app/config/workflows`
 - 已移除：Ollama、Streamlit（Streamlit 被 Vue SPA 取代）
 - 部署清单见 `deployment/k8s-aliyun/`，Jenkins 流水线 `Jenkinsfile`，指南见 `docs/deployments/deployment_CN.md`
 

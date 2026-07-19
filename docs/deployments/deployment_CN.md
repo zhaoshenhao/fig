@@ -278,10 +278,9 @@ kubectl wait --for=condition=ready pod -l app=embed -n ${NS} --timeout=120s
 
 ### C.7 部署应用（kf-api）
 
-```bash
-# OSS CSI PVC（工作流 YAML 配置挂载）
-cat deployment/k8s-aliyun/oss-pvc.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
+工作流 YAML 通过 NAS PVC `devops-nas1`（subPath `kf/workflows`）挂载，NAS 由集群管理员预先配置。
 
+```bash
 # kf-api Deployment（统一承载用户流量 + 内部管理，KF_MODE=full）
 cat deployment/k8s-aliyun/kf-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
 cat deployment/k8s-aliyun/kf-api/deployment.yaml \
@@ -370,7 +369,7 @@ AWS EKS 与阿里云 ACK 的主要差异：
 | 镜像仓库 | ACR | ECR |
 | Ingress | ALB Ingress Controller | AWS Load Balancer Controller |
 | 向量存储 | Qdrant + ESSD | Qdrant + gp3 EBS |
-| 配置挂载 | OSS CSI PVC | EFS CSI PVC |
+| 配置挂载 | NAS PVC (devops-nas1) | EFS CSI PVC |
 | S3 访问 | OSS AccessKey (Secret) | IRSA (IAM 角色) |
 | SPA 存储 | OSS bucket | S3 bucket + CloudFront |
 
@@ -718,7 +717,7 @@ Pod 环境变量
 | `deployment/k8s-aliyun/embed/service.yaml` | embed 服务 | Service |
 | `deployment/k8s-aliyun/qdrant/statefulset.yaml` | Qdrant 向量数据库 | StatefulSet |
 | `deployment/k8s-aliyun/qdrant/service.yaml` | Qdrant 服务 | Service |
-| `deployment/k8s-aliyun/oss-pvc.yaml` | OSS CSI 持久卷（ACK） | PVC |
+| `deployment/k8s-aliyun/oss-pvc.yaml` | OSS CSI 持久卷（ACK，工作流配置已改用 NAS PVC） | PVC |
 | `deployment/k8s-aliyun/ingress.yaml` | ALB Ingress（ACK） | Ingress |
 | `deployment/k8s-aliyun/prometheus-rules.yaml` | Prometheus 告警规则 | PrometheusRule |
 | `deployment/k8s-aliyun/grafana-dashboard.json` | Grafana 监控面板 | ConfigMap |

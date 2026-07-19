@@ -247,10 +247,9 @@ kubectl wait --for=condition=ready pod -l app=embed -n ${NS} --timeout=120s
 
 ### C.7 Deploy Application (kf-api)
 
-```bash
-# OSS CSI PVC (workflow configs)
-cat deployment/k8s-aliyun/oss-pvc.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
+Workflow YAMLs are mounted via NAS PVC `devops-nas1` (subPath `kf/workflows`), pre-configured by cluster admin.
 
+```bash
 # kf-api (user traffic + admin, KF_MODE=full)
 cat deployment/k8s-aliyun/kf-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
 cat deployment/k8s-aliyun/kf-api/deployment.yaml \
@@ -322,7 +321,7 @@ Key differences from ACK:
 | Registry | ACR | ECR |
 | Ingress | ALB Ingress Controller | AWS Load Balancer Controller |
 | Vector DB | Qdrant + ESSD | Qdrant + gp3 EBS |
-| Config mount | OSS CSI PVC | EFS CSI PVC |
+| Config mount | NAS PVC (devops-nas1) | EFS CSI PVC |
 | S3 access | OSS AccessKey (Secret) | IRSA (IAM role) |
 | SPA storage | OSS bucket | S3 + CloudFront |
 
@@ -583,7 +582,7 @@ Pod environment variables
 | `deployment/k8s-aliyun/embed/service.yaml` | embed | Service |
 | `deployment/k8s-aliyun/qdrant/statefulset.yaml` | Qdrant vector DB | StatefulSet |
 | `deployment/k8s-aliyun/qdrant/service.yaml` | Qdrant | Service |
-| `deployment/k8s-aliyun/oss-pvc.yaml` | OSS CSI PVC (ACK) | PVC |
+| `deployment/k8s-aliyun/oss-pvc.yaml` | OSS CSI PVC (ACK, workflows now via NAS PVC) | PVC |
 | `deployment/k8s-aliyun/ingress.yaml` | ALB Ingress (ACK) | Ingress |
 | `deployment/k8s-aliyun/prometheus-rules.yaml` | Prometheus alert rules | PrometheusRule |
 | `deployment/k8s-aliyun/grafana-dashboard.json` | Grafana dashboard | ConfigMap |

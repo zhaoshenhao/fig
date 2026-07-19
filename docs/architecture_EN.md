@@ -266,7 +266,7 @@ kf/
 │   ├── secret.yaml                  # Secret template (placeholder values)
 │   ├── ingress.yaml                 # ALB Ingress configuration
 │   ├── kustomization.yaml           # Kustomize orchestration
-│   ├── oss-pvc.yaml                 # OSS CSI PersistentVolumeClaim
+│   ├── oss-pvc.yaml                 # OSS CSI PersistentVolumeClaim (workflow switch to NAS PVC)
 │   ├── job-build.yaml               # Document build Job
 │   ├── grafana-dashboard.json       # Grafana monitoring dashboard
 │   ├── prometheus-rules.yaml        # Prometheus alerting rules
