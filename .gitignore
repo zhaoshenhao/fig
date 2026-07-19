@@ -39,7 +39,7 @@ logs/
 *.log
 
 # Local dev scripts
-scripts/
+scripts/dev/
 
 # Environment
 .env
@@ -49,3 +49,4 @@ scripts/
 
 # ?? FastEmbed ????(????????,???)
 .fastembed_cache/
+model/
