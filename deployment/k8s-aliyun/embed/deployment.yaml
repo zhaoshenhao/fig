@@ -14,7 +14,7 @@ spec:
         app: embed
     spec:
       imagePullSecrets:
-        - name: aliyun-acr-secret
+        - name: regsecret
       containers:
         - name: embed
           # 模型通过 NAS PVC 挂载，构建期不再下载
