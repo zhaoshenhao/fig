@@ -1,42 +1,49 @@
 # build-kf-embed.ps1 — 本地构建并推送 kf-embed 镜像到阿里云容器仓库
-# 用法:
-#   .\deployment\scripts\build-kf-embed.ps1 [-Tag mytag]
+# 用法（WSL Docker）:
+#   .\deployment\scripts\build-kf-embed.ps1 -Tag v1
 #
-# 前置: 先执行 docker login（凭据不写入本脚本）
-#   docker login registry-vpc.cn-shanghai.aliyuncs.com -u <user> --password-stdin
+# 用法（Windows 原生 Docker）:
+#   .\deployment\scripts\build-kf-embed.ps1 -Tag v1 -Native
+#
+# 前置: 先执行 docker login
+#   wsl bash -c "docker login registry.cn-shanghai.aliyuncs.com -u <user> --password-stdin"
 
 param(
     [string]$Tag = "latest",
-    [string]$Registry = $env:DOCKER_REG_BASE_URL,
-    [string]$Namespace = $env:DOCKER_NS,
+    [switch]$Native,
+    [string]$Registry = "registry.cn-shanghai.aliyuncs.com",
+    [string]$Namespace = "ybbmb",
     [string]$Mirror = "docker.m.daocloud.io"
 )
 
-if (-not $Registry) { $Registry = "registry-vpc.cn-shanghai.aliyuncs.com" }
-if (-not $Namespace) { $Namespace = "ybbmb" }
-
-$Image = "$Registry/$Namespace/kf-embed`:$Tag"
 $ROOT = $PSScriptRoot | Split-Path -Parent | Split-Path -Parent
+$Image = "$Registry/$Namespace/kf-embed`:$Tag"
+
+if ($Native) {
+    $docker = "docker"
+    $ctx = $ROOT
+} elseif (Get-Command docker -ErrorAction SilentlyContinue) {
+    $docker = "docker"
+    $ctx = $ROOT
+} else {
+    $docker = "wsl docker"
+    $ctx = ($ROOT -replace "\\", "/" -replace "^([A-Z]):", "/mnt/`$1").ToLower()
+}
 
 Write-Host "==> KF-EMBED Image Build"
-Write-Host "    Registry:  $Registry"
-Write-Host "    Namespace: $Namespace"
-Write-Host "    Tag:       $Tag"
+Write-Host "    Engine:    $docker"
+Write-Host "    Context:   $ctx"
 Write-Host "    Image:     $Image"
 Write-Host ""
 
-Write-Host "==> Pull base image from mirror..."
-docker pull "$Mirror/library/python:3.14-slim"
+cmd /c "$docker pull $Mirror/library/python:3.14-slim 2>&1"
 if ($LASTEXITCODE -ne 0) { throw "Base image pull failed" }
-docker tag "$Mirror/library/python:3.14-slim" "python:3.14-slim"
+cmd /c "$docker tag $Mirror/library/python:3.14-slim python:3.14-slim 2>&1"
 
-Write-Host "==> Build $Image..."
-docker build -t $Image -f "$ROOT\Dockerfile.embed" $ROOT
-if ($LASTEXITCODE -ne 0) { throw "Docker build failed" }
+cmd /c "$docker build -t $Image -f `"$ctx/Dockerfile.embed`" $ctx 2>&1"
+if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 
-Write-Host "==> Push $Image..."
-docker push $Image
-if ($LASTEXITCODE -ne 0) { throw "Docker push failed" }
+cmd /c "$docker push $Image 2>&1"
+if ($LASTEXITCODE -ne 0) { throw "Push failed" }
 
-Write-Host ""
 Write-Host "==> Done: $Image"
