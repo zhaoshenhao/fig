@@ -1,0 +1,97 @@
+pipeline {
+    agent any
+
+    parameters {
+        choice(
+            name: 'ENV',
+            choices: ['test', 'production'],
+            description: '环境 (test=mb-test / production=mb-pr)'
+        )
+        string(
+            name: 'SERVICES',
+            defaultValue: 'kf-api,kf-embed,web-gui',
+            description: '构建目标（逗号分隔: kf-api,kf-embed,web-gui）'
+        )
+        string(
+            name: 'IMAGE_TAG',
+            defaultValue: '',
+            description: '镜像标签（留空使用 BUILD_NUMBER）'
+        )
+    }
+
+    environment {
+        TOOLS = '/mnt/devops-tools'
+        DOCKER_HUB_MIRROR = 'docker.m.daocloud.io'
+        OSS_UI_BUCKET = 'kf-ui'
+        OSS_PATH_PREFIX = "${params.ENV == 'test' ? 'mb-test' : 'mb-pr'}"
+    }
+
+    stages {
+        stage('Env Setup') {
+            steps {
+                sh """
+                    APPHOME=${TOOLS} . ${TOOLS}/env.sh
+                    echo "Registry: \$DOCKER_REG_BASE_URL/\$DOCKER_NS"
+                """
+            }
+        }
+
+        stage('Build & Push Images') {
+            parallel {
+                stage('kf-api') {
+                    when {
+                        expression { params.SERVICES.split(',').contains('kf-api') }
+                    }
+                    steps {
+                        script {
+                            def tag = params.IMAGE_TAG ?: "${env.BUILD_NUMBER}"
+                            sh """
+                                APPHOME=${TOOLS} . ${TOOLS}/env.sh
+                                echo "\$DOCKER_REG_PASSWORD" | docker login \$DOCKER_REG_BASE_URL -u \$DOCKER_REG_USER --password-stdin
+                                docker pull ${DOCKER_HUB_MIRROR}/library/python:3.14-slim
+                                docker tag ${DOCKER_HUB_MIRROR}/library/python:3.14-slim python:3.14-slim
+                                docker build -t \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${tag} -f Dockerfile .
+                                docker push \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-api:${tag}
+                            """
+                            echo "kf-api:${tag} pushed"
+                        }
+                    }
+                }
+                stage('kf-embed') {
+                    when {
+                        expression { params.SERVICES.split(',').contains('kf-embed') }
+                    }
+                    steps {
+                        script {
+                            def tag = params.IMAGE_TAG ?: "${env.BUILD_NUMBER}"
+                            sh """
+                                APPHOME=${TOOLS} . ${TOOLS}/env.sh
+                                echo "\$DOCKER_REG_PASSWORD" | docker login \$DOCKER_REG_BASE_URL -u \$DOCKER_REG_USER --password-stdin
+                                docker pull ${DOCKER_HUB_MIRROR}/library/python:3.14-slim
+                                docker tag ${DOCKER_HUB_MIRROR}/library/python:3.14-slim python:3.14-slim
+                                docker build -t \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-embed:${tag} -f Dockerfile.embed .
+                                docker push \$DOCKER_REG_BASE_URL/\$DOCKER_NS/kf-embed:${tag}
+                            """
+                            echo "kf-embed:${tag} pushed"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Upload Web GUI to OSS') {
+            when {
+                expression { params.SERVICES.split(',').contains('web-gui') }
+            }
+            steps {
+                dir('src/gui/ui') {
+                    sh 'npm ci && npm run build'
+                    sh """
+                        APPHOME=${TOOLS} . ${TOOLS}/env.sh
+                        ossutil cp -r dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
+                    """
+                }
+            }
+        }
+    }
+}
