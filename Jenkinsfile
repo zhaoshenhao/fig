@@ -1,7 +1,3 @@
-def hasService(String name) {
-    return params.SERVICES?.split(',')?.toList()?.contains(name) ?: false
-}
-
 pipeline {
     agent any
 
@@ -54,7 +50,7 @@ pipeline {
                 stage('kf-api') {
                     when {
                         expression {
-                            (hasService('chat-api') || hasService('admin-api')) && params.REBUILD_IMAGES
+                            (params.SERVICES.split(',').contains('chat-api') || params.SERVICES.split(',').contains('admin-api')) && params.REBUILD_IMAGES
                         }
                     }
                     steps {
@@ -72,7 +68,7 @@ pipeline {
                 stage('kf-embed') {
                     when {
                         expression {
-                            hasService('embed') && params.REBUILD_IMAGES
+                            params.SERVICES.split(',').contains('embed') && params.REBUILD_IMAGES
                         }
                     }
                     steps {
@@ -115,7 +111,7 @@ pipeline {
 
         stage('Upload Web GUI to OSS') {
             when {
-                expression { hasService('web-gui') }
+                expression { params.SERVICES.split(',').contains('web-gui') }
             }
             steps {
                 dir('src/gui/ui') {
@@ -132,7 +128,7 @@ pipeline {
             parallel {
                 stage('chat-api') {
                     when {
-                        expression { hasService('chat-api') }
+                        expression { params.SERVICES.split(',').contains('chat-api') }
                     }
                     steps {
                         deployService('deployment/k8s-aliyun/chat-api', 'chat-api')
@@ -140,7 +136,7 @@ pipeline {
                 }
                 stage('admin-api') {
                     when {
-                        expression { hasService('admin-api') }
+                        expression { params.SERVICES.split(',').contains('admin-api') }
                     }
                     steps {
                         deployService('deployment/k8s-aliyun/admin-api', 'admin-api')
@@ -148,7 +144,7 @@ pipeline {
                 }
                 stage('embed') {
                     when {
-                        expression { hasService('embed') }
+                        expression { params.SERVICES.split(',').contains('embed') }
                     }
                     steps {
                         deployService('deployment/k8s-aliyun/embed', 'embed')
@@ -156,7 +152,7 @@ pipeline {
                 }
                 stage('qdrant') {
                     when {
-                        expression { hasService('qdrant') }
+                        expression { params.SERVICES.split(',').contains('qdrant') }
                     }
                     steps {
                         deployService('deployment/k8s-aliyun/qdrant', 'qdrant')
@@ -185,7 +181,7 @@ pipeline {
             parallel {
                 stage('chat-api') {
                     when {
-                        expression { hasService('chat-api') }
+                        expression { params.SERVICES.split(',').contains('chat-api') }
                     }
                     steps {
                         checkHealth('chat-api')
@@ -193,7 +189,7 @@ pipeline {
                 }
                 stage('admin-api') {
                     when {
-                        expression { hasService('admin-api') }
+                        expression { params.SERVICES.split(',').contains('admin-api') }
                     }
                     steps {
                         checkHealth('admin-api')
@@ -201,7 +197,7 @@ pipeline {
                 }
                 stage('embed') {
                     when {
-                        expression { hasService('embed') }
+                        expression { params.SERVICES.split(',').contains('embed') }
                     }
                     steps {
                         checkHealth('embed')
@@ -209,7 +205,7 @@ pipeline {
                 }
                 stage('qdrant') {
                     when {
-                        expression { hasService('qdrant') }
+                        expression { params.SERVICES.split(',').contains('qdrant') }
                     }
                     steps {
                         sh """
