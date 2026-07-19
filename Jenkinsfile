@@ -47,6 +47,17 @@ pipeline {
                         ./ossutil config -e \$OSS_ENDPOINT -i \$OSS_ACCESS_KEY_ID -k \$OSS_ACCESS_KEY_SECRET -L CH 2>&1 || true
                         echo "ossutil configured"
                     fi
+                    # Ensure npm is available for Web GUI builds
+                    if ! command -v npm >/dev/null 2>&1; then
+                        for np in /usr/local/bin/npm /usr/bin/npm /usr/local/nvm/versions/node/*/bin/npm; do
+                            if [ -x "$np" ]; then export PATH="$(dirname $np):$PATH"; break; fi
+                        done
+                    fi
+                    if ! command -v npm >/dev/null 2>&1; then
+                        echo "WARN: npm not found, Web GUI build will fail"
+                    else
+                        echo "npm: $(npm --version)"
+                    fi
                 """
             }
         }
@@ -101,6 +112,13 @@ pipeline {
             when { expression { !isSkipped(params.WEBUI_TAG) } }
             steps {
                 script {
+                    sh """
+                        if ! command -v npm >/dev/null 2>&1; then
+                            echo "ERROR: npm is required for Web GUI build but not found on this worker"
+                            echo "Install Node.js on the Jenkins worker and retry"
+                            exit 1
+                        fi
+                    """
                     sh "git fetch --tags"
                     if (isLatest(params.WEBUI_TAG)) {
                         dir('src/gui/ui') {
