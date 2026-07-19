@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import os
 import threading
 
 # 默认模型（FastEmbed 仓库名）
@@ -44,7 +45,8 @@ def _load_model(name: str):  # pragma: no cover - 需 fastembed 及模型下载
     """加载 FastEmbed 模型（延迟导入 fastembed）。"""
     from fastembed import TextEmbedding
 
-    return TextEmbedding(model_name=name)
+    cache_dir = os.environ.get("EMBED_CACHE_DIR", os.path.join(os.getcwd(), "model"))
+    return TextEmbedding(model_name=name, cache_dir=cache_dir)
 
 
 def get_model(name: str = ""):
