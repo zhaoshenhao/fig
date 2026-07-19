@@ -124,6 +124,18 @@
 - PowerShell 5.1 的 `Invoke-WebRequest` 必须加 `-UseBasicParsing`（否则 200 响应触发 IE 解析器 NonInteractive 报错）；无 `-SkipHttpErrorCheck`（PS7+ 才有），取状态码用 try/catch 读 `$_.Exception.Response`
 - 服务启动日志重定向到 `$env:TEMP\*.log`，需要时读取
 
+## 本地开发启动
+
+| 操作 | 命令 |
+|------|------|
+| 一键启动全部 | `.\scripts\dev\start-all.ps1` |
+| 仅 Qdrant | `.\scripts\dev\start-qdrant.ps1` |
+| 仅 kf-embed | `.\scripts\dev\start-embed.ps1` |
+| 仅 kf-api | `.\scripts\dev\start-api.ps1` |
+| 数据库初始化 | `.\scripts\dev\init-db.ps1` |
+
+服务端口：Qdrant :6333/:6334 (WSL Docker)，kf-embed :8100，kf-api :9000，MySQL :3307 (WSL Docker)
+
 ## 文档索引
 - 根目录 `README.md`（中文） / `README_EN.md`（英文）
 - `docs/architecture_CN.md` — 系统架构、模块关系、目录结构
