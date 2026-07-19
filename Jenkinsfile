@@ -17,7 +17,8 @@ pipeline {
     environment {
         NAMESPACE = "${params.ENV == 'test' ? 'mb-test' : 'mb-pr'}"
         DOMAIN = 'kf.dev.youbanban.com'
-        QDRANT_STORAGE_SIZE = '2Gi'
+        QDRANT_STORAGE_SIZE = '20Gi'
+        NAS_PVC = "${params.ENV == 'test' ? 'mb-test-nas1' : 'mb-pr-nas1'}"
         TOOLS = '/mnt/devops-tools'
         KUBECONFIG = '/mnt/kubeconf/config'
         OSS_WORKFLOW_BUCKET = 'kf-workflow'
@@ -187,6 +188,7 @@ def deployService(String dir, String tag) {
                 -e 's/<API_IMAGE_TAG>/${tag}/g' \\
                 -e 's/<EMBED_IMAGE_TAG>/${tag}/g' \\
                 -e 's/<QDRANT_STORAGE_SIZE>/${QDRANT_STORAGE_SIZE}/g' \\
+                -e 's/<NAS_PVC_NAME>/${NAS_PVC}/g' \\
                 \$f | \$KUBECTL apply -f -
         done
     """

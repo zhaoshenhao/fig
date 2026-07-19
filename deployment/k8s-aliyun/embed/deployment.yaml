@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: embed
-          # 模型通过 NAS PVC (devops-nas1) 挂载，构建期不再下载
+          # 模型通过 NAS PVC 挂载，构建期不再下载
           image: <ACR_REGISTRY>/kf-embed:<EMBED_IMAGE_TAG>
           ports:
             - containerPort: 8100
@@ -58,4 +58,4 @@ spec:
       volumes:
         - name: model-storage
           persistentVolumeClaim:
-            claimName: devops-nas1
+            claimName: <NAS_PVC_NAME>

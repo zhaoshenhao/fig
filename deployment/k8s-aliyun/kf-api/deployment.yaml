@@ -69,4 +69,4 @@ spec:
       volumes:
         - name: workflow-config
           persistentVolumeClaim:
-            claimName: devops-nas1
+            claimName: <NAS_PVC_NAME>
