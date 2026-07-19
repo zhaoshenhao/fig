@@ -18,6 +18,7 @@ class Dialect:
     autoincrement: str         # 自增主键列定义
     text_type: str             # 大文本列类型（query/reply 等）
     varchar_type: str          # 短字符串列类型（id/name/status 等，MySQL 索引/默认值友好）
+    creation_ts_type: str      # created_at/updated_at 列类型（MySQL 需 DATETIME，SQLite/PostgreSQL 可用 TEXT）
     ts_default: str            # created_at 默认时间（UTC）
     group_concat: str          # 去重字符串聚合函数名，用于 workflow_names
     supports_ilike: bool = False
@@ -48,6 +49,7 @@ SQLITE = Dialect(
     autoincrement="INTEGER PRIMARY KEY AUTOINCREMENT",
     text_type="TEXT",
     varchar_type="TEXT",
+    creation_ts_type="TEXT",
     ts_default="(datetime('now'))",
     group_concat="group_concat",
 )
@@ -58,6 +60,7 @@ MYSQL = Dialect(
     autoincrement="BIGINT AUTO_INCREMENT PRIMARY KEY",
     text_type="TEXT",
     varchar_type="VARCHAR(255)",
+    creation_ts_type="DATETIME",
     ts_default="CURRENT_TIMESTAMP",
     group_concat="group_concat",
 )
@@ -68,6 +71,7 @@ POSTGRES = Dialect(
     autoincrement="BIGSERIAL PRIMARY KEY",
     text_type="TEXT",
     varchar_type="VARCHAR(255)",
+    creation_ts_type="TEXT",
     ts_default="(now() at time zone 'utc')",
     group_concat="string_agg",
     supports_ilike=True,

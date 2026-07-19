@@ -106,6 +106,7 @@ def all_table_ddl(d: Dialect) -> list[str]:
     vc = d.varchar_type
     tx = d.text_type
     ts = d.ts_default
+    ct = d.creation_ts_type
     return [
         f"""CREATE TABLE IF NOT EXISTS runs (
             id            {d.autoincrement},
@@ -120,7 +121,7 @@ def all_table_ddl(d: Dialect) -> list[str]:
             error_message {tx},
             prompt_tokens INTEGER DEFAULT 0,
             completion_tokens INTEGER DEFAULT 0,
-            created_at    {vc} DEFAULT {ts}
+            created_at    {ct} DEFAULT {ts}
         )""",
         f"""CREATE TABLE IF NOT EXISTS node_logs (
             id            {d.autoincrement},
@@ -134,7 +135,7 @@ def all_table_ddl(d: Dialect) -> list[str]:
             duration_ms   REAL,
             status        {vc} DEFAULT 'ok',
             error_message {tx},
-            created_at    {vc} DEFAULT {ts}
+            created_at    {ct} DEFAULT {ts}
         )""",
         f"""CREATE TABLE IF NOT EXISTS tool_logs (
             id             {d.autoincrement},
@@ -149,7 +150,7 @@ def all_table_ddl(d: Dialect) -> list[str]:
             duration_ms    REAL,
             status         {vc} DEFAULT 'ok',
             error_message  {tx},
-            created_at     {vc} DEFAULT {ts}
+            created_at     {ct} DEFAULT {ts}
         )""",
         f"""CREATE TABLE IF NOT EXISTS feedback (
             id            {d.autoincrement},
@@ -158,13 +159,13 @@ def all_table_ddl(d: Dialect) -> list[str]:
             rating        {vc} NOT NULL,
             comment       {tx},
             correction    {tx},
-            created_at    {vc} DEFAULT {ts}
+            created_at    {ct} DEFAULT {ts}
         )""",
         f"""CREATE TABLE IF NOT EXISTS session_meta (
             chat_id     {vc} PRIMARY KEY,
             title       {tx},
             tags        {tx},
-            updated_at  {vc} DEFAULT {ts}
+            updated_at  {ct} DEFAULT {ts}
         )""",
         f"""CREATE TABLE IF NOT EXISTS rag_retrievals (
             id            {d.autoincrement},
@@ -175,7 +176,7 @@ def all_table_ddl(d: Dialect) -> list[str]:
             score         REAL DEFAULT 0,
             source        {vc},
             chunk_preview {tx},
-            created_at    {vc} DEFAULT {ts}
+            created_at    {ct} DEFAULT {ts}
         )""",
     ]
 

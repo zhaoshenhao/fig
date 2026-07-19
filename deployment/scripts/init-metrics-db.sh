@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # =============================================================================
 # init-metrics-db/sh — 一键初始化 Metrics 数据库和应用用户
 #
@@ -30,7 +30,7 @@
 set -euo pipefail
 
 DB_TYPE="${DB_TYPE:-mysql}"
-DB_HOST="${DB_HOST:-127/0/0/1}"
+DB_HOST="${DB_HOST:-127.0.0.1}"
 DB_ROOT_USER="${DB_ROOT_USER:-}"
 DB_ROOT_PASSWORD="${DB_ROOT_PASSWORD:-}"
 DB_APP_USER="${DB_APP_USER:-kf}"
@@ -38,7 +38,7 @@ DB_NAME="${DB_NAME:-kf_metrics}"
 
 # ---- 生成随机密码（12 位） ----
 if [ -z "${DB_APP_PASSWORD:-}" ]; then
-  DB_APP_PASSWORD="$(LC_ALL=C tr -dc 'A-Za-z0-9!@#$%^' < /dev/urandom 2>/dev/null | head -c12 || python3 -c "import secrets; print(secrets/token_urlsafe(9))")"
+  DB_APP_PASSWORD="$(LC_ALL=C tr -dc 'A-Za-z0-9!@#$%^' < /dev/urandom 2>/dev/null | head -c12 || python3 -c "import secrets; print(secrets.token_urlsafe(9))")"
   echo ">>> 未设置 DB_APP_PASSWORD，已随机生成"
 fi
 
@@ -81,15 +81,11 @@ if [ "$DB_TYPE" = "mysql" ]; then
 CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- 删除旧用户（如存在）后重新创建
-DROP USER IF EXISTS '$DB_APP_USER'@'%';
-CREATE USER '$DB_APP_USER'@'%' IDENTIFIED BY '$DB_APP_PASSWORD';
+-- 若用户不存在则创建，已存在则跳过（不破坏已有密码和权限）
+CREATE USER IF NOT EXISTS '$DB_APP_USER'@'%' IDENTIFIED BY '$DB_APP_PASSWORD';
 
-GRANT ALL PRIVILEGES ON \`$DB_NAME\`/* TO '$DB_APP_USER'@'%';
+GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_APP_USER'@'%';
 FLUSH PRIVILEGES;
-
--- 设定全局时区为 UTC（可选，建议）
-SET GLOBAL time_zone = '+00:00';
 SQL
 
 # ---- PostgreSQL ----
@@ -121,7 +117,7 @@ SQL
   psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_ROOT_USER" -d "$DB_NAME" <<SQL
 DO \$\$
 BEGIN
-  IF NOT EXISTS (SELECT FROM pg_catalog/pg_roles WHERE rolname = '$DB_APP_USER') THEN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$DB_APP_USER') THEN
     CREATE USER $DB_APP_USER WITH PASSWORD '$DB_APP_PASSWORD';
   END IF;
 END

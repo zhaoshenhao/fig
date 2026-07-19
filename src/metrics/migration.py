@@ -218,10 +218,11 @@ def _drop_all_known_indexes(cur: Any, conn: Any):
         conn.rollback()
 
 
-def _record_migration(cur: Any, conn: Any, migration: Migration):
+def _record_migration(cur: Any, conn: Any, d: Dialect, migration: Migration):
+    ph = d.one()
     cur.execute(
-        "INSERT INTO _schema_version (version, applied_at, description) "
-        "VALUES (?, ?, ?)",
+        f"INSERT INTO _schema_version (version, applied_at, description) "
+        f"VALUES ({ph}, {ph}, {ph})",
         (migration.version, _time.strftime("%Y-%m-%d %H:%M:%S"),
          migration.description),
     )
@@ -299,7 +300,7 @@ def migrate(conn: Any, d: Dialect) -> int:
                 cur.execute(stmt)
                 conn.commit()
 
-        _record_migration(cur, conn, m)
+        _record_migration(cur, conn, d, m)
         applied += 1
 
     return applied
