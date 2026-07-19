@@ -33,11 +33,11 @@ pipeline {
                     APPHOME=${TOOLS} . ${TOOLS}/env.sh
                     echo "Registry: \$DOCKER_REG_BASE_URL/\$DOCKER_NS"
                     echo "Namespace: ${NAMESPACE}"
-                    # Download ossutil if not present
-                    if ! command -v ossutil >/dev/null 2>&1 && [ ! -f ossutil ]; then
-                        curl -sL -o ossutil https://gosspublic.alicdn.com/ossutil/1.7.19/ossutil64
-                        chmod +x ossutil
-                        echo "ossutil downloaded"
+                    if [ -x /mnt/ossutil ]; then
+                        cp /mnt/ossutil ./ossutil && chmod +x ./ossutil
+                        echo "ossutil ready"
+                    else
+                        echo "WARN: /mnt/ossutil not found, OSS steps will fail"
                     fi
                 """
             }
