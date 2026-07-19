@@ -12,7 +12,6 @@ pipeline {
         string(name: 'EMBED_TAG', defaultValue: 'latest', description: 'embed 镜像标签（空/-/0 跳过）')
         string(name: 'QDRANT_TAG', defaultValue: 'latest', description: 'qdrant 镜像标签（空/-/0 跳过）')
         string(name: 'WORKFLOW_TAG', defaultValue: 'latest', description: 'workflow OSS 同步（空/-/0 跳过；latest=HEAD；其他=Tag）')
-        string(name: 'WEBUI_TAG', defaultValue: 'latest', description: 'Web GUI OSS 发布（空/-/0 跳过；latest=HEAD；其他=Tag）')
     }
 
     environment {
@@ -47,17 +46,6 @@ pipeline {
                         ./ossutil config -e \$OSS_ENDPOINT -i \$OSS_ACCESS_KEY_ID -k \$OSS_ACCESS_KEY_SECRET -L CH 2>&1 || true
                         echo "ossutil configured"
                     fi
-                    # Ensure npm is available for Web GUI builds
-                    if ! command -v npm >/dev/null 2>&1; then
-                        for np in /usr/local/bin/npm /usr/bin/npm /usr/local/nvm/versions/node/*/bin/npm; do
-                            if [ -x "$np" ]; then export PATH="$(dirname $np):$PATH"; break; fi
-                        done
-                    fi
-                    if ! command -v npm >/dev/null 2>&1; then
-                        echo "WARN: npm not found, Web GUI build will fail"
-                    else
-                        echo "npm: $(npm --version)"
-                    fi
                 """
             }
         }
@@ -69,7 +57,7 @@ pipeline {
                     for (t in [params.CHAT_API_TAG, params.ADMIN_API_TAG, params.EMBED_TAG, params.QDRANT_TAG]) {
                         if (!isSkipped(t)) { deploying = true; break }
                     }
-                    if (!deploying && isSkipped(params.WORKFLOW_TAG) && isSkipped(params.WEBUI_TAG)) {
+                    if (!deploying && isSkipped(params.WORKFLOW_TAG)) {
                         error("至少需要一个有效的部署目标（所有 TAG 为空）")
                     }
                     if (!isSkipped(params.CHAT_API_TAG) || !isSkipped(params.ADMIN_API_TAG) || !isSkipped(params.EMBED_TAG) || !isSkipped(params.QDRANT_TAG)) {
@@ -102,40 +90,6 @@ pipeline {
                             git archive ${params.WORKFLOW_TAG} -- config/workflows/ | tar xf - -C /tmp/wf-export
                             ./ossutil cp -r /tmp/wf-export/config/workflows/ oss://${OSS_WORKFLOW_BUCKET}/${OSS_PATH_PREFIX}/ --update
                             rm -rf /tmp/wf-export
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('OSS: Web GUI') {
-            when { expression { !isSkipped(params.WEBUI_TAG) } }
-            steps {
-                script {
-                    sh """
-                        if ! command -v npm >/dev/null 2>&1; then
-                            echo "ERROR: npm is required for Web GUI build but not found on this worker"
-                            echo "Install Node.js on the Jenkins worker and retry"
-                            exit 1
-                        fi
-                    """
-                    sh "git fetch --tags"
-                    if (isLatest(params.WEBUI_TAG)) {
-                        dir('src/gui/ui') {
-                            sh 'npm ci && npm run build'
-                            sh """
-                                APPHOME=${TOOLS} . ${TOOLS}/env.sh
-                                ./ossutil cp -r dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
-                            """
-                        }
-                    } else {
-                        sh """
-                            rm -rf /tmp/ui-export && mkdir -p /tmp/ui-export
-                            git archive ${params.WEBUI_TAG} -- src/gui/ui/ | tar xf - -C /tmp/ui-export
-                            cd /tmp/ui-export/src/gui/ui && npm ci && npm run build
-                            APPHOME=${TOOLS} . ${TOOLS}/env.sh
-                            ./ossutil cp -r dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
-                            cd ${WORKSPACE} && rm -rf /tmp/ui-export
                         """
                     }
                 }
