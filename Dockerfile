@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -e .[prod]
 
 COPY src/ ./src/
 COPY config/ ./config/
+COPY src/gui/ui/dist/ ./static/
 
 EXPOSE 8000
 

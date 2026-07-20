@@ -9,7 +9,7 @@ pipeline {
         )
         string(name: 'API_TAG', defaultValue: 'latest', description: 'kf-api 镜像标签（空/-/0 跳过）')
         string(name: 'EMBED_TAG', defaultValue: 'latest', description: 'embed 镜像标签（空/-/0 跳过）')
-        string(name: 'QDRANT_TAG', defaultValue: 'latest', description: 'qdrant 镜像标签（空/-/0 跳过）')
+        string(name: 'QDRANT_TAG', defaultValue: 'latest', description: 'kf-qdrant 镜像标签（空/-/0 跳过）')
         string(name: 'WORKFLOW_TAG', defaultValue: 'latest', description: 'workflow OSS 同步（空/-/0 跳过；latest=HEAD；其他=Tag）')
         string(name: 'WEBUI_TAG', defaultValue: 'latest', description: 'Web GUI OSS 发布（空/-/0 跳过；latest=HEAD；其他=Tag）')
     }
@@ -121,7 +121,7 @@ pipeline {
         stage('Deploy to K8s') {
             steps {
                 script {
-                    // Deploy in dependency order: qdrant → embed → kf-api → global
+                    // Deploy in dependency order: kf-qdrant → kf-embed → kf-api → global
                     if (!isSkipped(params.QDRANT_TAG)) {
                         deployQdrant()
                     }
@@ -153,12 +153,12 @@ pipeline {
                     when { expression { !isSkipped(params.EMBED_TAG) } }
                     steps { checkHealth('kf-embed') }
                 }
-                stage('qdrant') {
+                stage('kf-qdrant') {
                     when { expression { !isSkipped(params.QDRANT_TAG) } }
                     steps {
                         sh """
                             APPHOME=${TOOLS} . ${TOOLS}/env.sh
-                            \$KUBECTL wait --for=condition=ready pod -l app=qdrant -n ${NAMESPACE} --timeout=120s
+                            \$KUBECTL wait --for=condition=ready pod -l app=kf-qdrant -n ${NAMESPACE} --timeout=120s
                         """
                     }
                 }
@@ -201,13 +201,13 @@ def deployQdrant() {
 
         sed 's/<NAMESPACE>/${NAMESPACE}/g' \$QD_DIR/service.yaml | \$KUBECTL apply -f -
 
-        if \$KUBECTL get statefulset qdrant -n ${NAMESPACE} >/dev/null 2>&1; then
-            CUR=\$(\$KUBECTL get statefulset qdrant -n ${NAMESPACE} -o jsonpath='{.spec.volumeClaimTemplates[0].spec.resources.requests.storage}')
+        if \$KUBECTL get statefulset kf-qdrant -n ${NAMESPACE} >/dev/null 2>&1; then
+            CUR=\$(\$KUBECTL get statefulset kf-qdrant -n ${NAMESPACE} -o jsonpath='{.spec.volumeClaimTemplates[0].spec.resources.requests.storage}')
             echo "Qdrant PVC: current=\$CUR, desired=${QDRANT_STORAGE_SIZE}"
             if [ "\$CUR" != "${QDRANT_STORAGE_SIZE}" ]; then
                 echo "Storage changed, recreating StatefulSet + PVC..."
-                \$KUBECTL delete statefulset qdrant -n ${NAMESPACE} --cascade=orphan --ignore-not-found
-                \$KUBECTL delete pvc qdrant-storage-qdrant-0 -n ${NAMESPACE} --ignore-not-found
+                \$KUBECTL delete statefulset kf-qdrant -n ${NAMESPACE} --cascade=orphan --ignore-not-found
+                \$KUBECTL delete pvc kf-qdrant-storage-kf-qdrant-0 -n ${NAMESPACE} --ignore-not-found
                 sleep 3
             fi
         fi

@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: qdrant
+  name: kf-qdrant
   namespace: <NAMESPACE>
 spec:
-  serviceName: qdrant
+  serviceName: kf-qdrant
   replicas: 1
   selector:
     matchLabels:
-      app: qdrant
+      app: kf-qdrant
   template:
     metadata:
       labels:
-        app: qdrant
+        app: kf-qdrant
     spec:
       containers:
-        - name: qdrant
+        - name: kf-qdrant
           image: qdrant/qdrant:v1.12.6
           ports:
             - containerPort: 6333
@@ -23,7 +23,7 @@ spec:
             - containerPort: 6334
               name: grpc
           volumeMounts:
-            - name: qdrant-storage
+            - name: kf-qdrant-storage
               mountPath: /qdrant/storage
           resources:
             requests:
@@ -46,7 +46,7 @@ spec:
             periodSeconds: 5
   volumeClaimTemplates:
     - metadata:
-        name: qdrant-storage
+        name: kf-qdrant-storage
       spec:
         accessModes: ["ReadWriteOnce"]
         storageClassName: alicloud-disk-essd

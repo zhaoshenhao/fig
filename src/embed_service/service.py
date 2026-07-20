@@ -11,12 +11,12 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 import threading
 
-import logging
-
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 # 默认模型（FastEmbed 仓库名）

@@ -11,6 +11,14 @@ spec:
     - host: <DOMAIN>
       http:
         paths:
+          # ── SPA (static files, must be first for path matching) ──
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kf-api
+                port:
+                  number: 8000
           # ── Chat & Admin API (unified) ──
           - path: /api/v1/
             pathType: Prefix

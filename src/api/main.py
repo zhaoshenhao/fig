@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from src.api.auth import AuthMiddleware
 from src.api.routes_admin import admin_api_router, admin_base_router
@@ -314,3 +315,7 @@ if _mode in ("full", "chat"):
 if _mode in ("full", "admin"):
     app.include_router(admin_api_router)
     app.include_router(admin_base_router)
+
+# SPA static files (must be mounted last as catch-all fallback)
+if os.path.isdir("static"):
+    app.mount("/", StaticFiles(directory="static", html=True), name="spa")

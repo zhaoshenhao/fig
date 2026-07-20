@@ -13,7 +13,7 @@ spec:
           command: ["python", "-m", "src.ingestion.builder"]
           env:
             - name: QDRANT_HOST
-              value: "qdrant.<NAMESPACE>.svc.cluster.local"
+              value: "kf-qdrant.<NAMESPACE>.svc.cluster.local"
             - name: QDRANT_PORT
               value: "6334"
             - name: EMBED_BASE_URL
