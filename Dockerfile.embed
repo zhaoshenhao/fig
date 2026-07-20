@@ -10,6 +10,7 @@ COPY pyproject.toml .
 RUN pip install --no-cache-dir -e .[embed]
 
 COPY src/embed_service/ ./src/embed_service/
+COPY src/logger/ ./src/logger/
 COPY src/__init__.py ./src/
 
 EXPOSE 8100
