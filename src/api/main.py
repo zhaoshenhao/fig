@@ -316,14 +316,15 @@ if _mode in ("full", "admin"):
     app.include_router(admin_api_router)
     app.include_router(admin_base_router)
 
-# SPA static files (serve AFTER all API routes; explicit mounts to avoid overriding API)
+# SPA static files — catch-all AFTER all API routes (order matters: API routes take priority)
 if os.path.isdir("static"):
-    @app.get("/config.js", include_in_schema=False)
-    async def serve_config():
-        return FileResponse("static/config.js")
+    from pathlib import Path as _Path
+    _STATIC_DIR = _Path("static")
 
-    @app.get("/", include_in_schema=False)
-    async def serve_index():
-        return FileResponse("static/index.html")
-
-    app.mount("/assets", StaticFiles(directory="static/assets"), name="spa-assets")
+    @app.get("/{filename:path}", include_in_schema=False)
+    async def serve_spa(filename: str):
+        filepath = _STATIC_DIR / filename
+        if filepath.is_file():
+            return FileResponse(filepath)
+        # SPA client-side routing fallback
+        return FileResponse(_STATIC_DIR / "index.html")
