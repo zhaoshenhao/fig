@@ -15,9 +15,9 @@ import os
 import time
 import threading
 
-from src.logger import get_logger
+import logging
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # 默认模型（FastEmbed 仓库名）
 DEFAULT_MODEL = "nomic-ai/nomic-embed-text-v1.5"

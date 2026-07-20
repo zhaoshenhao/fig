@@ -21,9 +21,9 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from src.embed_service.service import DEFAULT_MODEL, embed_texts, get_model, is_ready
-from src.logger import get_logger
+import logging
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # 进程导入时刻 + 模型就绪耗时（供 /ready 报告启动时间，避免外部轮询阻塞）
 _PROCESS_START = time.time()
