@@ -199,6 +199,10 @@ def deployQdrant() {
         APPHOME=${TOOLS} . ${TOOLS}/env.sh
         QD_DIR=deployment/k8s-aliyun/qdrant
 
+        # Clean up old qdrant resources (renamed to kf-qdrant)
+        \$KUBECTL delete service qdrant -n ${NAMESPACE} --ignore-not-found 2>&1 || true
+        \$KUBECTL delete statefulset qdrant -n ${NAMESPACE} --cascade=orphan --ignore-not-found 2>&1 || true
+
         sed 's/<NAMESPACE>/${NAMESPACE}/g' \$QD_DIR/service.yaml | \$KUBECTL apply -f -
 
         if \$KUBECTL get statefulset kf-qdrant -n ${NAMESPACE} >/dev/null 2>&1; then
