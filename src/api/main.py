@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.auth import AuthMiddleware
@@ -316,6 +316,14 @@ if _mode in ("full", "admin"):
     app.include_router(admin_api_router)
     app.include_router(admin_base_router)
 
-# SPA static files (must be mounted last as catch-all fallback)
+# SPA static files (serve AFTER all API routes; explicit mounts to avoid overriding API)
 if os.path.isdir("static"):
-    app.mount("/", StaticFiles(directory="static", html=True), name="spa")
+    @app.get("/config.js", include_in_schema=False)
+    async def serve_config():
+        return FileResponse("static/config.js")
+
+    @app.get("/", include_in_schema=False)
+    async def serve_index():
+        return FileResponse("static/index.html")
+
+    app.mount("/assets", StaticFiles(directory="static/assets"), name="spa-assets")
