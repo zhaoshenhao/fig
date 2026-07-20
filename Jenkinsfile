@@ -121,6 +121,14 @@ pipeline {
         stage('Deploy to K8s') {
             steps {
                 script {
+                    // Clean up old renamed services to free Service IPs
+                    sh """
+                        APPHOME=${TOOLS} . ${TOOLS}/env.sh
+                        \$KUBECTL delete service qdrant -n ${NAMESPACE} --ignore-not-found 2>&1 || true
+                        \$KUBECTL delete service embed -n ${NAMESPACE} --ignore-not-found 2>&1 || true
+                        \$KUBECTL delete statefulset qdrant -n ${NAMESPACE} --cascade=orphan --ignore-not-found 2>&1 || true
+                        \$KUBECTL delete statefulset embed -n ${NAMESPACE} --ignore-not-found 2>&1 || true
+                    """
                     // Deploy in dependency order: kf-qdrant → kf-embed → kf-api → global
                     if (!isSkipped(params.QDRANT_TAG)) {
                         deployQdrant()
