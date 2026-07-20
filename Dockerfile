@@ -12,4 +12,6 @@ COPY src/gui/ui/dist/ ./static/
 
 EXPOSE 8000
 
+RUN mkdir -p /app/data/documents
+
 CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
