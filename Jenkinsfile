@@ -149,9 +149,9 @@ pipeline {
                     when { expression { !isSkipped(params.API_TAG) } }
                     steps { checkHealth('kf-api') }
                 }
-                stage('embed') {
+                stage('kf-embed') {
                     when { expression { !isSkipped(params.EMBED_TAG) } }
-                    steps { checkHealth('embed') }
+                    steps { checkHealth('kf-embed') }
                 }
                 stage('qdrant') {
                     when { expression { !isSkipped(params.QDRANT_TAG) } }

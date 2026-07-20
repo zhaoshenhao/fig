@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: embed
+  name: kf-embed
   namespace: <NAMESPACE>
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: embed
+      app: kf-embed
   template:
     metadata:
       labels:
-        app: embed
+        app: kf-embed
     spec:
       imagePullSecrets:
         - name: regsecret
       containers:
-        - name: embed
+        - name: kf-embed
           # 模型通过 NAS PVC 挂载，构建期不再下载
           image: <ACR_REGISTRY>/kf-embed:<EMBED_IMAGE_TAG>
           ports:
@@ -36,11 +36,9 @@ spec:
                   key: EMBED_API_KEY
           resources:
             requests:
-              cpu: "200m"
-              memory: "256Mi"
+              memory: "1Gi"
             limits:
-              cpu: "500m"
-              memory: "512Mi"
+              memory: "2Gi"
           volumeMounts:
             - name: model-storage
               mountPath: /app/model

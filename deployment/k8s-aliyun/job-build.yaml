@@ -17,7 +17,7 @@ spec:
             - name: QDRANT_PORT
               value: "6334"
             - name: EMBED_BASE_URL
-              value: "http://embed.<NAMESPACE>.svc.cluster.local:8100/v1"
+              value: "http://kf-embed.<NAMESPACE>.svc.cluster.local:8100/v1"
             - name: EMBED_MODEL
               value: "nomic-embed-text"
           envFrom:
