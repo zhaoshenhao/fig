@@ -491,13 +491,14 @@ class SQLMetricsStore:
             f"FROM feedback f JOIN runs r ON f.chat_id=r.chat_id AND f.turn_id=r.turn_id "
             f"WHERE {' AND '.join(nconds)}", tuple(nparams))
 
+        def _ts(val):
+            if hasattr(val, "strftime"):
+                return val.strftime("%Y-%m-%d %H:%M")
+            return (str(val or ""))[:16]
+
         wf_dur, wf_chats = defaultdict(list), defaultdict(set)
         for r in runs:
-            ts = r["created_at"]
-            if hasattr(ts, "strftime"):
-                ts = ts.strftime("%Y-%m-%d %H:%M")
-            else:
-                ts = (str(ts or ""))[:16]
+            ts = _ts(r["created_at"])
             if not ts:
                 continue
             wf_dur[ts].append(r["duration_ms"] or 0)
@@ -505,7 +506,7 @@ class SQLMetricsStore:
         buckets = sorted(wf_dur)
         fb_up, fb_down = defaultdict(int), defaultdict(int)
         for fr in fb_rows:
-            b = (fr["created_at"] or "")[:16]
+            b = _ts(fr["created_at"])
             if fr["rating"] == "up":
                 fb_up[b] += 1
             elif fr["rating"] == "down":
@@ -528,7 +529,7 @@ class SQLMetricsStore:
         def grp(key):
             store = defaultdict(lambda: defaultdict(list))
             for nr in node_rows:
-                store[nr[key] or "-"][(nr["created_at"] or "")[:16]].append(nr["duration_ms"] or 0)
+                store[nr[key] or "-"][_ts(nr["created_at"])].append(nr["duration_ms"] or 0)
             out = {}
             for nm, bm in store.items():
                 out[nm] = {
