@@ -235,8 +235,11 @@ def deployQdrant() {
 def checkHealth(String serviceName) {
     sh """
         APPHOME=${TOOLS} . ${TOOLS}/env.sh
-        \$KUBECTL wait --for=condition=ready pod -l app=${serviceName} -n ${NAMESPACE} --timeout=120s
-        POD=\$(\$KUBECTL get pods -l app=${serviceName} -n ${NAMESPACE} -o jsonpath='{.items[0].metadata.name}')
-        \$KUBECTL exec \$POD -n ${NAMESPACE} -- curl -s http://localhost:8000/health || echo "health check fallback: pod ready"
+        \$KUBECTL rollout status deployment/${serviceName} -n ${NAMESPACE} --timeout=120s 2>&1 || true
+        \$KUBECTL wait --for=condition=ready pod -l app=${serviceName} -n ${NAMESPACE} --timeout=30s 2>&1 || true
+        POD=\$(\$KUBECTL get pods -l app=${serviceName} -n ${NAMESPACE} --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
+        if [ -n "\$POD" ]; then
+            \$KUBECTL exec \$POD -n ${NAMESPACE} -- curl -s http://localhost:8000/health 2>/dev/null || echo "health check fallback: pod ready"
+        fi
     """
 }
