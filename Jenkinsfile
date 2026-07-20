@@ -119,30 +119,24 @@ pipeline {
         }
 
         stage('Deploy to K8s') {
-            failFast false
-            parallel {
-                stage('kf-api') {
-                    when { expression { !isSkipped(params.API_TAG) } }
-                    steps { deployService('deployment/k8s-aliyun/kf-api', params.API_TAG) }
-                }
-                stage('embed') {
-                    when { expression { !isSkipped(params.EMBED_TAG) } }
-                    steps { deployService('deployment/k8s-aliyun/embed', params.EMBED_TAG) }
-                }
-                stage('qdrant') {
-                    when { expression { !isSkipped(params.QDRANT_TAG) } }
-                    steps { deployQdrant() }
-                }
-                stage('global') {
-                    steps {
-                        script {
-                            for (f in ['deployment/k8s-aliyun/namespace.yaml', 'deployment/k8s-aliyun/ingress.yaml']) {
-                                sh """
-                                    APPHOME=${TOOLS} . ${TOOLS}/env.sh
-                                    cat ${f} | sed 's/<NAMESPACE>/${NAMESPACE}/g; s/<DOMAIN>/${DOMAIN}/g' | \$KUBECTL apply -f -
-                                """
-                            }
-                        }
+            steps {
+                script {
+                    // Deploy in dependency order: qdrant → embed → kf-api → global
+                    if (!isSkipped(params.QDRANT_TAG)) {
+                        deployQdrant()
+                    }
+                    if (!isSkipped(params.EMBED_TAG)) {
+                        deployService('deployment/k8s-aliyun/embed', params.EMBED_TAG)
+                    }
+                    if (!isSkipped(params.API_TAG)) {
+                        deployService('deployment/k8s-aliyun/kf-api', params.API_TAG)
+                    }
+                    // global resources (namespace + ingress)
+                    for (f in ['deployment/k8s-aliyun/namespace.yaml', 'deployment/k8s-aliyun/ingress.yaml']) {
+                        sh """
+                            APPHOME=${TOOLS} . ${TOOLS}/env.sh
+                            cat ${f} | sed 's/<NAMESPACE>/${NAMESPACE}/g; s/<DOMAIN>/${DOMAIN}/g' | \$KUBECTL apply -f -
+                        """
                     }
                 }
             }

@@ -12,7 +12,12 @@
 from __future__ import annotations
 
 import os
+import time
 import threading
+
+from src.logger import get_logger
+
+logger = get_logger(__name__)
 
 # 默认模型（FastEmbed 仓库名）
 DEFAULT_MODEL = "nomic-ai/nomic-embed-text-v1.5"
@@ -46,7 +51,46 @@ def _load_model(name: str):  # pragma: no cover - 需 fastembed 及模型下载
     from fastembed import TextEmbedding
 
     cache_dir = os.environ.get("EMBED_CACHE_DIR", os.path.join(os.getcwd(), "model"))
-    return TextEmbedding(model_name=name, cache_dir=cache_dir)
+    logger.info("Loading model name=%s cache_dir=%s cwd=%s",
+                name, cache_dir, os.getcwd())
+
+    if os.path.isdir(cache_dir):
+        entries = sorted(os.listdir(cache_dir))
+        logger.info("cache_dir contents (%d entries): %s", len(entries), entries)
+        model_dir = os.path.join(cache_dir, "models--nomic-ai--nomic-embed-text-v1.5")
+        if os.path.isdir(model_dir):
+            snap_dir = os.path.join(model_dir, "snapshots")
+            blob_dir = os.path.join(model_dir, "blobs")
+            if os.path.isdir(snap_dir):
+                for sd in os.listdir(snap_dir):
+                    sp = os.path.join(snap_dir, sd)
+                    onnx = os.path.join(sp, "onnx", "model.onnx")
+                    if os.path.lexists(onnx):
+                        st = os.lstat(onnx)
+                        logger.info("model.onnx found: is_link=%s size=%d",
+                                    os.path.islink(onnx), st.st_size)
+                    else:
+                        logger.warning("model.onnx NOT FOUND at %s", onnx)
+            if os.path.isdir(blob_dir):
+                blobs = os.listdir(blob_dir)
+                for bf in blobs:
+                    bp = os.path.join(blob_dir, bf)
+                    logger.info("blob file: name=%s size=%d", bf, os.path.getsize(bp))
+                if not blobs:
+                    logger.warning("blobs directory exists but is EMPTY")
+    else:
+        logger.warning("cache_dir %s does not exist, model will be downloaded", cache_dir)
+
+    t0 = time.time()
+    try:
+        model = TextEmbedding(model_name=name, cache_dir=cache_dir)
+        elapsed = time.time() - t0
+        logger.info("Model loaded successfully in %.2fs", elapsed)
+        return model
+    except Exception:
+        elapsed = time.time() - t0
+        logger.error("Model loading FAILED after %.2fs", elapsed, exc_info=True)
+        raise
 
 
 def get_model(name: str = ""):
@@ -63,6 +107,12 @@ def get_model(name: str = ""):
     if _model is None or _model_name != resolved:
         with _lock:
             if _model is None or _model_name != resolved:
+                logger.info("get_model: loading model=%s (resolved from %s)", resolved, name)
+                logger.info("env: EMBED_CACHE_DIR=%s FAST_EMBED_CACHE_PATH=%s HF_ENDPOINT=%s EMBED_WARMUP=%s",
+                            os.environ.get("EMBED_CACHE_DIR", "<unset>"),
+                            os.environ.get("FASTEMBED_CACHE_PATH", "<unset>"),
+                            os.environ.get("HF_ENDPOINT", "<unset>"),
+                            os.environ.get("EMBED_WARMUP", "<unset>"))
                 _model = _load_model(resolved)
                 _model_name = resolved
     return _model
