@@ -78,4 +78,4 @@ spec:
             claimName: <NAS_PVC_NAME>
         - name: documents-storage
           persistentVolumeClaim:
-            claimName: <NAS_PVC_NAME>
+            claimName: <NAS_PVC_DOCS>
