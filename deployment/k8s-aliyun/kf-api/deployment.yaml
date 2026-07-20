@@ -56,6 +56,9 @@ spec:
             - name: workflow-config
               mountPath: /app/config/workflows
               subPath: kf/workflows
+            - name: documents-storage
+              mountPath: /app/data/documents
+              subPath: kf/docs
           livenessProbe:
             httpGet:
               path: /health
@@ -70,5 +73,8 @@ spec:
             periodSeconds: 5
       volumes:
         - name: workflow-config
+          persistentVolumeClaim:
+            claimName: <NAS_PVC_NAME>
+        - name: documents-storage
           persistentVolumeClaim:
             claimName: <NAS_PVC_NAME>
