@@ -26,6 +26,8 @@ spec:
               value: "nomic-ai/nomic-embed-text-v1.5"
             - name: FASTEMBED_CACHE_PATH
               value: "/app/model"
+            - name: EMBED_CACHE_DIR
+              value: "/app/model"
             - name: EMBED_WARMUP
               value: "1"
             # 内部服务鉴权 Key（与 kf-api 共享，从 Secret 注入）
@@ -36,9 +38,9 @@ spec:
                   key: EMBED_API_KEY
           resources:
             requests:
-              memory: "1Gi"
-            limits:
               memory: "2Gi"
+            limits:
+              memory: "4Gi"
           volumeMounts:
             - name: model-storage
               mountPath: /app/model
@@ -47,7 +49,7 @@ spec:
             httpGet:
               path: /health
               port: 8100
-            initialDelaySeconds: 5
+            initialDelaySeconds: 30
             periodSeconds: 15
           readinessProbe:
             httpGet:
