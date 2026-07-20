@@ -53,6 +53,13 @@ _startup_seconds: float | None = None
 _startup_sync_oss = bool(os.environ.get("OSS_ACCESS_KEY_ID"))
 _app_config = load_app_config(sync_oss=_startup_sync_oss)
 init_logging(_app_config.logging.level, app_name="fastapi")
+
+if _app_config.db:
+    from src.db import create_pool
+
+    for name, pool_cfg in _app_config.db.pools.items():
+        create_pool(name, pool_cfg)
+
 _metrics_store = create_metrics_store(getattr(_app_config, "metrics", None))
 set_metrics_store(_metrics_store)
 _registry = ToolRegistry()
@@ -71,12 +78,6 @@ _dag_engine = DAGEngine(
 )
 set_dag_engine(_dag_engine)
 register_reload_callback(lambda cfg: _dag_engine.update_app_config(cfg))
-
-if _app_config.db:
-    from src.db import create_pool
-
-    for name, pool_cfg in _app_config.db.pools.items():
-        create_pool(name, pool_cfg)
 
 _session_store: SessionStore = MemorySessionStore(
     max_age=getattr(_app_config.session, "max_age", 3600),
