@@ -10,6 +10,9 @@ from src.llm.client import LLMClient
 from src.rag.qdrant import QdrantSearch
 
 
+EMBED_BATCH_SIZE = 32
+
+
 def build_document(
     filepath: str | Path,
     collection: str,
@@ -24,7 +27,10 @@ def build_document(
     if not chunks:
         return 0
 
-    vectors = embed_client.embed(embed_model, chunks)
+    vectors: list[list[float]] = []
+    for i in range(0, len(chunks), EMBED_BATCH_SIZE):
+        batch = chunks[i:i + EMBED_BATCH_SIZE]
+        vectors.extend(embed_client.embed(embed_model, batch))
 
     source = str(filepath.name)
     points: list[dict] = []
