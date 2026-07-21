@@ -285,23 +285,24 @@ async def status():
         }
     elif hasattr(ss, "_client") and hasattr(ss, "_prefix"):
         import re
+        db = 0
+        m = re.search(r"/(\d+)\s*$", _sc.redis_url)
+        if m:
+            db = int(m.group(1))
+        try:
+            ss._client.get("__healthcheck__")
+            status_text = "ok"
+        except Exception:
+            status_text = "error"
         try:
             ss._client.ping()
-            db = 0
-            m = re.search(r"/(\d+)\s*$", _sc.redis_url)
-            if m:
-                db = int(m.group(1))
-            components["session_store"] = {
-                "status": "ok",
-                "latency_ms": 0,
-                "detail": f"redis (db={db}, prefix={ss._prefix})",
-            }
-        except Exception as e:
-            components["session_store"] = {
-                "status": "error",
-                "latency_ms": 0,
-                "detail": f"redis (error: {e})",
-            }
+        except Exception:
+            pass
+        components["session_store"] = {
+            "status": status_text,
+            "latency_ms": 0,
+            "detail": f"redis (db={db}, prefix={ss._prefix})",
+        }
     else:
         components["session_store"] = {
             "status": "ok",

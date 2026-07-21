@@ -25,6 +25,11 @@ class RedisSessionStore(SessionStore):
                 "redis package not installed; run: pip install redis"
             )
         self._client = redis.Redis.from_url(url)
+        try:
+            self._client.ping()
+        except Exception:
+            self._client = redis.Redis.from_url(url, protocol=2)
+            self._client.ping()
         self._prefix = prefix
         self._max_age = max_age
 
