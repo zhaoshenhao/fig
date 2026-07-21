@@ -9,8 +9,8 @@ ENV EMBED_MODEL=nomic-ai/nomic-embed-text-v1.5-Q
 COPY pyproject.toml .
 RUN pip install --no-cache-dir -e .[embed]
 
-# 下载 INT8 量化模型（131MB，构建期完成）
-RUN python -c "from huggingface_hub import hf_hub_download; hf_hub_download('nomic-ai/nomic-embed-text-v1.5', 'onnx/model_quantized.onnx', cache_dir='/opt/fastembed_cache')"
+# 下载 INT8 量化模型完整文件（131MB ONNX + tokenizer/config，构建期完成）
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('nomic-ai/nomic-embed-text-v1.5', allow_patterns=['*.json','*.txt','onnx/model_quantized.onnx'], cache_dir='/opt/fastembed_cache')"
 
 COPY src/embed_service/ ./src/embed_service/
 COPY src/logger/ ./src/logger/
