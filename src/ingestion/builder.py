@@ -10,7 +10,7 @@ from src.llm.client import LLMClient
 from src.rag.qdrant import QdrantSearch
 
 
-EMBED_BATCH_SIZE = 16
+EMBED_BATCH_SIZE = 4
 EMBED_MAX_RETRIES = 3
 
 

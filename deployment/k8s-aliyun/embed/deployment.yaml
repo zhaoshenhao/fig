@@ -44,9 +44,9 @@ spec:
                   key: EMBED_API_KEY
           resources:
             requests:
-              memory: "128Mi"
+              memory: "256Mi"
             limits:
-              memory: "1Gi"
+              memory: "2Gi"
           volumeMounts:
             - name: model-storage
               mountPath: /app/model
