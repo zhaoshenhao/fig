@@ -14,6 +14,7 @@ from src.api.routes_admin import admin_api_router, admin_base_router
 from src.api.routes_chat import chat_router, export_router
 from src.api.state import (
     APP_VERSION,
+    get_session_store,
     get_startup_seconds,
     probe,
     probe_embed,
@@ -43,6 +44,7 @@ from src.logger.middleware import RequestIDMiddleware, get_request_id
 from src.metrics.factory import create_metrics_store
 from src.metrics.prometheus import MetricsMiddleware, generate_latest
 from src.session import SessionStore, create_session_store
+from src.session.memory import MemorySessionStore
 
 _log = get_logger(__name__)
 
@@ -272,6 +274,40 @@ async def status():
     components["metrics_store"] = probe(
         lambda: _metrics_store.health_check().get("detail", "")
     )
+
+    # session store status
+    ss = get_session_store()
+    if isinstance(ss, MemorySessionStore):
+        components["session_store"] = {
+            "status": "ok",
+            "latency_ms": 0,
+            "detail": f"memory ({len(ss._store)} sessions)",
+        }
+    elif hasattr(ss, "_client") and hasattr(ss, "_prefix"):
+        import re
+        try:
+            ss._client.ping()
+            db = 0
+            m = re.search(r"/(\d+)\s*$", _sc.redis_url)
+            if m:
+                db = int(m.group(1))
+            components["session_store"] = {
+                "status": "ok",
+                "latency_ms": 0,
+                "detail": f"redis (db={db}, prefix={ss._prefix})",
+            }
+        except Exception as e:
+            components["session_store"] = {
+                "status": "error",
+                "latency_ms": 0,
+                "detail": f"redis (error: {e})",
+            }
+    else:
+        components["session_store"] = {
+            "status": "ok",
+            "latency_ms": 0,
+            "detail": str(type(ss).__name__),
+        }
     db_cfg = cfg.db
     if db_cfg and getattr(db_cfg, "pools", None):
         from src.db import get_db_pool  # noqa: F811
