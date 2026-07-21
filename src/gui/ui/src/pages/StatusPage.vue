@@ -1,6 +1,6 @@
 <template>
-  <div style="display:flex;flex-direction:column;height:calc(100vh - 80px)">
-    <div class="row" style="flex-shrink:0;margin-bottom:10px">
+  <div class="status-page">
+    <div class="top-bar">
       <div :class="['overall', data?.status]">
         <span class="dot"></span>
         {{ overallLabel }}
@@ -12,7 +12,7 @@
       <span v-if="lastAt" class="muted">更新于 {{ lastAt }}</span>
     </div>
 
-    <div class="scroll">
+    <div class="content">
       <div v-if="err" class="empty">加载失败：{{ err }}</div>
       <template v-else-if="data">
         <div class="cards">
@@ -28,12 +28,12 @@
 
         <h4 class="sec">进程信息</h4>
         <div class="proc">
-          <div class="prop"><span>版本</span>{{ data.process.version }}</div>
-          <div class="prop"><span>Python</span>{{ data.process.python }}</div>
-          <div class="prop"><span>运行时长</span>{{ uptime }}</div>
-          <div class="prop"><span>内存</span>{{ data.process.memory_mb || '-' }} MB</div>
-          <div class="prop"><span>工作流数</span>{{ data.process.workflow_count }}</div>
-          <div class="prop"><span>工作流</span>{{ (data.process.workflows || []).join(", ") || "-" }}</div>
+          <div class="prop"><span class="prop-label">版本</span><span class="prop-value">{{ data.process.version }}</span></div>
+          <div class="prop"><span class="prop-label">Python</span><span class="prop-value">{{ data.process.python }}</span></div>
+          <div class="prop"><span class="prop-label">运行时长</span><span class="prop-value">{{ uptime }}</span></div>
+          <div class="prop"><span class="prop-label">内存</span><span class="prop-value">{{ memDisplay }}</span></div>
+          <div class="prop"><span class="prop-label">工作流数</span><span class="prop-value">{{ data.process.workflow_count }}</span></div>
+          <div class="prop"><span class="prop-label">工作流</span><span class="prop-value">{{ workflowList }}</span></div>
         </div>
       </template>
       <div v-else class="empty">加载中...</div>
@@ -55,8 +55,8 @@ let _timer = 0;
 
 const LABELS = {
   qdrant: "Qdrant 向量库",
-  llm: "LLM",
-  embedding: "Embedding",
+  llm: "LLM 大模型",
+  embedding: "Embedding 向量化",
   metrics_store: "Metrics 存储",
   session_store: "会话存储",
   db_pools: "DB 连接池",
@@ -78,6 +78,17 @@ const uptime = computed(() => {
   const s = data.value?.process?.uptime_seconds || 0;
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
   return `${h}h ${m}m ${sec}s`;
+});
+
+const memDisplay = computed(() => {
+  const m = data.value?.process?.memory_mb;
+  if (!m || m <= 0) return "-";
+  return m < 1024 ? `${m} MB` : `${(m / 1024).toFixed(1)} GB`;
+});
+
+const workflowList = computed(() => {
+  const w = data.value?.process?.workflows;
+  return w?.length ? w.join(", ") : "-";
 });
 
 async function load() {
@@ -103,32 +114,36 @@ onUnmounted(() => clearInterval(_timer));
 </script>
 
 <style scoped>
-.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.status-page { display: flex; flex-direction: column; height: calc(100vh - 80px); }
+.top-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; flex-shrink: 0; padding: 8px 0; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
 .check { font-size: 0.8rem; display: flex; align-items: center; gap: 4px; cursor: pointer; color: var(--text2); }
-.muted { font-size: 0.75rem; color: var(--text3); }
-.btn { padding: 5px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-size: 0.82rem; cursor: pointer; color: var(--text); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.scroll { flex: 1; overflow: auto; min-height: 0; }
-.empty { text-align: center; color: var(--text3); padding: 40px 0; font-size: 0.9rem; }
+.muted { font-size: 0.75rem; color: var(--text3); margin-left: auto; }
+.btn { padding: 6px 16px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-size: 0.82rem; cursor: pointer; color: var(--text); transition: opacity 0.2s; }
+.btn:hover { background: var(--bg3); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.content { flex: 1; overflow: auto; min-height: 0; }
+.empty { text-align: center; color: var(--text3); padding: 60px 0; font-size: 0.9rem; }
 
-.overall { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.95rem; padding: 6px 14px; border-radius: 8px; background: var(--bg2); }
+.overall { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.95rem; padding: 6px 16px; border-radius: 8px; background: var(--bg2); }
 .overall.ok { color: var(--success); }
 .overall.degraded { color: var(--danger); }
 .overall .dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
 
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
-.card { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: var(--bg); border-left: 4px solid var(--text3); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.card { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: var(--bg); border-left: 4px solid var(--text3); transition: box-shadow 0.2s; }
+.card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 .card.ok { border-left-color: var(--success); }
 .card.error { border-left-color: var(--danger); }
-.card-hd { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; }
-.card-hd .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); }
+.card-hd { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
+.card-hd .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--text3); }
 .card.ok .dot { background: var(--success); }
 .card.error .dot { background: var(--danger); }
-.card-hd .lat { margin-left: auto; font-size: 0.72rem; color: var(--text3); }
-.card-detail { font-size: 0.75rem; color: var(--text2); margin-top: 6px; word-break: break-word; }
+.card-hd .lat { margin-left: auto; font-size: 0.72rem; color: var(--text3); flex-shrink: 0; }
+.card-detail { font-size: 0.78rem; color: var(--text2); margin-top: 8px; word-break: break-word; line-height: 1.5; }
 
-.sec { margin: 16px 0 8px; font-size: 0.9rem; color: var(--text2); }
-.proc { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 16px; }
-.prop { font-size: 0.82rem; color: var(--text); display: flex; gap: 8px; }
-.prop span:first-child { color: var(--text3); font-weight: 600; min-width: 72px; }
+.sec { margin: 20px 0 10px; font-size: 0.92rem; font-weight: 600; color: var(--text); }
+.proc { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 20px; }
+.prop { font-size: 0.84rem; color: var(--text); display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--bg2); }
+.prop-label { color: var(--text3); font-weight: 600; min-width: 72px; flex-shrink: 0; }
+.prop-value { color: var(--text); }
 </style>

@@ -141,9 +141,13 @@ def probe_qdrant() -> str:
     except Exception:
         pass
     try:
-        from psutil import Process
-        mem = Process().memory_info().rss
-        detail += f", mem={round(mem/(1024*1024),1)}MB"
+        telemetry = qc._client.cluster_telemetry()
+        if telemetry and hasattr(telemetry, 'memory'):
+            mem = telemetry.memory
+            if mem and hasattr(mem, 'rss_bytes') and mem.rss_bytes:
+                detail += f", mem={round(mem.rss_bytes/(1024*1024),1)}MB"
+            elif mem and hasattr(mem, 'resident_bytes') and mem.resident_bytes:
+                detail += f", mem={round(mem.resident_bytes/(1024*1024),1)}MB"
     except Exception:
         pass
     return detail
