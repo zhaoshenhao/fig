@@ -61,7 +61,8 @@ spec:
           volumeMounts:
             - name: workflow-config
               mountPath: /app/config/workflows
-              subPath: kf/workflows
+            - name: webui
+              mountPath: /app/static
             - name: documents-storage
               mountPath: /app/data/documents
               subPath: kf/docs
@@ -80,7 +81,10 @@ spec:
       volumes:
         - name: workflow-config
           persistentVolumeClaim:
-            claimName: <NAS_PVC_NAME>
+            claimName: <OSS_WORKFLOW_PVC>
+        - name: webui
+          persistentVolumeClaim:
+            claimName: <OSS_WEBUI_PVC>
         - name: documents-storage
           persistentVolumeClaim:
             claimName: <NAS_PVC_DOCS>

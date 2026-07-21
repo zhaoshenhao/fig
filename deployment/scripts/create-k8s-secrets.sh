@@ -126,6 +126,8 @@ kubectl create secret generic kf-secrets \
     --from-literal=OSS_INT_ENDPOINT="$OSS_INT_ENDPOINT" \
     --from-literal=OSS_ENDPOINT="$OSS_ENDPOINT" \
     --from-literal=OSS_PATH_PREFIX="$OSS_PATH_PREFIX" \
+    --from-literal=akId="$OSS_ACCESS_KEY_ID" \
+    --from-literal=akSecret="$OSS_ACCESS_KEY_SECRET" \
 | kubectl apply -f -
 
 echo "完成: Secret kf-secrets 已更新 (namespace=$NAMESPACE)"

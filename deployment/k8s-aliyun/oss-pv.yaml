@@ -1,0 +1,70 @@
+# ============================================================================
+# OSS Persistent Volumes — workflow + webui
+# ============================================================================
+# Pre-requisites:
+#   1. OSS buckets 'kf-workflow' and 'kf-ui' must exist in the target region
+#   2. ACK CSI OSS plugin (csi-provisioner) must be installed in the cluster
+#   3. kf-secrets must contain akId / akSecret keys (same values as OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET)
+# ============================================================================
+# Apply (replace <NAMESPACE> with mb-test or mb-pr):
+#
+#   sed 's/<NAMESPACE>/mb-test/g' deployment/k8s-aliyun/oss-pv.yaml | kubectl apply -f -
+#   sed 's/<NAMESPACE>/mb-pr/g' deployment/k8s-aliyun/oss-pv.yaml | kubectl apply -f -
+#
+# ⚠  Each PV binds to a specific bucket+path. Both envs need their own PV set.
+# ============================================================================
+
+---
+# ── Workflow OSS PV ──
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: oss-workflow-<NAMESPACE>
+  labels:
+    app: kf
+    env: <NAMESPACE>
+    volume: oss-workflow
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  csi:
+    driver: ossplugin.csi.alibabacloud.com
+    volumeHandle: oss-workflow-<NAMESPACE>
+    nodePublishSecretRef:
+      name: kf-secrets
+      namespace: <NAMESPACE>
+    volumeAttributes:
+      bucket: "kf-workflow"
+      url: "oss-cn-shanghai-internal.aliyuncs.com"
+      path: "/<NAMESPACE>/"
+      otherOpts: "-o max_stat_cache_size=0 -o allow_other"
+---
+# ── WebUI OSS PV ──
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: oss-webui-<NAMESPACE>
+  labels:
+    app: kf
+    env: <NAMESPACE>
+    volume: oss-webui
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  csi:
+    driver: ossplugin.csi.alibabacloud.com
+    volumeHandle: oss-webui-<NAMESPACE>
+    nodePublishSecretRef:
+      name: kf-secrets
+      namespace: <NAMESPACE>
+    volumeAttributes:
+      bucket: "kf-ui"
+      url: "oss-cn-shanghai-internal.aliyuncs.com"
+      path: "/<NAMESPACE>/"
+      otherOpts: "-o max_stat_cache_size=0 -o allow_other"

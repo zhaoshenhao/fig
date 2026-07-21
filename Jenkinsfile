@@ -20,6 +20,8 @@ pipeline {
         QDRANT_STORAGE_SIZE = '20Gi'
         NAS_PVC = "${params.ENV == 'test' ? 'mb-test-nas1' : 'mb-pr-nas1'}"
         NAS_PVC_DOCS = "${params.ENV == 'test' ? 'mb-test-nas2' : 'mb-pr-nas2'}"
+        OSS_WORKFLOW_PVC = "oss-workflow"
+        OSS_WEBUI_PVC = "oss-webui"
         TOOLS = '/mnt/devops-tools'
         KUBECONFIG = '/mnt/kubeconf/config'
         OSS_WORKFLOW_BUCKET = 'kf-workflow'
@@ -140,8 +142,8 @@ pipeline {
                     if (!isSkipped(params.API_TAG)) {
                         deployService('deployment/k8s-aliyun/kf-api', params.API_TAG)
                     }
-                    // global resources (namespace + ingress)
-                    for (f in ['deployment/k8s-aliyun/namespace.yaml', 'deployment/k8s-aliyun/ingress.yaml']) {
+                    // global resources (namespace + OSS PVCs + ingress)
+                    for (f in ['deployment/k8s-aliyun/namespace.yaml', 'deployment/k8s-aliyun/oss-pvc.yaml', 'deployment/k8s-aliyun/ingress.yaml']) {
                         sh """
                             APPHOME=${TOOLS} . ${TOOLS}/env.sh
                             cat ${f} | sed 's/<NAMESPACE>/${NAMESPACE}/g; s/<DOMAIN>/${DOMAIN}/g' | \$KUBECTL apply -f -
@@ -199,6 +201,8 @@ def deployService(String dir, String tag) {
                 -e 's/<QDRANT_STORAGE_SIZE>/${QDRANT_STORAGE_SIZE}/g' \\
                 -e 's/<NAS_PVC_NAME>/${NAS_PVC}/g' \\
                 -e 's/<NAS_PVC_DOCS>/${NAS_PVC_DOCS}/g' \\
+                -e 's/<OSS_WORKFLOW_PVC>/${OSS_WORKFLOW_PVC}/g' \\
+                -e 's/<OSS_WEBUI_PVC>/${OSS_WEBUI_PVC}/g' \\
                 \$f | \$KUBECTL apply -f -
         done
     """
