@@ -89,7 +89,7 @@ _session_store: SessionStore = create_session_store({
     "keep": _sc.keep,
     "compress_max_words": _sc.compress_max_words,
     "cleanup_interval": _sc.cleanup_interval,
-    "redis": {"url": _sc.redis_url.rsplit("/", 1)[0] + "/2", "prefix": _sc.redis_prefix},
+    "redis": {"url": _sc.redis_url, "prefix": _sc.redis_prefix},
     "memory": {"max_sessions": _sc.memory_max_sessions},
 })
 set_session_store(_session_store)
