@@ -10,7 +10,23 @@
         <option :value="50">50</option>
         <option :value="100">100</option>
       </select>
+      <button class="btn btn-danger" @click="confirmDelete" :disabled="!collection" title="删除当前知识库">删除</button>
     </div>
+
+    <div v-if="showConfirm" class="modal-overlay" @click.self="showConfirm=false">
+      <div class="modal-panel">
+        <div class="modal-hd">确认删除</div>
+        <div class="modal-body">
+          <p>确定要删除知识库 <b>{{ collection }}</b> 吗？</p>
+          <p class="warn">此操作不可恢复，将删除该知识库中所有数据。</p>
+        </div>
+        <div class="modal-ft">
+          <button class="btn" @click="showConfirm=false">取消</button>
+          <button class="btn btn-danger" @click="doDelete" :disabled="deleting">{{ deleting ? "删除中..." : "确认删除" }}</button>
+        </div>
+      </div>
+    </div>
+
     <div style="margin:10px 0">
       <input v-model="query" class="field" style="width:100%" placeholder="搜索关键词..." @keydown.enter="doSearch" />
     </div>
@@ -25,7 +41,8 @@
       </div>
     </div>
 
-    <div v-if="loading" class="empty">加载中...</div>
+    <div v-if="!collections.length && !loading" class="empty">暂无知识库</div>
+    <div v-else-if="loading" class="empty">加载中...</div>
     <div v-else-if="!results.length && !query" class="empty">暂无数据</div>
     <div v-else-if="!results.length" class="empty">未找到结果</div>
 
@@ -56,6 +73,8 @@ const results = ref([]);
 const total = ref(0);
 const page = ref(1);
 const loading = ref(false);
+const deleting = ref(false);
+const showConfirm = ref(false);
 
 const maxPage = computed(() => Math.max(1, Math.ceil(total.value / perPage.value)));
 
@@ -87,6 +106,33 @@ async function loadBrowse() {
     }));
   } catch { results.value = []; total.value = 0; }
   loading.value = false;
+}
+
+function confirmDelete() {
+  if (!collection.value) return;
+  showConfirm.value = true;
+}
+
+async function doDelete() {
+  deleting.value = true;
+  try {
+    await api.del(`/collections/${collection.value}`);
+    toast(`知识库 "${collection.value}" 已删除`, "info");
+    showConfirm.value = false;
+    await loadCollections();
+    if (collections.value.length) {
+      collection.value = collections.value[0];
+      page.value = 1;
+      await loadBrowse();
+    } else {
+      collection.value = "";
+      results.value = [];
+      total.value = 0;
+    }
+  } catch (e) {
+    toast("删除失败: " + e.message, "error");
+  }
+  deleting.value = false;
 }
 
 async function doSearch() {
@@ -125,9 +171,10 @@ onMounted(() => { loadCollections().then(() => { if (collection.value) loadBrows
 
 <style scoped>
 .row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-.field { padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-size: 0.82rem; }
+.field { padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-size: 0.82rem; color: var(--text); }
 .btn { padding: 5px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font-size: 0.82rem; color: var(--text); cursor: pointer; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-danger { border-color: var(--danger); color: var(--danger); }
 .empty { text-align: center; color: var(--text3); padding: 40px 0; font-size: 0.9rem; }
 .kb-item { margin-bottom: 4px; font-size: 0.82rem; }
 .kb-item summary { cursor: pointer; padding: 6px 8px; border-radius: 4px; background: var(--bg2); }
@@ -135,4 +182,10 @@ onMounted(() => { loadCollections().then(() => { if (collection.value) loadBrows
 .kb-text { font-size: 0.8rem; white-space: pre-wrap; margin: 8px 0; }
 .kb-text :deep(mark) { background: #fef08a; color: #000; padding: 0 2px; border-radius: 2px; }
 .kb-payload { font-size: 0.72rem; color: var(--text2); white-space: pre-wrap; background: var(--bg2); padding: 8px; border-radius: 4px; overflow-x: auto; max-height: 200px; }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal-panel { background: var(--bg); border-radius: 10px; padding: 24px; max-width: 400px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.modal-hd { font-size: 1.1rem; font-weight: 700; margin-bottom: 12px; }
+.modal-body { margin-bottom: 20px; font-size: 0.9rem; }
+.modal-body .warn { color: var(--danger); font-size: 0.82rem; margin-top: 8px; }
+.modal-ft { display: flex; justify-content: flex-end; gap: 10px; }
 </style>

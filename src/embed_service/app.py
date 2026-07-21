@@ -100,8 +100,15 @@ async def _auth(request: Request, call_next):
 
 @app.get("/health")
 def health() -> dict:
-    """存活探针：进程运行即返回 ok。"""
-    return {"status": "ok"}
+    """存活探针：进程运行即返回 ok，附带内存使用。"""
+    import os
+    try:
+        import psutil
+        mem = psutil.Process(os.getpid()).memory_info()
+        mem_mb = round(mem.rss / (1024 * 1024), 1)
+    except Exception:
+        mem_mb = 0
+    return {"status": "ok", "memory_mb": mem_mb}
 
 
 @app.get("/ready")

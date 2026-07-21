@@ -64,7 +64,7 @@ const apiKeyInput = ref("");
 
 const NAV_ITEMS = [
   { id: "chat", label: "聊天", icon: "💬" },
-  { id: "kb", label: "知识库浏览", icon: "📚" },
+  { id: "kb", label: "知识库管理", icon: "📚" },
   { id: "workflow", label: "工作流", icon: "🔀" },
   { id: "docs", label: "文档管理", icon: "📄" },
   { id: "metrics", label: "聊天记录", icon: "📊" },

@@ -317,8 +317,10 @@ async def status():
             results = []
             for name in db_cfg.pools:
                 try:
-                    get_db_pool(name).execute("SELECT 1")
-                    results.append(f"{name}:ok")
+                    pool = get_db_pool(name)
+                    pool.execute("SELECT 1")
+                    conns = f"(conns={pool._queue.qsize()}/{pool._created})"
+                    results.append(f"{name}:ok {conns}")
                 except Exception as e:
                     results.append(f"{name}:{type(e).__name__}")
             return ", ".join(results)
@@ -327,10 +329,18 @@ async def status():
     overall = "ok" if all(c["status"] == "ok" for c in components.values()) else "degraded"
     import platform as _platform
 
+    proc_mem = 0
+    try:
+        import psutil
+        proc_mem = round(psutil.Process().memory_info().rss / (1024 * 1024), 1)
+    except Exception:
+        pass
+
     process = {
         "version": APP_VERSION,
         "python": _platform.python_version(),
         "uptime_seconds": round(time.time() - _START_TIME, 1),
+        "memory_mb": proc_mem,
         "workflow_count": len(cfg.workflows),
         "workflows": list(cfg.workflows.keys()),
     }

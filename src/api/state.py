@@ -134,7 +134,19 @@ def probe_qdrant() -> str:
     qc = make_qdrant()
     cols = qc._client.get_collections()
     n = len(getattr(cols, "collections", []) or [])
-    return f"{n} collections"
+    detail = f"{n} collections"
+    try:
+        info = qc._client.info()
+        detail += f", version={info.version}"
+    except Exception:
+        pass
+    try:
+        from psutil import Process
+        mem = Process().memory_info().rss
+        detail += f", mem={round(mem/(1024*1024),1)}MB"
+    except Exception:
+        pass
+    return detail
 
 
 def probe_ollama(provider) -> str:
@@ -160,13 +172,20 @@ def probe_embed(provider) -> str:
     if resp.status_code >= 500:
         raise RuntimeError(f"HTTP {resp.status_code}")
     detail = f"model={provider.model} host={_host_of(base)} (HTTP {resp.status_code})"
-    # 从 /ready 获取模型详细信息
+    mem = resp.json().get("memory_mb", 0) if resp.status_code == 200 else 0
+    if mem:
+        detail += f" [{mem}MB]"
     try:
         ready = httpx2.get(f"{base}/ready", timeout=5)
         if ready.status_code == 200:
             mi = ready.json().get("model", {})
             if mi:
                 detail += f" [{mi.get('model_file','')} dim={mi.get('dim','')} size={mi.get('size_in_GB','')}GB]"
+    except Exception:
+        pass
+    try:
+        import fastembed
+        detail += f" fastembed={fastembed.__version__}"
     except Exception:
         pass
     return detail

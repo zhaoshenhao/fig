@@ -31,8 +31,9 @@
           <div class="prop"><span>版本</span>{{ data.process.version }}</div>
           <div class="prop"><span>Python</span>{{ data.process.python }}</div>
           <div class="prop"><span>运行时长</span>{{ uptime }}</div>
+          <div class="prop"><span>内存</span>{{ data.process.memory_mb || '-' }} MB</div>
           <div class="prop"><span>工作流数</span>{{ data.process.workflow_count }}</div>
-          <div class="prop"><span>工作流</span>{{ (data.process.workflows || []).join(", ") }}</div>
+          <div class="prop"><span>工作流</span>{{ (data.process.workflows || []).join(", ") || "-" }}</div>
         </div>
       </template>
       <div v-else class="empty">加载中...</div>
@@ -57,6 +58,7 @@ const LABELS = {
   llm: "LLM",
   embedding: "Embedding",
   metrics_store: "Metrics 存储",
+  session_store: "会话存储",
   db_pools: "DB 连接池",
 };
 
