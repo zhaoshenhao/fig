@@ -17,7 +17,7 @@ spec:
         - name: regsecret
       containers:
         - name: kf-embed
-          # 模型在构建期预下载到 /opt/fastembed_cache，运行期零外网依赖
+          # 模型通过 NAS PVC 挂载（INT8 量化版，构建期镜像内也有备份）
           image: <ACR_REGISTRY>/kf-embed:<EMBED_IMAGE_TAG>
           ports:
             - containerPort: 8100
@@ -25,9 +25,9 @@ spec:
             - name: EMBED_MODEL
               value: "nomic-ai/nomic-embed-text-v1.5-Q"
             - name: FASTEMBED_CACHE_PATH
-              value: "/opt/fastembed_cache"
+              value: "/app/model"
             - name: EMBED_CACHE_DIR
-              value: "/opt/fastembed_cache"
+              value: "/app/model"
             - name: EMBED_WARMUP
               value: "1"
             # 限制 ONNX 线程数，控制内存
@@ -46,6 +46,10 @@ spec:
               memory: "128Mi"
             limits:
               memory: "512Mi"
+          volumeMounts:
+            - name: model-storage
+              mountPath: /app/model
+              subPath: kf/model
           livenessProbe:
             httpGet:
               path: /health
@@ -58,3 +62,7 @@ spec:
               port: 8100
             initialDelaySeconds: 5
             periodSeconds: 5
+      volumes:
+        - name: model-storage
+          persistentVolumeClaim:
+            claimName: <NAS_PVC_NAME>
