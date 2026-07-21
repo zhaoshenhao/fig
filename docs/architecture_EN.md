@@ -6,14 +6,46 @@
 
 The system follows a six-layer architecture, decoupling concerns from user interface to infrastructure.
 
+### Deployment Architecture
+
+```mermaid
+flowchart TB
+    subgraph Local["Local Development"]
+        Browser["Browser localhost:5173"] --> Vite["Vite Dev Server"]
+        Vite -->|/api/v1/*| API_L["kf-api :9000"]
+        API_L --> Embed_L["kf-embed :8100"]
+        API_L --> Qdrant_L["Qdrant :6334"]
+        API_L --> Redis_L["Redis :6379"]
+        API_L --> MySQL_L["MySQL :3307"]
+    end
+```
+
+```mermaid
+flowchart LR
+    subgraph ACK["ACK K8s Cluster (mb-test / mb-pr)"]
+        User["User"] --> Kong["Kong Ingress<br/>kf.dev.youbanban.com"]
+        Kong -->|/* SPA| OSS["OSS Static Website<br/>kf-ui-mb-*.oss-cn-shanghai.aliyuncs.com"]
+        Kong -->|/api/v1/*| API["kf-api :8000<br/>KF_MODE=full"]
+        API --> Embed["kf-embed :8100"]
+        API --> Qdrant["kf-qdrant :6334"]
+    end
+    User --> CDN["Alibaba CDN<br/>origin: OSS"]
+    CDN --> OSS
+    API --> Redis_S["Redis"]
+    API --> MySQL_S["MySQL RDS"]
+    API --> PG_S["PG RDS"]
+    API --> DS["DeepSeek API"]
+```
+
 ### Layer 1 — Presentation
 
 | Component | Tech Stack | Deployment | Status |
 |-----------|-----------|------------|--------|
-| Vue 3 SPA | Vue 3 + Vite + dagre.js | Alibaba Cloud OSS + CDN | Primary |
+| Vue 3 SPA | Vue 3 + Vite + dagre.js | OSS Static Website + CDN, Kong Ingress split | Primary |
 | Streamlit Debug GUI | Streamlit (`src/gui/app.py`) | Local dev only | Legacy (replaced) |
 
-The Vue SPA uses Vite dev proxy to forward `/api/v1` → local FastAPI (port 9000). In production, traffic is routed via ALB Ingress.
+- Production: Kong Ingress routes `/*` to OSS static website (via ExternalName Service + HTTPS proxy), `/api/v1/*` routes to kf-api.
+- Development: Vite dev proxy forwards `/api/v1` to local FastAPI (port 9000), SPA served directly by Vite.
 
 ### Layer 2 — API Gateway
 

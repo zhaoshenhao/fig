@@ -6,8 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 
 from src.api.auth import AuthMiddleware
 from src.api.routes_admin import admin_api_router, admin_base_router
@@ -371,15 +370,3 @@ if _mode in ("full", "admin"):
     app.include_router(admin_api_router)
     app.include_router(admin_base_router)
 
-# SPA static files — catch-all AFTER all API routes (order matters: API routes take priority)
-if os.path.isdir("static"):
-    from pathlib import Path as _Path
-    _STATIC_DIR = _Path("static")
-
-    @app.get("/{filename:path}", include_in_schema=False)
-    async def serve_spa(filename: str):
-        filepath = _STATIC_DIR / filename
-        if filepath.is_file():
-            return FileResponse(filepath)
-        # SPA client-side routing fallback
-        return FileResponse(_STATIC_DIR / "index.html")

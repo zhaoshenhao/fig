@@ -25,7 +25,7 @@ pipeline {
         TOOLS = '/mnt/devops-tools'
         KUBECONFIG = '/mnt/kubeconf/config'
         OSS_WORKFLOW_BUCKET = 'kf-workflow'
-        OSS_UI_BUCKET = 'kf-ui'
+        OSS_UI_BUCKET = "kf-ui-${NAMESPACE}"
         OSS_PATH_PREFIX = "${params.ENV == 'test' ? 'mb-test' : 'mb-pr'}"
     }
 
@@ -105,7 +105,7 @@ pipeline {
                         sh """
                             APPHOME=${TOOLS} . ${TOOLS}/env.sh
                             echo "window.KF_API_URL = \\"https://${DOMAIN}\\";" > src/gui/ui/dist/config.js
-                            ./ossutil cp -r src/gui/ui/dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
+                            ./ossutil cp -r src/gui/ui/dist/ oss://${OSS_UI_BUCKET}/ --update
                         """
                     } else {
                         sh """
@@ -113,7 +113,7 @@ pipeline {
                             rm -rf /tmp/ui-export && mkdir -p /tmp/ui-export
                             git archive ${params.WEBUI_TAG} -- src/gui/ui/dist/ | tar xf - -C /tmp/ui-export
                             echo "window.KF_API_URL = \\"https://${DOMAIN}\\";" > /tmp/ui-export/src/gui/ui/dist/config.js
-                            ./ossutil cp -r /tmp/ui-export/src/gui/ui/dist/ oss://${OSS_UI_BUCKET}/${OSS_PATH_PREFIX}/ --update
+                            ./ossutil cp -r /tmp/ui-export/src/gui/ui/dist/ oss://${OSS_UI_BUCKET}/ --update
                             rm -rf /tmp/ui-export
                         """
                     }
@@ -142,8 +142,8 @@ pipeline {
                     if (!isSkipped(params.API_TAG)) {
                         deployService('deployment/k8s-aliyun/kf-api', params.API_TAG)
                     }
-                    // global resources (namespace + OSS PVCs + ingress)
-                    for (f in ['deployment/k8s-aliyun/namespace.yaml', 'deployment/k8s-aliyun/oss-pvc.yaml', 'deployment/k8s-aliyun/ingress.yaml']) {
+                    // global resources (namespace + OSS PVCs + OSS webui service + plugin + ingress)
+                    for (f in ['deployment/k8s-aliyun/namespace.yaml', 'deployment/k8s-aliyun/oss-pvc.yaml', 'deployment/k8s-aliyun/oss-webui-external.yaml', 'deployment/k8s-aliyun/oss-webui-plugin.yaml', 'deployment/k8s-aliyun/ingress.yaml']) {
                         sh """
                             APPHOME=${TOOLS} . ${TOOLS}/env.sh
                             cat ${f} | sed 's/<NAMESPACE>/${NAMESPACE}/g; s/<DOMAIN>/${DOMAIN}/g' | \$KUBECTL apply -f -

@@ -1,0 +1,45 @@
+# ============================================================================
+# OSS WebUI Service + Endpoints — Kong proxies SPA static files to OSS
+# ============================================================================
+# OSS buckets: kf-ui-mb-test / kf-ui-mb-pr (per-env, static website enabled).
+# Static website config: default index = index.html, error doc = index.html.
+#
+# Changes from the ExternalName approach:
+#   - Adding preserve-host: "false" on the Ingress prevents Kong from
+#     forwarding the original request Host header to OSS (which causes 403).
+#   - host-header annotation sets the correct Host header on upstream requests.
+#   - ClusterIP Service + Endpoints (instead of ExternalName) because KIC
+#     does not create an Upstream for ExternalName services, so host-header
+#     cannot be applied.
+# ============================================================================
+# Apply (replace <NAMESPACE> with mb-test or mb-pr):
+#   sed 's/<NAMESPACE>/mb-test/g' deployment/k8s-aliyun/oss-webui-external.yaml | kubectl apply -f -
+# ============================================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: oss-webui
+  namespace: <NAMESPACE>
+  annotations:
+    konghq.com/protocol: https
+    konghq.com/host-header: "kf-ui-<NAMESPACE>.oss-cn-shanghai.aliyuncs.com"
+    konghq.com/plugins: oss-webui-response-headers
+spec:
+  ports:
+  - port: 443
+    targetPort: 443
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: oss-webui
+  namespace: <NAMESPACE>
+subsets:
+- addresses:
+  # OSS cn-shanghai region LoadBalancer IP — stable, rarely changes.
+  # Confirm with: nslookup kf-ui-<NAMESPACE>.oss-cn-shanghai.aliyuncs.com
+  - ip: 106.14.228.188
+  ports:
+  - port: 443
+    protocol: TCP

@@ -102,22 +102,23 @@ docker compose down
 ### System Architecture
 
 ```
-                       Alibaba ALB Ingress
-                    ┌──────────────────────────────┐
-                    │  All /api/* paths     → kf-api
-                    │  SPA static assets    → OSS + CDN
-                    └──────────────────────────────┘
-                                   │
-           ┌─────────────────────────┼──────────────────────┐
-           │                         │                      │
-     ┌─────▼──────┐                                ┌───────▼──────┐
-     │   kf-api    │                                │   kf-embed   │
-     │ KF_MODE=full│                                │   :8100      │
-     │   :8000     │                                └──────────────┘
-     └──────┬──────┘
-            │
-            ├──► Qdrant gRPC :6334     — vector search
-            ├──► Redis (external)       — session sharing
+                        Kong Ingress (kong-ext)
+                        kf.dev.youbanban.com
+                     ┌────────────────────────────────────┐
+                     │  /* SPA static assets  → OSS static website
+                     │  /api/v1/* etc         → kf-api
+                     └──────────┬───────────────┬─────────┘
+                                │               │
+                     ┌──────────┘               └─────────────► OSS static website
+                     │                                         kf-ui-mb-*.oss-cn-shanghai
+            ┌────────▼──────┐
+            │   kf-api      │
+            │ KF_MODE=full  │
+            │   :8000       │
+            └──────┬────────┘
+                   │
+                   ├──► Qdrant gRPC :6334     — vector search
+                   ├──► Redis (external)       — session sharing
             ├──► MySQL RDS (external)    — metrics storage
             ├──► PG RDS (external)       — analytics
             └──► DeepSeek API (external)
@@ -526,12 +527,23 @@ aws cloudfront create-invalidation --distribution-id <DIST_ID> --paths "/*"
 
 ## Appendix B: SPA Deployment
 
+The web frontend (Vue 3 + Vite) is deployed independently from the API, served through Kong Ingress routing to OSS static website.
+
 | Step | ACK | EKS |
 |------|-----|-----|
 | Build | `cd src/gui/ui && npm ci && npm run build` | Same |
 | Upload | `ossutil cp -r dist/ oss://kf-ui-${NS}/ --update` | `aws s3 cp dist/ s3://kf-ui-${NS}/ --recursive` |
-| CDN | Alibaba CDN | CloudFront |
+| Deploy | Create ExternalName Service `oss-webui` + Kong HTTPS proxy to OSS static website | (same) |
+| CDN | Alibaba CDN (origin: OSS, optional) | CloudFront |
 | Cache bust | `aliyun cdn RefreshObjectCaches` | `aws cloudfront create-invalidation` |
+
+**Kong traffic split**:
+- Ingress `/*` Prefix route → `oss-webui` Service (ExternalName → OSS static website hostname)
+- Service annotations `konghq.com/protocol: https` + `konghq.com/host` enable HTTPS proxy to OSS
+- OSS static website configured with default index + 404 fallback to `index.html` (SPA client-side routing)
+- `/api/v1/*` and other API paths still route to `kf-api:8000`
+- kf-api no longer provides `/{path}` catch-all route nor mounts webui PVC
+- SPA files uploaded to per-env bucket `kf-ui-${NS}` root (isolated by environment)
 
 ---
 
@@ -583,7 +595,10 @@ Pod environment variables
 | `deployment/k8s-aliyun/qdrant/statefulset.yaml` | Qdrant vector DB | StatefulSet |
 | `deployment/k8s-aliyun/qdrant/service.yaml` | Qdrant | Service |
 | `deployment/k8s-aliyun/oss-pvc.yaml` | OSS CSI PVC (ACK, workflows now via NAS PVC) | PVC |
-| `deployment/k8s-aliyun/ingress.yaml` | ALB Ingress (ACK) | Ingress |
+| `deployment/k8s-aliyun/ingress.yaml` | Kong Ingress routing config | Ingress |
+| `deployment/k8s-aliyun/oss-pv.yaml` | OSS CSI PV (ACK, workflow config) | PV |
+| `deployment/k8s-aliyun/oss-pvc.yaml` | OSS CSI PVC (ACK, workflow config) | PVC |
+| `deployment/k8s-aliyun/oss-webui-external.yaml` | OSS ExternalName Service (Kong HTTPS proxy) | Service |
 | `deployment/k8s-aliyun/prometheus-rules.yaml` | Prometheus alert rules | PrometheusRule |
 | `deployment/k8s-aliyun/grafana-dashboard.json` | Grafana dashboard | ConfigMap |
 | `deployment/k8s-aliyun/job-build.yaml` | Doc builder Job | Job |

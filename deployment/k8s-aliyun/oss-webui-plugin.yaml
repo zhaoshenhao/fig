@@ -1,0 +1,22 @@
+# ============================================================================
+# KongPlugin — strips force-download headers from OSS responses
+# ============================================================================
+# OSS adds Content-Disposition:attachment and x-oss-force-download:true to
+# HTML files served via the standard endpoint, which causes the browser to
+# download instead of render. This response-transformer plugin removes them.
+# ============================================================================
+# Apply (replace <NAMESPACE> with mb-test or mb-pr):
+#   sed 's/<NAMESPACE>/mb-test/g' deployment/k8s-aliyun/oss-webui-plugin.yaml | kubectl apply -f -
+# ============================================================================
+
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: oss-webui-response-headers
+  namespace: <NAMESPACE>
+plugin: response-transformer
+config:
+  remove:
+    headers:
+    - Content-Disposition
+    - x-oss-force-download

@@ -44,7 +44,7 @@
 - 单 Deployment（`KF_MODE=full`），同时承载 chat 和 admin 全部路由
 - chat 路由：`/api/v1/workflows/*/run`, `/api/v1/sessions/*`, `/export/*`
 - admin 路由：`/api/v1/sessions` (管理), `/metrics/*`, `/collections/*`, `/documents/*`
-- Ingress 所有路径均指向 kf-api Service
+- Ingress 所有路径均指向 kf-api Service（SPA 通过 Kong ExternalName Service 分流到 OSS 静态网站）
 - 代码模块：路由在 `src/api/routes_chat.py` / `routes_admin.py`，模式选择在 `main.py`
 
 ### 禁止项
@@ -85,7 +85,7 @@
 
 ### Streamlit GUI
 - 已被 Vue 3 + Vite SPA 取代
-- SPA 静态文件托管于阿里云 OSS（`kf-ui-{env}` bucket），CDN 分发
+- SPA 静态文件托管于阿里云 OSS 静态网站（`kf-ui-{env}` bucket 根目录），CDN 分发
 - 开发模式用 Vite 代理 `/api/v1` → 本地 FastAPI（端口 9000）
 - **不**再与 kf-api 同进程部署，从 Dockerfile 中完全移除
 
@@ -102,7 +102,7 @@
 ### 生产部署
 - ACK 托管版 K8s（阿里云容器服务）
 - 已有现有 ACK 集群
-- ALB Ingress（`/api` 流量 → kf-api 单 backend，SPA 走 OSS/CDN）
+- Kong Ingress（kong-ext）：`/*` SPA 路由 → OSS 静态网站（ExternalName Service + HTTPS 代理），`/api/v1/*` → kf-api
 - 3 个容器镜像：kf-api（FastAPI）、kf-embed（FastEmbed 向量化）、Qdrant
 - kf-api: 1 个 Deployment（`KF_MODE=full`，统一承载 chat + admin 路由）
 - kf-embed: Deployment 1副本（模型烘焙进镜像，无需 PVC）

@@ -6,14 +6,46 @@
 
 系统采用六层分层架构设计，从用户界面到底层基础设施逐层解耦。
 
+### 部署架构
+
+```mermaid
+flowchart TB
+    subgraph Local["本地开发环境"]
+        Browser["浏览器 localhost:5173"] --> Vite["Vite Dev Server"]
+        Vite -->|/api/v1/*| API_L["kf-api :9000"]
+        API_L --> Embed_L["kf-embed :8100"]
+        API_L --> Qdrant_L["Qdrant :6334"]
+        API_L --> Redis_L["Redis :6379"]
+        API_L --> MySQL_L["MySQL :3307"]
+    end
+```
+
+```mermaid
+flowchart LR
+    subgraph ACK["ACK K8s 集群 (mb-test / mb-pr)"]
+        User["用户"] --> Kong["Kong Ingress<br/>kf.dev.youbanban.com"]
+        Kong -->|/* SPA| OSS["OSS 静态网站<br/>kf-ui-mb-*.oss-cn-shanghai.aliyuncs.com"]
+        Kong -->|/api/v1/*| API["kf-api :8000<br/>KF_MODE=full"]
+        API --> Embed["kf-embed :8100"]
+        API --> Qdrant["kf-qdrant :6334"]
+    end
+    User --> CDN["阿里云 CDN<br/>回源 OSS"]
+    CDN --> OSS
+    API --> Redis_S["Redis"]
+    API --> MySQL_S["MySQL RDS"]
+    API --> PG_S["PG RDS"]
+    API --> DS["DeepSeek API"]
+```
+
 ### 第一层 — 表现层（Presentation）
 
 | 组件 | 技术栈 | 部署方式 | 状态 |
 |------|--------|----------|------|
-| Vue 3 SPA | Vue 3 + Vite + dagre.js | 阿里云 OSS + CDN 分发 | 主力 |
+| Vue 3 SPA | Vue 3 + Vite + dagre.js | OSS 静态网站 + CDN，Kong Ingress 分流 | 主力 |
 | Streamlit 调试 GUI | Streamlit（`src/gui/app.py`） | 开发环境本地运行 | 遗留（已替换） |
 
-Vue SPA 通过 Vite 开发代理 `/api/v1` → 本地 FastAPI（端口 9000），生产环境走 ALB Ingress 分流。
+- 生产环境：Kong Ingress 将 `/*` 流量路由到 OSS 静态网站（通过 ExternalName Service + HTTPS 代理），`/api/v1/*` 路由到 kf-api。
+- 开发环境：Vite dev server 将 `/api/v1` 代理到本地 FastAPI（端口 9000），SPA 由 Vite 直接提供。
 
 ### 第二层 — API 网关（API Gateway）
 

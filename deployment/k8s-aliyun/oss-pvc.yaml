@@ -1,9 +1,9 @@
 # ============================================================================
-# OSS Persistent Volume Claims — workflow + webui
+# OSS Persistent Volume Claims — workflow
 # ============================================================================
 # Deployed by Jenkins (deployService) with <NAMESPACE> sed replacement.
 # Each PVC binds to the pre-created PV named oss-workflow-<NAMESPACE>
-# or oss-webui-<NAMESPACE> via explicit volumeName.
+# via explicit volumeName.
 # ============================================================================
 
 ---
@@ -22,17 +22,4 @@ spec:
       storage: 5Gi
   volumeName: oss-workflow-<NAMESPACE>
 ---
-# ── WebUI OSS PVC ──
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: oss-webui
-  namespace: <NAMESPACE>
-spec:
-  storageClassName: ""
-  accessModes:
-    - ReadWriteMany
-  resources:
-    requests:
-      storage: 5Gi
-  volumeName: oss-webui-<NAMESPACE>
+

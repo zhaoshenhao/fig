@@ -5,20 +5,21 @@ metadata:
   namespace: <NAMESPACE>
   annotations:
     konghq.com/strip-path: "false"
+    konghq.com/preserve-host: "false"
 spec:
   ingressClassName: kong-ext
   rules:
     - host: <DOMAIN>
       http:
         paths:
-          # ── SPA (static files, must be first for path matching) ──
+          # ── SPA (static files served from OSS via Kong proxy) ──
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: kf-api
+                name: oss-webui
                 port:
-                  number: 8000
+                  number: 443
           # ── Chat & Admin API (unified) ──
           - path: /api/v1/
             pathType: Prefix

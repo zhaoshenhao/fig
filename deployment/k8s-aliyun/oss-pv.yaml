@@ -1,8 +1,8 @@
 # ============================================================================
-# OSS Persistent Volumes — workflow + webui
+# OSS Persistent Volumes — workflow
 # ============================================================================
 # Pre-requisites:
-#   1. OSS buckets 'kf-workflow' and 'kf-ui' must exist in the target region
+#   1. OSS bucket 'kf-workflow' must exist in the target region
 #   2. ACK CSI OSS plugin (csi-provisioner) must be installed in the cluster
 #   3. kf-secrets must contain akId / akSecret keys (same values as OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET)
 # ============================================================================
@@ -43,30 +43,4 @@ spec:
       path: "/<NAMESPACE>/"
       otherOpts: "-o max_stat_cache_size=0 -o allow_other"
 ---
-# ── WebUI OSS PV ──
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: oss-webui-<NAMESPACE>
-  labels:
-    app: kf
-    env: <NAMESPACE>
-    volume: oss-webui
-spec:
-  capacity:
-    storage: 5Gi
-  storageClassName: ""
-  accessModes:
-    - ReadWriteMany
-  persistentVolumeReclaimPolicy: Retain
-  csi:
-    driver: ossplugin.csi.alibabacloud.com
-    volumeHandle: oss-webui-<NAMESPACE>
-    nodePublishSecretRef:
-      name: kf-secrets
-      namespace: <NAMESPACE>
-    volumeAttributes:
-      bucket: "kf-ui"
-      url: "oss-cn-shanghai-internal.aliyuncs.com"
-      path: "/<NAMESPACE>/"
-      otherOpts: "-o max_stat_cache_size=0 -o allow_other"
+

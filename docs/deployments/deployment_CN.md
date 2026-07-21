@@ -121,22 +121,23 @@ docker compose down
 ### 系统架构
 
 ```
-                      阿里云 ALB Ingress
+                        Kong Ingress (kong-ext)
+                        kf.dev.youbanban.com
                      ┌────────────────────────────────────┐
-                     │  所有 /api/* 路径        → kf-api  │
-                     │  SPA 静态资源            → OSS + CDN│
-                     └────────────────────────────────────┘
-                                     │
-           ┌─────────────────────────┼──────────────────────┐
-           │                         │                      │
-     ┌─────▼──────┐                                ┌───────▼──────┐
-     │   kf-api    │                                │   kf-embed   │
-     │ KF_MODE=full│                                │   :8100      │
-     │   :8000     │                                └──────────────┘
-     └──────┬──────┘
-            │
-            ├──► Qdrant gRPC :6334     — 向量检索
-            ├──► Redis (外部)           — 会话共享
+                     │  /* SPA 静态资源 → OSS 静态网站     │
+                     │  /api/v1/* 等     → kf-api       │
+                     └──────────┬───────────────┬─────────┘
+                                │               │
+                     ┌──────────┘               └─────────────► OSS 静态网站
+                     │                                         kf-ui-mb-*.oss-cn-shanghai
+            ┌────────▼──────┐
+            │   kf-api      │
+            │ KF_MODE=full  │
+            │   :8000       │
+            └──────┬────────┘
+                   │
+                   ├──► Qdrant gRPC :6334     — 向量检索
+                   ├──► Redis (外部)           — 会话共享
             ├──► MySQL RDS (外部)        — metrics 存储
             ├──► PG RDS (外部)           — 分析查询
             └──► DeepSeek API (外部)
@@ -656,14 +657,24 @@ aws cloudfront create-invalidation --distribution-id <DISTRIBUTION_ID> --paths "
 
 ## 附录 B：SPA 前端部署
 
-Web 前端（Vue 3 + Vite）独立于 API 部署：
+Web 前端（Vue 3 + Vite）独立于 API 部署，通过 Kong Ingress 分流 OSS 静态网站。
 
 | 步骤 | ACK | EKS |
 |------|-----|-----|
 | 构建 | `cd src/gui/ui && npm ci && npm run build` | 同左 |
 | 上传 | `ossutil cp -r dist/ oss://kf-ui-${NS}/ --update` | `aws s3 cp dist/ s3://kf-ui-${NS}/ --recursive` |
-| CDN | 阿里云 CDN（自动回源 OSS） | CloudFront（自动回源 S3） |
+| 部署 | 创建 ExternalName Service `oss-webui` + Kong HTTPS 代理到 OSS 静态网站 | （同） |
+| CDN | 阿里云 CDN（回源 OSS，可选） | CloudFront（自动回源 S3） |
 | 缓存刷新 | `aliyun cdn RefreshObjectCaches` | `aws cloudfront create-invalidation` |
+
+**Kong 分流原理**：
+- Ingress 中 `/*` Prefix 路由 → `oss-webui` Service（ExternalName → OSS 静态网站域名）
+- Service 注解 `konghq.com/protocol: https` + `konghq.com/host` 使 Kong 以 HTTPS 代理到 OSS
+- OSS 静态网站配置默认首页 + 404 fallback 为 `index.html`（支持 SPA 客户端路由）
+- `/api/v1/*` 等 API 路径保持路由到 `kf-api:8000`
+- kf-api 不再提供 `/{path}` catch-all 路由，也不再 mount webui PVC
+- SPA 文件上传到独立 bucket `kf-ui-${NS}` 根目录（分环境隔离）
+- OSS 静态网站配置默认首页 + 404 fallback 为 `index.html`（支持 SPA 客户端路由）
 
 ---
 
@@ -718,7 +729,10 @@ Pod 环境变量
 | `deployment/k8s-aliyun/qdrant/statefulset.yaml` | Qdrant 向量数据库 | StatefulSet |
 | `deployment/k8s-aliyun/qdrant/service.yaml` | Qdrant 服务 | Service |
 | `deployment/k8s-aliyun/oss-pvc.yaml` | OSS CSI 持久卷（ACK，工作流配置已改用 NAS PVC） | PVC |
-| `deployment/k8s-aliyun/ingress.yaml` | ALB Ingress（ACK） | Ingress |
+| `deployment/k8s-aliyun/ingress.yaml` | Kong Ingress 分流配置 | Ingress |
+| `deployment/k8s-aliyun/oss-pv.yaml` | OSS CSI 持久卷 (ACK，工作流配置) | PV |
+| `deployment/k8s-aliyun/oss-pvc.yaml` | OSS CSI PVC (ACK，工作流配置) | PVC |
+| `deployment/k8s-aliyun/oss-webui-external.yaml` | OSS 静态网站 ExternalName Service (Kong HTTPS 代理) | Service |
 | `deployment/k8s-aliyun/prometheus-rules.yaml` | Prometheus 告警规则 | PrometheusRule |
 | `deployment/k8s-aliyun/grafana-dashboard.json` | Grafana 监控面板 | ConfigMap |
 | `deployment/k8s-aliyun/job-build.yaml` | 文档构建 Job | Job |
