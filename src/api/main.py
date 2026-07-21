@@ -42,7 +42,7 @@ from src.logger import get_logger, init_logging
 from src.logger.middleware import RequestIDMiddleware, get_request_id
 from src.metrics.factory import create_metrics_store
 from src.metrics.prometheus import MetricsMiddleware, generate_latest
-from src.session import MemorySessionStore, SessionStore
+from src.session import SessionStore, create_session_store
 
 _log = get_logger(__name__)
 
@@ -80,10 +80,18 @@ _dag_engine = DAGEngine(
 set_dag_engine(_dag_engine)
 register_reload_callback(lambda cfg: _dag_engine.update_app_config(cfg))
 
-_session_store: SessionStore = MemorySessionStore(
-    max_age=getattr(_app_config.session, "max_age", 3600),
-    max_sessions=getattr(_app_config.session, "memory_max_sessions", 2000),
-)
+_session = _app_config.session or {}
+_session_store: SessionStore = create_session_store({
+    "store": _session.get("store", "memory"),
+    "max_age": _session.get("max_age", 3600),
+    "max_turns": _session.get("max_turns", 100),
+    "max_chars": _session.get("max_chars", 100000),
+    "keep": _session.get("keep", 20),
+    "compress_max_words": _session.get("compress_max_words", 1000),
+    "cleanup_interval": _session.get("cleanup_interval", 300),
+    "redis": _session.get("redis", {}),
+    "memory": _session.get("memory", {}),
+})
 set_session_store(_session_store)
 
 _cleanup_event = threading.Event()
@@ -94,7 +102,7 @@ _cleanup_thread: threading.Thread | None = None
 async def _lifespan(_app: FastAPI):
     global _startup_seconds
     sc = _app_config.session
-    if isinstance(_session_store, MemorySessionStore) and sc.cleanup_interval > 0:
+    if hasattr(_session_store, "cleanup_loop") and callable(_session_store.cleanup_loop) and sc.cleanup_interval > 0:
         _cleanup_event.clear()
         _cleanup_thread = threading.Thread(
             target=_session_store.cleanup_loop,

@@ -43,6 +43,11 @@ spec:
                 secretKeyRef:
                   name: kf-secrets
                   key: OSS_PATH_PREFIX
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: kf-secrets
+                  key: REDIS_URL
           envFrom:
             - secretRef:
                 name: kf-secrets

@@ -1,4 +1,4 @@
-store: memory
+store: redis
 
 max_age: 3600
 
@@ -16,7 +16,7 @@ memory:
   max_sessions: 2000
 
 redis:
-  url: ${REDIS_URL:-redis://localhost:6379/0}
+  url: ${REDIS_URL:-redis://localhost:6379/2}
   prefix: "kf:sess:"
 
 summary:
