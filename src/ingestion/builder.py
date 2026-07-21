@@ -10,7 +10,8 @@ from src.llm.client import LLMClient
 from src.rag.qdrant import QdrantSearch
 
 
-EMBED_BATCH_SIZE = 32
+EMBED_BATCH_SIZE = 16
+EMBED_MAX_RETRIES = 3
 
 
 def build_document(
@@ -30,7 +31,17 @@ def build_document(
     vectors: list[list[float]] = []
     for i in range(0, len(chunks), EMBED_BATCH_SIZE):
         batch = chunks[i:i + EMBED_BATCH_SIZE]
-        vectors.extend(embed_client.embed(embed_model, batch))
+        for attempt in range(EMBED_MAX_RETRIES):
+            try:
+                vectors.extend(embed_client.embed(embed_model, batch))
+                break
+            except Exception:
+                if attempt == EMBED_MAX_RETRIES - 1:
+                    raise
+                import time
+                time.sleep(2 * (attempt + 1))
+                embed_client.close()
+                embed_client._client = __import__('httpx2').Client(timeout=embed_client._timeout)
 
     source = str(filepath.name)
     points: list[dict] = []

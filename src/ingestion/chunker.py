@@ -37,6 +37,19 @@ def _merge_paragraphs(
     for para in paragraphs:
         para_chars = len(para)
 
+        while len(para) > chunk_size:
+            split_at = para.rfind(" ", 0, chunk_size)
+            if split_at == -1:
+                split_at = chunk_size
+            chunks.append(para[:split_at].strip())
+            para = para[split_at:].strip()
+            if len(para) <= overlap:
+                break
+
+        if not para:
+            continue
+        para_chars = len(para)
+
         if current_size + para_chars > chunk_size and buffer:
             chunks.append("\n\n".join(buffer))
             overlap_chars = 0
