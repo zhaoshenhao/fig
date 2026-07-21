@@ -44,7 +44,8 @@ flowchart LR
 | Vue 3 SPA | Vue 3 + Vite + dagre.js | OSS Static Website + CDN, Kong Ingress split | Primary |
 | Streamlit Debug GUI | Streamlit (`src/gui/app.py`) | Local dev only | Legacy (replaced) |
 
-- Production: Kong Ingress routes `/*` to OSS static website (via ExternalName Service + HTTPS proxy), `/api/v1/*` routes to kf-api.
+- Production: Kong Ingress routes `/*` to OSS static website (ClusterIP Service + Endpoints + `preserve-host: false` + `response-transformer` plugin to strip OSS force-download headers), `/api/v1/*` routes to kf-api.
+- auth.yaml is overridden by ConfigMap (`kf-api-auth`) mounted at `/app/config/auth.yaml`, updatable independently from the image.
 - Development: Vite dev proxy forwards `/api/v1` to local FastAPI (port 9000), SPA served directly by Vite.
 
 ### Layer 2 — API Gateway
@@ -296,13 +297,16 @@ kf/
 ├── deployment/k8s-aliyun/                             # Kubernetes deployment manifests
 │   ├── namespace.yaml               # Namespace definition
 │   ├── secret.yaml                  # Secret template (placeholder values)
-│   ├── ingress.yaml                 # ALB Ingress configuration
+│   ├── ingress.yaml                 # Kong Ingress (preserve-host + traffic split)
 │   ├── kustomization.yaml           # Kustomize orchestration
-│   ├── oss-pvc.yaml                 # OSS CSI PersistentVolumeClaim (workflow switch to NAS PVC)
+│   ├── oss-pv.yaml                  # OSS CSI PersistentVolume (workflow config)
+│   ├── oss-pvc.yaml                 # OSS CSI PersistentVolumeClaim (workflow config)
+│   ├── oss-webui-external.yaml      # OSS SPA ClusterIP Service + Endpoints
+│   ├── oss-webui-plugin.yaml        # KongPlugin (response-transformer to strip force-download headers)
 │   ├── job-build.yaml               # Document build Job
 │   ├── grafana-dashboard.json       # Grafana monitoring dashboard
 │   ├── prometheus-rules.yaml        # Prometheus alerting rules
-│   ├── kf-api/                      # kf-api Deployment (KF_MODE=full, all routes)
+│   ├── kf-api/                      # kf-api Deployment + Service + auth ConfigMap
 │   ├── embed/                       # Embedding service Deployment
 │   └── qdrant/                      # Qdrant StatefulSet
 ├── deployment/scripts/                         # Operations scripts

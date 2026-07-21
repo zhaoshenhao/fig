@@ -44,7 +44,8 @@ flowchart LR
 | Vue 3 SPA | Vue 3 + Vite + dagre.js | OSS 静态网站 + CDN，Kong Ingress 分流 | 主力 |
 | Streamlit 调试 GUI | Streamlit（`src/gui/app.py`） | 开发环境本地运行 | 遗留（已替换） |
 
-- 生产环境：Kong Ingress 将 `/*` 流量路由到 OSS 静态网站（通过 ExternalName Service + HTTPS 代理），`/api/v1/*` 路由到 kf-api。
+- 生产环境：Kong Ingress 将 `/*` 流量路由到 OSS 静态网站（ClusterIP Service + Endpoints + `preserve-host: false` + `response-transformer` 插件剥离 OSS 强下载头），`/api/v1/*` 路由到 kf-api。
+- auth.yaml 通过 ConfigMap (`kf-api-auth`) 挂载到 `/app/config/auth.yaml`，独立于镜像更新。
 - 开发环境：Vite dev server 将 `/api/v1` 代理到本地 FastAPI（端口 9000），SPA 由 Vite 直接提供。
 
 ### 第二层 — API 网关（API Gateway）
@@ -296,13 +297,16 @@ kf/
 ├── deployment/k8s-aliyun/                             # Kubernetes 部署清单
 │   ├── namespace.yaml               # Namespace 定义
 │   ├── secret.yaml                  # Secret 模板（含占位符）
-│   ├── ingress.yaml                 # ALB Ingress 配置
+│   ├── ingress.yaml                 # Kong Ingress（preserve-host + 分流）
 │   ├── kustomization.yaml           # Kustomize 编排
-│   ├── oss-pvc.yaml                 # OSS CSI 持久卷声明（工作流配置改用 NAS PVC）
+│   ├── oss-pv.yaml                  # OSS CSI 持久卷（工作流配置）
+│   ├── oss-pvc.yaml                 # OSS CSI 持久卷声明（工作流配置）
+│   ├── oss-webui-external.yaml      # OSS SPA ClusterIP Service + Endpoints
+│   ├── oss-webui-plugin.yaml        # KongPlugin (response-transformer 剥离强制下载头)
 │   ├── job-build.yaml               # 文档构建 Job
 │   ├── grafana-dashboard.json       # Grafana 监控面板
 │   ├── prometheus-rules.yaml        # Prometheus 告警规则
-│   ├── kf-api/                      # kf-api Deployment (KF_MODE=full, 统一承载所有路由)
+│   ├── kf-api/                      # kf-api Deployment + Service + auth ConfigMap
 │   ├── embed/                       # Embedding 服务 Deployment
 │   └── qdrant/                      # Qdrant StatefulSet
 ├── deployment/scripts/                         # 运维脚本

@@ -1,0 +1,24 @@
+# ============================================================================
+# auth ConfigMap — overrides baked-in /app/config/auth.yaml at deploy time
+# ============================================================================
+# KF_API_KEY is resolved at runtime from ${KF_API_KEY} env var (injected
+# from kf-secrets via envFrom). Update this ConfigMap independently without
+# rebuilding the image.
+# ============================================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kf-api-auth
+  namespace: <NAMESPACE>
+data:
+  auth.yaml: |
+    api_keys:
+      - "${KF_API_KEY}"
+
+    skip_paths:
+      - /health
+      - /ready
+      - /docs
+      - /openapi.json
+      - /redoc

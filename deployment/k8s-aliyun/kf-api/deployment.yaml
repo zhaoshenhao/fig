@@ -59,6 +59,9 @@ spec:
               cpu: "2"
               memory: "2Gi"
           volumeMounts:
+            - name: auth-config
+              mountPath: /app/config/auth.yaml
+              subPath: auth.yaml
             - name: workflow-config
               mountPath: /app/config/workflows
             - name: documents-storage
@@ -77,6 +80,10 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
       volumes:
+        - name: auth-config
+          configMap:
+            name: kf-api-auth
+            optional: true
         - name: workflow-config
           persistentVolumeClaim:
             claimName: <OSS_WORKFLOW_PVC>

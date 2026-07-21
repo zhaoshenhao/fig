@@ -282,6 +282,9 @@ kubectl wait --for=condition=ready pod -l app=embed -n ${NS} --timeout=120s
 工作流 YAML 通过 NAS PVC `devops-nas1`（subPath `kf/workflows`）挂载，NAS 由集群管理员预先配置。
 
 ```bash
+# auth ConfigMap（覆盖镜像内置的 auth.yaml，独立于镜像更新）
+cat deployment/k8s-aliyun/kf-api/auth-configmap.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
+
 # kf-api Deployment（统一承载用户流量 + 内部管理，KF_MODE=full）
 cat deployment/k8s-aliyun/kf-api/service.yaml | sed "s|<NAMESPACE>|${NS}|g" | kubectl apply -f -
 cat deployment/k8s-aliyun/kf-api/deployment.yaml \
@@ -663,18 +666,19 @@ Web 前端（Vue 3 + Vite）独立于 API 部署，通过 Kong Ingress 分流 OS
 |------|-----|-----|
 | 构建 | `cd src/gui/ui && npm ci && npm run build` | 同左 |
 | 上传 | `ossutil cp -r dist/ oss://kf-ui-${NS}/ --update` | `aws s3 cp dist/ s3://kf-ui-${NS}/ --recursive` |
-| 部署 | 创建 ExternalName Service `oss-webui` + Kong HTTPS 代理到 OSS 静态网站 | （同） |
+| 部署 | 创建 ClusterIP Service `oss-webui` + Endpoints (指向 OSS IP) + Ingress `preserve-host: false` + `response-transformer` KongPlugin 剥离 OSS 强制下载头 | （同） |
 | CDN | 阿里云 CDN（回源 OSS，可选） | CloudFront（自动回源 S3） |
 | 缓存刷新 | `aliyun cdn RefreshObjectCaches` | `aws cloudfront create-invalidation` |
 
 **Kong 分流原理**：
-- Ingress 中 `/*` Prefix 路由 → `oss-webui` Service（ExternalName → OSS 静态网站域名）
-- Service 注解 `konghq.com/protocol: https` + `konghq.com/host` 使 Kong 以 HTTPS 代理到 OSS
+- Ingress 中 `/*` Prefix 路由 → `oss-webui` Service（ClusterIP + Endpoints 指向 OSS IP）
+- Ingress 注解 `konghq.com/preserve-host: "false"` 防止 Kong 把原始请求的 `Host` 头发给 OSS
+- Service 注解 `konghq.com/protocol: https` + `konghq.com/host-header` 设置正确的 OSS Host 头
+- Service 注解 `konghq.com/plugins: oss-webui-response-headers` 挂载 `response-transformer` KongPlugin，剥离 OSS 自动添加的 `Content-Disposition: attachment` 和 `x-oss-force-download` 头
 - OSS 静态网站配置默认首页 + 404 fallback 为 `index.html`（支持 SPA 客户端路由）
 - `/api/v1/*` 等 API 路径保持路由到 `kf-api:8000`
 - kf-api 不再提供 `/{path}` catch-all 路由，也不再 mount webui PVC
 - SPA 文件上传到独立 bucket `kf-ui-${NS}` 根目录（分环境隔离）
-- OSS 静态网站配置默认首页 + 404 fallback 为 `index.html`（支持 SPA 客户端路由）
 
 ---
 
@@ -722,8 +726,9 @@ Pod 环境变量
 | `deployment/k8s-aliyun/namespace.yaml` | 命名空间 | Namespace |
 | `deployment/k8s-aliyun/secret.yaml` | **模板**（非运行文件） | Secret |
 | `deployment/k8s-aliyun/init-db-job.yaml` | 数据库初始化 | Job |
-| `deployment/k8s-aliyun/kf-api/deployment.yaml` | kf-api 部署 | Deployment |
+| `deployment/k8s-aliyun/kf-api/deployment.yaml` | kf-api 部署 (KF_MODE=full) | Deployment |
 | `deployment/k8s-aliyun/kf-api/service.yaml` | kf-api 服务 | Service |
+| `deployment/k8s-aliyun/kf-api/auth-configmap.yaml` | auth.yaml ConfigMap 覆盖（独立于镜像更新） | ConfigMap |
 | `deployment/k8s-aliyun/embed/deployment.yaml` | embed 向量化微服务 | Deployment |
 | `deployment/k8s-aliyun/embed/service.yaml` | embed 服务 | Service |
 | `deployment/k8s-aliyun/qdrant/statefulset.yaml` | Qdrant 向量数据库 | StatefulSet |
@@ -732,7 +737,8 @@ Pod 环境变量
 | `deployment/k8s-aliyun/ingress.yaml` | Kong Ingress 分流配置 | Ingress |
 | `deployment/k8s-aliyun/oss-pv.yaml` | OSS CSI 持久卷 (ACK，工作流配置) | PV |
 | `deployment/k8s-aliyun/oss-pvc.yaml` | OSS CSI PVC (ACK，工作流配置) | PVC |
-| `deployment/k8s-aliyun/oss-webui-external.yaml` | OSS 静态网站 ExternalName Service (Kong HTTPS 代理) | Service |
+| `deployment/k8s-aliyun/oss-webui-external.yaml` | OSS 静态网站 Service + Endpoints (Kong 代理) | Service + Endpoints |
+| `deployment/k8s-aliyun/oss-webui-plugin.yaml` | response-transformer KongPlugin (剥离强制下载头) | KongPlugin |
 | `deployment/k8s-aliyun/prometheus-rules.yaml` | Prometheus 告警规则 | PrometheusRule |
 | `deployment/k8s-aliyun/grafana-dashboard.json` | Grafana 监控面板 | ConfigMap |
 | `deployment/k8s-aliyun/job-build.yaml` | 文档构建 Job | Job |

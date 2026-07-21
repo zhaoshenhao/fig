@@ -533,13 +533,15 @@ The web frontend (Vue 3 + Vite) is deployed independently from the API, served t
 |------|-----|-----|
 | Build | `cd src/gui/ui && npm ci && npm run build` | Same |
 | Upload | `ossutil cp -r dist/ oss://kf-ui-${NS}/ --update` | `aws s3 cp dist/ s3://kf-ui-${NS}/ --recursive` |
-| Deploy | Create ExternalName Service `oss-webui` + Kong HTTPS proxy to OSS static website | (same) |
+| Deploy | Create ClusterIP Service `oss-webui` + Endpoints (pointing to OSS IP) + Ingress `preserve-host: false` + `response-transformer` KongPlugin to strip OSS force-download headers | (same) |
 | CDN | Alibaba CDN (origin: OSS, optional) | CloudFront |
 | Cache bust | `aliyun cdn RefreshObjectCaches` | `aws cloudfront create-invalidation` |
 
 **Kong traffic split**:
-- Ingress `/*` Prefix route → `oss-webui` Service (ExternalName → OSS static website hostname)
-- Service annotations `konghq.com/protocol: https` + `konghq.com/host` enable HTTPS proxy to OSS
+- Ingress `/*` Prefix route → `oss-webui` Service (ClusterIP + Endpoints pointing to OSS IP)
+- Ingress annotation `konghq.com/preserve-host: "false"` prevents Kong from forwarding the original `Host` header to OSS
+- Service annotation `konghq.com/protocol: https` + `konghq.com/host-header` sets the correct OSS Host header
+- Service annotation `konghq.com/plugins: oss-webui-response-headers` attaches the `response-transformer` KongPlugin, stripping `Content-Disposition: attachment` and `x-oss-force-download` automatically added by OSS
 - OSS static website configured with default index + 404 fallback to `index.html` (SPA client-side routing)
 - `/api/v1/*` and other API paths still route to `kf-api:8000`
 - kf-api no longer provides `/{path}` catch-all route nor mounts webui PVC
@@ -588,8 +590,9 @@ Pod environment variables
 | `deployment/k8s-aliyun/namespace.yaml` | Namespace | Namespace |
 | `deployment/k8s-aliyun/secret.yaml` | Template (not runnable) | Secret |
 | `deployment/k8s-aliyun/init-db-job.yaml` | DB init | Job |
-| `deployment/k8s-aliyun/kf-api/deployment.yaml` | kf-api | Deployment |
+| `deployment/k8s-aliyun/kf-api/deployment.yaml` | kf-api (KF_MODE=full) | Deployment |
 | `deployment/k8s-aliyun/kf-api/service.yaml` | kf-api | Service |
+| `deployment/k8s-aliyun/kf-api/auth-configmap.yaml` | auth.yaml ConfigMap (updatable independently) | ConfigMap |
 | `deployment/k8s-aliyun/embed/deployment.yaml` | embed microservice | Deployment |
 | `deployment/k8s-aliyun/embed/service.yaml` | embed | Service |
 | `deployment/k8s-aliyun/qdrant/statefulset.yaml` | Qdrant vector DB | StatefulSet |
@@ -598,7 +601,8 @@ Pod environment variables
 | `deployment/k8s-aliyun/ingress.yaml` | Kong Ingress routing config | Ingress |
 | `deployment/k8s-aliyun/oss-pv.yaml` | OSS CSI PV (ACK, workflow config) | PV |
 | `deployment/k8s-aliyun/oss-pvc.yaml` | OSS CSI PVC (ACK, workflow config) | PVC |
-| `deployment/k8s-aliyun/oss-webui-external.yaml` | OSS ExternalName Service (Kong HTTPS proxy) | Service |
+| `deployment/k8s-aliyun/oss-webui-external.yaml` | OSS static website Service + Endpoints (Kong proxy) | Service + Endpoints |
+| `deployment/k8s-aliyun/oss-webui-plugin.yaml` | response-transformer KongPlugin (strip force-download headers) | KongPlugin |
 | `deployment/k8s-aliyun/prometheus-rules.yaml` | Prometheus alert rules | PrometheusRule |
 | `deployment/k8s-aliyun/grafana-dashboard.json` | Grafana dashboard | ConfigMap |
 | `deployment/k8s-aliyun/job-build.yaml` | Doc builder Job | Job |
