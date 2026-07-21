@@ -19,6 +19,7 @@ spec:
         - name: kf-embed
           # 模型通过 NAS PVC 挂载（INT8 量化版，构建期镜像内也有备份）
           image: <ACR_REGISTRY>/kf-embed:<EMBED_IMAGE_TAG>
+          imagePullPolicy: Always
           ports:
             - containerPort: 8100
           env:
