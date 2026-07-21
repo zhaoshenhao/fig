@@ -80,17 +80,17 @@ _dag_engine = DAGEngine(
 set_dag_engine(_dag_engine)
 register_reload_callback(lambda cfg: _dag_engine.update_app_config(cfg))
 
-_session = _app_config.session or {}
+_sc = _app_config.session
 _session_store: SessionStore = create_session_store({
-    "store": _session.get("store", "memory"),
-    "max_age": _session.get("max_age", 3600),
-    "max_turns": _session.get("max_turns", 100),
-    "max_chars": _session.get("max_chars", 100000),
-    "keep": _session.get("keep", 20),
-    "compress_max_words": _session.get("compress_max_words", 1000),
-    "cleanup_interval": _session.get("cleanup_interval", 300),
-    "redis": _session.get("redis", {}),
-    "memory": _session.get("memory", {}),
+    "store": _sc.store,
+    "max_age": _sc.max_age,
+    "max_turns": _sc.max_turns or 100,
+    "max_chars": _sc.max_chars or 100000,
+    "keep": _sc.keep,
+    "compress_max_words": _sc.compress_max_words,
+    "cleanup_interval": _sc.cleanup_interval,
+    "redis": {"url": _sc.redis_url, "prefix": _sc.redis_prefix},
+    "memory": {"max_sessions": _sc.memory_max_sessions},
 })
 set_session_store(_session_store)
 
