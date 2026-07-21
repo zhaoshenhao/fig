@@ -1,4 +1,4 @@
-store: redis
+store: memory
 
 max_age: 3600
 
