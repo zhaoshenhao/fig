@@ -20,7 +20,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from src.embed_service.service import DEFAULT_MODEL, embed_texts, get_model, is_ready
+from src.embed_service.service import DEFAULT_MODEL, embed_texts, get_model, get_model_info, is_ready
 import logging
 
 logger = logging.getLogger(__name__)
@@ -106,10 +106,11 @@ def health() -> dict:
 
 @app.get("/ready")
 def ready() -> dict:
-    """就绪探针：模型未加载完成时返回 503；就绪时附带启动耗时。"""
+    """就绪探针：模型未加载完成时返回 503；就绪时附带模型信息。"""
     if not is_ready():
         raise HTTPException(status_code=503, detail="model not loaded")
-    return {"status": "ready", "startup_seconds": _startup_seconds}
+    model_info = get_model_info()
+    return {"status": "ready", "startup_seconds": _startup_seconds, "model": model_info}
 
 
 @app.post("/v1/embeddings")

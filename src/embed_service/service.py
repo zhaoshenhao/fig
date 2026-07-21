@@ -123,6 +123,19 @@ def is_ready() -> bool:
     return _model is not None
 
 
+def get_model_info() -> dict:
+    """返回当前已加载模型的元信息（名称、文件、维数、大小）。"""
+    if _model is None:
+        return {}
+    desc = _model._get_model_description(_model_name or "")
+    return {
+        "model": desc.model,
+        "model_file": desc.model_file,
+        "dim": desc.dim,
+        "size_in_GB": desc.size_in_GB,
+    }
+
+
 def embed_texts(texts: list[str], name: str = "") -> list[list[float]]:
     """对一组文本生成向量。
 

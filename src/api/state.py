@@ -159,7 +159,17 @@ def probe_embed(provider) -> str:
     resp = httpx2.get(f"{base}/health", timeout=5)
     if resp.status_code >= 500:
         raise RuntimeError(f"HTTP {resp.status_code}")
-    return f"model={provider.model} host={_host_of(base)} (HTTP {resp.status_code})"
+    detail = f"model={provider.model} host={_host_of(base)} (HTTP {resp.status_code})"
+    # 从 /ready 获取模型详细信息
+    try:
+        ready = httpx2.get(f"{base}/ready", timeout=5)
+        if ready.status_code == 200:
+            mi = ready.json().get("model", {})
+            if mi:
+                detail += f" [{mi.get('model_file','')} dim={mi.get('dim','')} size={mi.get('size_in_GB','')}GB]"
+    except Exception:
+        pass
+    return detail
 
 
 def _host_of(url: str) -> str:
