@@ -19,13 +19,13 @@ import threading
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-# 默认模型（FastEmbed 仓库名）
-DEFAULT_MODEL = "nomic-ai/nomic-embed-text-v1.5"
+# 默认模型（FastEmbed 仓库名 — INT8 量化版）
+DEFAULT_MODEL = "nomic-ai/nomic-embed-text-v1.5-Q"
 
 # Ollama / OpenAI 风格别名 -> FastEmbed 仓库名
 MODEL_ALIASES = {
-    "nomic-embed-text": "nomic-ai/nomic-embed-text-v1.5",
-    "nomic-embed-text-v1.5": "nomic-ai/nomic-embed-text-v1.5",
+    "nomic-embed-text": "nomic-ai/nomic-embed-text-v1.5-Q",
+    "nomic-embed-text-v1.5": "nomic-ai/nomic-embed-text-v1.5-Q",
     "": DEFAULT_MODEL,
 }
 

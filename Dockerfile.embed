@@ -2,12 +2,15 @@ FROM python:3.14-slim
 
 WORKDIR /app
 
-# 模型从 NAS 挂载（PVC: devops-nas1, subPath: kf/model）
-ENV FASTEMBED_CACHE_PATH=/app/model
-ENV EMBED_MODEL=nomic-ai/nomic-embed-text-v1.5
+# 模型预下载至镜像内 /opt/fastembed_cache（构建期下载，运行期不联网）
+ENV FASTEMBED_CACHE_PATH=/opt/fastembed_cache
+ENV EMBED_MODEL=nomic-ai/nomic-embed-text-v1.5-Q
 
 COPY pyproject.toml .
 RUN pip install --no-cache-dir -e .[embed]
+
+# 下载 INT8 量化模型（131MB，构建期完成）
+RUN python -c "from huggingface_hub import hf_hub_download; hf_hub_download('nomic-ai/nomic-embed-text-v1.5', 'onnx/model_quantized.onnx', cache_dir='/opt/fastembed_cache')"
 
 COPY src/embed_service/ ./src/embed_service/
 COPY src/logger/ ./src/logger/

@@ -145,7 +145,7 @@ embed (8100) + qdrant (6333/6334) + api (8000)
 |------|------|------|
 | kf-api | Deployment | 统一承载用户流量 + 内部管理，`KF_MODE=full` |
 | kf-embed | Deployment | FastEmbed ONNX 向量化（1 副本，模型烘焙进镜像） |
-| Qdrant | StatefulSet | 向量数据库（EBS/ESSD 持久化） |
+| kf-qdrant | StatefulSet | 向量数据库（EBS/ESSD 持久化） |
 
 同一 Docker 镜像（`Dockerfile`），`KF_MODE=full` 统一承载所有路由，单 Deployment 简化架构。
 
