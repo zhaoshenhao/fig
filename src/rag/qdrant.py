@@ -54,6 +54,8 @@ class QdrantSearch:
             host: Qdrant 服务主机地址
             port: gRPC 端口（默认 6334）
         """
+        self.host = host
+        self.port = port
         self._client = QdrantClient(host=host, port=port, prefer_grpc=True)
 
     # ------------------------------------------------------------------

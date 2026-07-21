@@ -131,6 +131,9 @@ def probe(fn) -> dict:
 
 
 def probe_qdrant() -> str:
+    import httpx2
+    import re
+
     qc = make_qdrant()
     cols = qc._client.get_collections()
     n = len(getattr(cols, "collections", []) or [])
@@ -141,13 +144,14 @@ def probe_qdrant() -> str:
     except Exception:
         pass
     try:
-        telemetry = qc._client.cluster_telemetry()
-        if telemetry and hasattr(telemetry, 'memory'):
-            mem = telemetry.memory
-            if mem and hasattr(mem, 'rss_bytes') and mem.rss_bytes:
-                detail += f", mem={round(mem.rss_bytes/(1024*1024),1)}MB"
-            elif mem and hasattr(mem, 'resident_bytes') and mem.resident_bytes:
-                detail += f", mem={round(mem.resident_bytes/(1024*1024),1)}MB"
+        host = qc.host
+        rest_port = qc.port - 1
+        resp = httpx2.get(f"http://{host}:{rest_port}/metrics", timeout=5)
+        if resp.status_code == 200:
+            m = re.search(r"memory_resident_bytes\s+(\d+)", resp.text)
+            if m:
+                mem = int(m.group(1))
+                detail += f", mem={round(mem/(1024*1024),1)}MB"
     except Exception:
         pass
     return detail

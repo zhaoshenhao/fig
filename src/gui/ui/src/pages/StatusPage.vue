@@ -27,13 +27,23 @@
         </div>
 
         <h4 class="sec">进程信息</h4>
-        <div class="proc">
-          <div class="prop"><span class="prop-label">版本</span><span class="prop-value">{{ data.process.version }}</span></div>
-          <div class="prop"><span class="prop-label">Python</span><span class="prop-value">{{ data.process.python }}</span></div>
-          <div class="prop"><span class="prop-label">运行时长</span><span class="prop-value">{{ uptime }}</span></div>
-          <div class="prop"><span class="prop-label">内存</span><span class="prop-value">{{ memDisplay }}</span></div>
-          <div class="prop"><span class="prop-label">工作流数</span><span class="prop-value">{{ data.process.workflow_count }}</span></div>
-          <div class="prop"><span class="prop-label">工作流</span><span class="prop-value">{{ workflowList }}</span></div>
+        <div class="proc-boxes">
+          <div class="proc-box">
+            <div class="proc-box-hd">运行环境</div>
+            <div class="proc-box-body">
+              <div class="prop"><span class="prop-label">版本</span><span class="prop-value">{{ data.process.version }}</span></div>
+              <div class="prop"><span class="prop-label">Python</span><span class="prop-value">{{ data.process.python }}</span></div>
+              <div class="prop"><span class="prop-label">运行时长</span><span class="prop-value">{{ uptime }}</span></div>
+              <div class="prop"><span class="prop-label">内存</span><span class="prop-value">{{ memDisplay }}</span></div>
+            </div>
+          </div>
+          <div class="proc-box">
+            <div class="proc-box-hd">工作流</div>
+            <div class="proc-box-body">
+              <div class="prop"><span class="prop-label">数量</span><span class="prop-value">{{ data.process.workflow_count }}</span></div>
+              <div class="prop full"><span class="prop-label">列表</span><span class="prop-value">{{ workflowList }}</span></div>
+            </div>
+          </div>
         </div>
       </template>
       <div v-else class="empty">加载中...</div>
@@ -142,8 +152,12 @@ onUnmounted(() => clearInterval(_timer));
 .card-detail { font-size: 0.78rem; color: var(--text2); margin-top: 8px; word-break: break-word; line-height: 1.5; }
 
 .sec { margin: 20px 0 10px; font-size: 0.92rem; font-weight: 600; color: var(--text); }
-.proc { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 20px; }
-.prop { font-size: 0.84rem; color: var(--text); display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--bg2); }
+.proc-boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.proc-box { border: 1px solid var(--border); border-radius: 10px; background: var(--bg); overflow: hidden; }
+.proc-box-hd { font-size: 0.82rem; font-weight: 600; color: var(--text2); padding: 10px 16px; background: var(--bg2); border-bottom: 1px solid var(--border); }
+.proc-box-body { padding: 6px 16px 10px; }
+.prop { font-size: 0.84rem; color: var(--text); display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; }
+.prop.full { flex-direction: column; gap: 2px; }
 .prop-label { color: var(--text3); font-weight: 600; min-width: 72px; flex-shrink: 0; }
-.prop-value { color: var(--text); }
+.prop-value { color: var(--text); word-break: break-word; }
 </style>
