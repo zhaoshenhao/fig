@@ -22,23 +22,29 @@
             <DAGView v-if="currentWf.nodes?.length" :nodes="currentWf.nodes" height="100%" @selectNode="onSelectNode" />
           </div>
           <div class="split-bottom">
-            <div v-if="!nodeInfo" class="empty" style="padding:20px">点击 DAG 节点查看详情</div>
-            <template v-else>
-              <div class="panel-tabs">
-                <button :class="['tab', { active: tab === 'status' }]" @click="tab='status'">状态</button>
-                <button :class="['tab', { active: tab === 'config' }]" @click="tab='config'">配置</button>
-              </div>
-              <div v-if="tab === 'status'" class="panel-body">
+            <div class="panel-tabs">
+              <button :class="['tab', { active: tab === 'status' }]" @click="tab='status'">状态</button>
+              <button :class="['tab', { active: tab === 'config' }]" @click="tab='config'">配置</button>
+              <button :class="['tab', { active: tab === 'yaml' }]" @click="tab='yaml'">工作流配置</button>
+            </div>
+            <div v-if="tab === 'status'" class="panel-body">
+              <div v-if="!nodeInfo" class="empty" style="padding:20px">点击 DAG 节点查看详情</div>
+              <template v-else>
                 <div class="prop"><span>名称</span> {{ nodeInfo.name }}</div>
                 <div class="prop"><span>工具</span> {{ nodeInfo.tool || "-" }}</div>
                 <div class="prop" v-if="nodeInfo.dur !== undefined"><span>耗时</span> {{ nodeInfo.dur }}ms</div>
                 <div class="prop"><span>状态</span> {{ nodeInfo.status || "-" }}</div>
                 <div class="prop" v-if="nodeInfo.next?.length"><span>后继</span> {{ nodeInfo.next.join(", ") }}</div>
-              </div>
-              <div v-else class="panel-body scroll">
-                <pre class="cfg-json" v-html="highlighted"></pre>
-              </div>
-            </template>
+              </template>
+            </div>
+            <div v-else-if="tab === 'config'" class="panel-body scroll">
+              <div v-if="!nodeInfo" class="empty" style="padding:20px">点击 DAG 节点查看详情</div>
+              <pre v-else class="cfg-json" v-html="highlighted"></pre>
+            </div>
+            <div v-else-if="tab === 'yaml'" class="panel-body scroll">
+              <div v-if="yamlLoading" class="empty" style="padding:20px">加载中...</div>
+              <pre v-else class="yaml-display" v-html="highlightedYaml"></pre>
+            </div>
           </div>
         </div>
       </template>
@@ -47,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, inject } from "vue";
+import { ref, computed, watch, onMounted, inject } from "vue";
 import { api } from "../api.js";
 import DAGView from "../components/DAGView.vue";
 
@@ -60,6 +66,8 @@ const reloading = ref(false);
 const selected = ref("");
 const tab = ref("status");
 const nodeInfo = ref(null);
+const yamlContent = ref("");
+const yamlLoading = ref(false);
 
 const currentWf = computed(() => workflows.value.find(w => w.name === selected.value) || null);
 
@@ -75,6 +83,31 @@ const highlighted = computed(() => {
     .replace(/: (\d+\.?\d*)/g, ': <span class="jn">$1</span>')
     .replace(/: (true|false|null)/g, ': <span class="jb">$1</span>');
 });
+const highlightedYaml = computed(() => {
+  if (!yamlContent.value) return "";
+  return yamlContent.value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/("(?:[^"\\]|\\.)*")/g, '<span class="ys">$1</span>')
+    .replace(/('(?:[^'\\]|\\.)*')/g, '<span class="ys">$1</span>')
+    .replace(/(\s*#.*)$/gm, '<span class="yc">$1</span>')
+    .replace(/^(\s*)([\w][\w_.-]*?)(\s*:)/gm, '$1<span class="yk">$2</span>$3')
+    .replace(/\b(\d+\.?\d*)\b/g, '<span class="yn">$1</span>')
+    .replace(/\b(true|false|yes|no|on|off|null)\b/g, '<span class="yb">$1</span>');
+});
+
+async function loadYaml() {
+  if (!selected.value) return;
+  yamlLoading.value = true;
+  try {
+    const resp = await api.get(`/api/v1/workflows/${selected.value}/yaml`);
+    yamlContent.value = resp.content || "";
+  } catch (e) {
+    yamlContent.value = "";
+  }
+  yamlLoading.value = false;
+}
 
 async function load() {
   if (_cache) {
@@ -116,6 +149,7 @@ function onSelectNode(data) {
 }
 
 onMounted(load);
+watch(selected, () => { if (selected.value) loadYaml(); });
 
 async function refresh() {
   _cache = null;
@@ -176,4 +210,15 @@ async function reload() {
 .cfg-json :deep(.js) { color: var(--hl-string); }
 .cfg-json :deep(.jn) { color: var(--hl-number); }
 .cfg-json :deep(.jb) { color: var(--hl-bool); }
+
+.yaml-display {
+  font-size: 0.75rem; white-space: pre; margin: 0;
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  color: var(--text2);
+}
+.yaml-display :deep(.yc) { color: var(--hl-comment); font-style: italic; }
+.yaml-display :deep(.yk) { color: var(--hl-key); }
+.yaml-display :deep(.ys) { color: var(--hl-string); }
+.yaml-display :deep(.yn) { color: var(--hl-number); }
+.yaml-display :deep(.yb) { color: var(--hl-bool); }
 </style>

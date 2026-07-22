@@ -171,6 +171,16 @@ async def get_workflow(name: str):
     }
 
 
+@chat_router.get("/workflows/{name}/yaml")
+async def get_workflow_yaml(name: str):
+    cfg = get_app_config()
+    wf = cfg.workflows.get(name)
+    if not wf:
+        raise HTTPException(status_code=404, detail=f"workflow '{name}' not found")
+    content = wf.get("_raw_yaml", "")
+    return {"name": name, "content": content}
+
+
 @chat_router.post("/workflows/{name}/run")
 async def run_workflow(name: str, req: RunRequest, stream: bool = Query(False)):
     session_store = get_session_store()

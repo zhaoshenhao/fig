@@ -18,6 +18,7 @@
   --hl-string: #0a3069;
   --hl-number: #0550ae;
   --hl-bool: #cf222e;
+  --hl-comment: #6a9955;
 }
 
 [data-theme="dark"] {
@@ -39,4 +40,5 @@
   --hl-string: #a5d6ff;
   --hl-number: #79c0ff;
   --hl-bool: #ff7b72;
+  --hl-comment: #82be6a;
 }

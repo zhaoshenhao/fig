@@ -2,7 +2,7 @@ name: default
 enabled: true
 description: "默认智能客服"
 collections:
-  - l2_auto
+  - car_films
 return_mode: full
 
 conversation:

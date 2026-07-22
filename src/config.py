@@ -332,6 +332,7 @@ def load_app_config(
 
             # 加载工作流定义
             wf_data = _load_yaml(wf_file)
+            wf_data["_raw_yaml"] = wf_file.read_text(encoding="utf-8")
             wf_name = wf_data.get("name", product_name)
             if wf_data.get("enabled") is False:
                 continue  # 跳过 disabled 的工作流

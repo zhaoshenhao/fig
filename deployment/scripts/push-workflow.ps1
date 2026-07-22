@@ -80,10 +80,13 @@ if (-not $ak) {
 }
 
 Write-Host "    Configuring ossutil (region=$region) ..."
-cmd /c "`"$OSSUtil`" config -e $ep -i $ak -k $sk --region $region -L CH 2>&1" | Out-Null
+cmd /c "`"$OSSUtil`" config set accessKeyID $ak --language CH 2>&1" | Out-Null
+cmd /c "`"$OSSUtil`" config set accessKeySecret $sk --language CH 2>&1" | Out-Null
+cmd /c "`"$OSSUtil`" config set endpoint $ep --language CH 2>&1" | Out-Null
+cmd /c "`"$OSSUtil`" config set region $region --language CH 2>&1" | Out-Null
 
 # Push
-$args = @("cp", "-r", $LOCAL, "oss://${OSS_BUCKET}/${OSS_PREFIX}/", "--update")
+$args = @("cp", "-r", $LOCAL, "oss://${OSS_BUCKET}/${OSS_PREFIX}/", "--update", "--region", $region)
 if ($DryRun) { $args += "--dry-run"; Write-Host "    (dry-run mode)" }
 
 Write-Host "    Running ossutil cp ..."
