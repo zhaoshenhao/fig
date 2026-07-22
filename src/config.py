@@ -620,8 +620,9 @@ def _load_session_config(config_dir: Path) -> SessionConfig:
 def _load_auth_config(config_dir: Path) -> AuthConfig:
     """解析 config/auth.yaml 为 AuthConfig 对象。"""
     data = _load_yaml(config_dir / "auth.yaml")
+    api_keys = [k for k in data.get("api_keys", []) if k]
     return AuthConfig(
-        api_keys=data.get("api_keys", []),
+        api_keys=api_keys,
         skip_paths=data.get("skip_paths", []),
     )
 
