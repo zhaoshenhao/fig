@@ -6,9 +6,9 @@
   <Sidebar :open="sidebarOpen" @close="sidebarOpen = false" />
   <div class="main">
     <header class="main-header">
-      <div style="display:flex;align-items:center">
+      <div style="display:flex;align-items:center;gap:8px">
         <button class="hamburger-btn" @click="sidebarOpen = !sidebarOpen">☰</button>
-        <span>KF · 智能客服 v2</span>
+        <span>KF · 智能客服 <span class="version-badge">v{{ apiVersion }}</span></span>
       </div>
       <span>{{ pageTitle }}</span>
     </header>
@@ -19,12 +19,14 @@
 </template>
 
 <script setup>
-import { computed, provide, ref } from "vue";
+import { computed, onMounted, provide, ref } from "vue";
 import { useAppStore } from "./store.js";
+import { api } from "./api.js";
 import Sidebar from "./components/Sidebar.vue";
 
 const { nav } = useAppStore();
 const sidebarOpen = ref(false);
+const apiVersion = ref("2");
 
 /** @type {import('vue').Ref<Array<{id:number, msg:string, type:string}>>} */
 const toasts = ref([]);
@@ -43,11 +45,36 @@ function toast(msg, type = "info") {
 
 provide("toast", toast);
 
+async function fetchVersion() {
+  try {
+    const data = await api.get("/status");
+    if (data?.process?.version) {
+      apiVersion.value = data.process.version;
+    }
+  } catch { /* API not available yet, keep default */ }
+}
+
 const TITLES = { chat: "多轮对话", kb: "知识库浏览", workflow: "工作流", docs: "文档管理", metrics: "聊天记录" };
 const pageTitle = computed(() => TITLES[nav.value] || "");
+
+onMounted(() => {
+  fetchVersion();
+  setInterval(fetchVersion, 30000);
+});
 </script>
 
 <style>
 @import "./css/base.css";
 @import "./css/layout.css";
+.version-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 4px;
+  background: var(--bg3);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text2);
+  vertical-align: middle;
+  margin-left: 2px;
+}
 </style>
