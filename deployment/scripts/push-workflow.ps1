@@ -64,6 +64,7 @@ $ak  = Get-Config "OSS_ACCESS_KEY_ID"
 $sk  = Get-Config "OSS_ACCESS_KEY_SECRET"
 $ep  = Get-Config "OSS_ENDPOINT"
 if (-not $ep) { $ep = "oss-cn-shanghai-internal.aliyuncs.com" }
+$region = if ($ep -match 'oss-(cn-\S+?)\.') { $Matches[1] } else { "cn-shanghai" }
 
 if (-not $ak) {
     Write-Host "    Reading OSS creds from K8s secret kf-secrets ..."
@@ -78,8 +79,8 @@ if (-not $ak) {
     exit 1
 }
 
-Write-Host "    Configuring ossutil ..."
-cmd /c "`"$OSSUtil`" config -e $ep -i $ak -k $sk -L CH 2>&1" | Out-Null
+Write-Host "    Configuring ossutil (region=$region) ..."
+cmd /c "`"$OSSUtil`" config -e $ep -i $ak -k $sk --region $region -L CH 2>&1" | Out-Null
 
 # Push
 $args = @("cp", "-r", $LOCAL, "oss://${OSS_BUCKET}/${OSS_PREFIX}/", "--update")
