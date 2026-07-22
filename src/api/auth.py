@@ -50,6 +50,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
             Response: 正常的 HTTP 响应或 401 拒绝响应
         """
         keys = self._config.api_keys
+        # CORS preflight (OPTIONS) 请求不携带业务认证头，直接放行
+        if request.method == "OPTIONS":
+            return await call_next(request)
         # 无密钥列表 = 关闭鉴权，直接放行所有请求
         if not keys:
             return await call_next(request)
