@@ -146,16 +146,18 @@ X-API-Key: <YOUR_KEY>
   "status": "ok",
   "timestamp": 1785000000.5,
   "components": {
-    "qdrant":        { "status": "ok", "latency_ms": 12.3, "detail": "7 collections" },
+    "qdrant":        { "status": "ok", "latency_ms": 12.3, "detail": "7 collections, version=1.13, mem=234.5MB" },
     "llm":           { "status": "ok", "latency_ms": 210.0, "detail": "provider=openai model=deepseek-v4-flash host=api.deepseek.com (HTTP 200)" },
-    "embedding":     { "status": "ok", "latency_ms": 35.0, "detail": "model=nomic-embed-text host=localhost:8100 (HTTP 200)" },
+    "embedding":     { "status": "ok", "latency_ms": 35.0, "detail": "model=nomic-embed-text v=fastembed host=localhost:8100 (HTTP 200) [456MB]" },
     "metrics_store": { "status": "ok", "latency_ms": 1.1, "detail": "data\\metrics.db" },
-    "db_pools":      { "status": "ok", "latency_ms": 5.0, "detail": "mysql_main:OperationalError,pg_analytics:ok" }
+    "db_pools":      { "status": "ok", "latency_ms": 5.0, "detail": "mysql_main:ok (conns=10/10),pg_analytics:ok (conns=3/5)" },
+    "session_store": { "status": "ok", "latency_ms": 0, "detail": "redis (db=0, prefix=kf:session:)" }
   },
   "process": {
     "version": "0.2.0",
     "python": "3.14.5",
     "uptime_seconds": 3600.0,
+    "memory_mb": 123.4,
     "workflow_count": 3,
     "workflows": ["auto_film", "customer_service", "default"]
   }
@@ -163,7 +165,8 @@ X-API-Key: <YOUR_KEY>
 ```
 
 - `status`：全局状态 — `ok`（全部组件正常）或 `degraded`（任一组件异常）
-- 各组件含 `status`（`ok`/`error`）、`latency_ms`（探测耗时）、`detail`（补充信息）
+- 各组件含 `status`（`ok`/`error`）、`latency_ms`（探测耗时）、`detail`（补充信息，包含内存用量、版本号、连接数等）
+- `process.memory_mb`：kf-api 进程 RSS 内存（MB）
 
 ---
 
