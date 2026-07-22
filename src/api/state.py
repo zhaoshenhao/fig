@@ -8,17 +8,53 @@ Route modules import the ``get_*()`` functions to access them lazily
 from __future__ import annotations
 
 import os
+import subprocess
 import time
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
 
 APP_VERSION = "0.2.0"
-BUILD_TIME = os.environ.get("BUILD_TIME", "")
-GIT_COMMIT = os.environ.get("GIT_COMMIT", "")
+_BUILD_TIME = os.environ.get("BUILD_TIME", "")
+_GIT_COMMIT = os.environ.get("GIT_COMMIT", "")
 _START_TIME = time.time()
 _startup_seconds: float | None = None
+
+
+def _detect_build_time() -> str:
+    if _BUILD_TIME:
+        return _BUILD_TIME
+    try:
+        r = subprocess.run(
+            ["git", "log", "-1", "--format=%cI"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+    except Exception:
+        pass
+    return datetime.fromtimestamp(_START_TIME, tz=UTC).isoformat()
+
+
+def _detect_git_commit() -> str:
+    if _GIT_COMMIT:
+        return _GIT_COMMIT
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if r.returncode == 0:
+            return r.stdout.strip()[:8]
+    except Exception:
+        pass
+    return ""
+
+
+BUILD_TIME = _detect_build_time()
+GIT_COMMIT = _detect_git_commit()
 
 # ---- singletons ----
 _metrics_store = None
@@ -134,8 +170,9 @@ def probe(fn) -> dict:
 
 
 def probe_qdrant() -> str:
-    import httpx2
     import re
+
+    import httpx2
 
     qc = make_qdrant()
     cols = qc._client.get_collections()
