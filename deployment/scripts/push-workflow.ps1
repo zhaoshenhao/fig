@@ -2,8 +2,7 @@
 # 用法:
 #   .\deployment\scripts\push-workflow.ps1 [-Env test|prod] [-DryRun]
 #
-# 前置: 需安装 ossutil 并配置 OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET / OSS_ENDPOINT
-#       或从 K8s Secret 自动读取
+# OSS 凭据优先级: .env → 环境变量 → K8s Secret
 
 param(
     [ValidateSet("test", "prod")]
@@ -14,12 +13,35 @@ param(
 $ErrorActionPreference = "Stop"
 $ROOT = $PSScriptRoot | Split-Path -Parent | Split-Path -Parent
 $LOCAL = Join-Path $ROOT "config\workflows"
+$ENVFILE = Join-Path $ROOT ".env"
 
 $NAMESPACE = if ($Env -eq "test") { "mb-test" } else { "mb-pr" }
 $OSS_BUCKET = "kf-workflow"
 $OSS_PREFIX = if ($Env -eq "test") { "mb-test" } else { "mb-pr" }
 
 $OSSUtil = "C:\green\ossutil.exe"
+
+function Load-EnvFile {
+    $hash = @{}
+    if (Test-Path $ENVFILE) {
+        Get-Content $ENVFILE | ForEach-Object {
+            $line = $_.Trim()
+            if ($line -and -not $line.StartsWith("#") -and $line -match '^\s*([^=]+)=(.*)') {
+                $hash[$Matches[1].Trim()] = $Matches[2].Trim()
+            }
+        }
+    }
+    return $hash
+}
+
+$envMap = Load-EnvFile
+
+function Get-Config($key) {
+    if ($envMap.ContainsKey($key) -and $envMap[$key]) { return $envMap[$key] }
+    $v = [System.Environment]::GetEnvironmentVariable($key)
+    if ($v) { return $v }
+    return ""
+}
 
 Write-Host "==> Push workflow config to OSS"
 Write-Host "    env:    $Env ($NAMESPACE)"
@@ -36,10 +58,10 @@ if (-not (Test-Path $OSSUtil)) {
     exit 1
 }
 
-# Read OSS creds from env or K8s secret
-$ak  = $env:OSS_ACCESS_KEY_ID
-$sk  = $env:OSS_ACCESS_KEY_SECRET
-$ep  = $env:OSS_ENDPOINT
+# Read OSS creds: .env → env var → K8s secret
+$ak  = Get-Config "OSS_ACCESS_KEY_ID"
+$sk  = Get-Config "OSS_ACCESS_KEY_SECRET"
+$ep  = Get-Config "OSS_ENDPOINT"
 if (-not $ep) { $ep = "oss-cn-shanghai-internal.aliyuncs.com" }
 
 if (-not $ak) {
@@ -51,7 +73,7 @@ if (-not $ak) {
 }
 
 if (-not $ak) {
-    Write-Host "ERROR: OSS_ACCESS_KEY_ID not set (env or kf-secrets)" -ForegroundColor Red
+    Write-Host "ERROR: OSS_ACCESS_KEY_ID not set (.env / env / kf-secrets)" -ForegroundColor Red
     exit 1
 }
 
