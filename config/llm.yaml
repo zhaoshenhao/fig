@@ -3,7 +3,7 @@
 # type: anthropic  → /v1/messages, x-api-key 头
 # api_key 支持 ${ENV_VAR} 环境变量占位符
 
-default: deepseek
+default: qwen
 
 providers:
   ollama:

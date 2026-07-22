@@ -55,6 +55,16 @@ class RedisSessionStore(SessionStore):
         session.last_active_at = time.time()
         self._write(session)
 
+    def count(self) -> int:
+        n = 0
+        cursor = 0
+        while True:
+            cursor, keys = self._client.scan(cursor, match=f"{self._prefix}*")
+            n += len(keys)
+            if cursor == 0:
+                break
+        return n
+
     def delete(self, chat_id: str) -> bool:
         return bool(self._client.delete(self._key(chat_id)))
 

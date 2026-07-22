@@ -198,6 +198,8 @@ def deployService(String dir, String tag) {
                 -e "s|<ACR_REGISTRY>|\$DOCKER_REG_BASE_URL/\$DOCKER_NS|g" \\
                 -e 's/<API_IMAGE_TAG>/${tag}/g' \\
                 -e 's/<EMBED_IMAGE_TAG>/${tag}/g' \\
+                -e "s/<BUILD_TIME>/\$(date -u +%Y-%m-%dT%H:%M:%SZ)/g" \\
+                -e "s/<GIT_COMMIT>/${env.GIT_COMMIT ?: 'unknown'}/g" \\
                 -e 's/<QDRANT_STORAGE_SIZE>/${QDRANT_STORAGE_SIZE}/g' \\
                 -e 's/<NAS_PVC_NAME>/${NAS_PVC}/g' \\
                 -e 's/<NAS_PVC_DOCS>/${NAS_PVC_DOCS}/g' \\

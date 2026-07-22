@@ -13,6 +13,8 @@ from src.api.routes_admin import admin_api_router, admin_base_router
 from src.api.routes_chat import chat_router, export_router
 from src.api.state import (
     APP_VERSION,
+    BUILD_TIME,
+    GIT_COMMIT,
     get_session_store,
     get_startup_seconds,
     probe,
@@ -102,21 +104,22 @@ _cleanup_thread: threading.Thread | None = None
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
     global _startup_seconds
+    startup_thread = None
     sc = _app_config.session
     if hasattr(_session_store, "cleanup_loop") and callable(_session_store.cleanup_loop) and sc.cleanup_interval > 0:
         _cleanup_event.clear()
-        _cleanup_thread = threading.Thread(
+        startup_thread = threading.Thread(
             target=_session_store.cleanup_loop,
             args=(sc.cleanup_interval, _cleanup_event),
             daemon=True,
         )
-        _cleanup_thread.start()
+        startup_thread.start()
     _startup_seconds = round(time.time() - _START_TIME, 2)
     set_startup_seconds(_startup_seconds)
     yield
-    if _cleanup_thread is not None:
+    if startup_thread is not None:
         _cleanup_event.set()
-        _cleanup_thread.join(timeout=5)
+        startup_thread.join(timeout=5)
 
 
 # ---- app factory ----
@@ -276,11 +279,12 @@ async def status():
 
     # session store status
     ss = get_session_store()
+    max_age_str = f", max_age={ss._max_age}s" if hasattr(ss, "_max_age") else ""
     if isinstance(ss, MemorySessionStore):
         components["session_store"] = {
             "status": "ok",
             "latency_ms": 0,
-            "detail": f"memory ({len(ss._store)} sessions)",
+            "detail": f"memory ({ss.count()} active{max_age_str})",
         }
     elif hasattr(ss, "_client") and hasattr(ss, "_prefix"):
         import re
@@ -289,18 +293,20 @@ async def status():
         if m:
             db = int(m.group(1))
         try:
-            ss._client.get("__healthcheck__")
+            count = ss.count()
             status_text = "ok"
         except Exception:
+            count = -1
             status_text = "error"
         try:
             ss._client.ping()
         except Exception:
             pass
+        count_str = f"{count} active" if count >= 0 else "N/A"
         components["session_store"] = {
             "status": status_text,
             "latency_ms": 0,
-            "detail": f"redis (db={db}, prefix={ss._prefix})",
+            "detail": f"redis ({count_str}{max_age_str}, db={db}, prefix={ss._prefix})",
         }
     else:
         components["session_store"] = {
@@ -337,6 +343,8 @@ async def status():
 
     process = {
         "version": APP_VERSION,
+        "build_time": BUILD_TIME,
+        "git_commit": GIT_COMMIT,
         "python": _platform.python_version(),
         "uptime_seconds": round(time.time() - _START_TIME, 1),
         "memory_mb": proc_mem,

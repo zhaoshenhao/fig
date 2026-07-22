@@ -7,6 +7,7 @@ Route modules import the ``get_*()`` functions to access them lazily
 
 from __future__ import annotations
 
+import os
 import time
 from typing import TYPE_CHECKING
 
@@ -14,6 +15,8 @@ if TYPE_CHECKING:
     pass
 
 APP_VERSION = "0.2.0"
+BUILD_TIME = os.environ.get("BUILD_TIME", "")
+GIT_COMMIT = os.environ.get("GIT_COMMIT", "")
 _START_TIME = time.time()
 _startup_seconds: float | None = None
 
@@ -186,10 +189,17 @@ def probe_embed(provider) -> str:
     try:
         ready = httpx2.get(f"{base}/ready", timeout=5)
         if ready.status_code == 200:
-            mi = ready.json().get("model", {})
+            rd = ready.json()
+            mi = rd.get("model", {})
             if mi:
                 detail = f"model={mi.get('model','')} " + detail
                 detail += f" [{mi.get('model_file','')} dim={mi.get('dim','')} size={mi.get('size_in_GB','')}GB]"
+            embed_ver = rd.get("version", "")
+            if embed_ver:
+                detail += f", embed_version={embed_ver}"
+            bt = rd.get("build_time", "")
+            if bt:
+                detail += f", build_time={bt}"
     except Exception:
         pass
     try:

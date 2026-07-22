@@ -16,3 +16,6 @@ class SessionStore(ABC):
 
     @abstractmethod
     def delete(self, chat_id: str) -> bool: ...
+
+    @abstractmethod
+    def count(self) -> int: ...

@@ -38,6 +38,10 @@ spec:
               value: "/app/config"
             - name: KF_METRICS_ENGINE
               value: "mysql"
+            - name: BUILD_TIME
+              value: "<BUILD_TIME>"
+            - name: GIT_COMMIT
+              value: "<GIT_COMMIT>"
             - name: OSS_PATH_PREFIX
               valueFrom:
                 secretKeyRef:

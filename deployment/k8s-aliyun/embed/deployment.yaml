@@ -31,6 +31,8 @@ spec:
               value: "/app/model"
             - name: EMBED_WARMUP
               value: "1"
+            - name: BUILD_TIME
+              value: "<BUILD_TIME>"
             # 限制 ONNX 线程数，控制内存
             - name: OMP_NUM_THREADS
               value: "2"

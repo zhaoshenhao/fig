@@ -38,6 +38,13 @@
             </div>
           </div>
           <div class="proc-box">
+            <div class="proc-box-hd">构建信息</div>
+            <div class="proc-box-body">
+              <div class="prop"><span class="prop-label">Build Time</span><span class="prop-value">{{ buildTime || "-" }}</span></div>
+              <div class="prop"><span class="prop-label">Git Commit</span><span class="prop-value">{{ data.process.git_commit || "-" }}</span></div>
+            </div>
+          </div>
+          <div class="proc-box">
             <div class="proc-box-hd">工作流</div>
             <div class="proc-box-body">
               <div class="prop"><span class="prop-label">数量</span><span class="prop-value">{{ data.process.workflow_count }}</span></div>
@@ -99,6 +106,16 @@ const memDisplay = computed(() => {
 const workflowList = computed(() => {
   const w = data.value?.process?.workflows;
   return w?.length ? w.join(", ") : "-";
+});
+
+const buildTime = computed(() => {
+  const bt = data.value?.process?.build_time;
+  if (!bt) return "";
+  try {
+    return new Date(bt).toLocaleString("zh-CN", { hour12: false });
+  } catch {
+    return bt;
+  }
 });
 
 async function load() {

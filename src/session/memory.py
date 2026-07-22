@@ -159,6 +159,10 @@ class MemorySessionStore(SessionStore):
                 # 直接修改字典中的值，无需重新赋值给 _sessions
                 raw["last_active_at"] = time.time()
 
+    def count(self) -> int:
+        with self._lock:
+            return len(self._sessions)
+
     def cleanup_expired(self) -> int:
         """主动清理所有已过期的会话（批量清理）。
 

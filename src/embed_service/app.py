@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 # 进程导入时刻 + 模型就绪耗时（供 /ready 报告启动时间，避免外部轮询阻塞）
 _PROCESS_START = time.time()
 _startup_seconds: float | None = None
+_BUILD_TIME = os.environ.get("BUILD_TIME", "")
+_APP_VERSION = "0.1.0"
 
 # 鉴权放行路径（探针无需 Key，供 K8s livenessProbe/readinessProbe 使用）
 _AUTH_SKIP_PATHS = ("/health", "/ready")
@@ -117,7 +119,13 @@ def ready() -> dict:
     if not is_ready():
         raise HTTPException(status_code=503, detail="model not loaded")
     model_info = get_model_info()
-    return {"status": "ready", "startup_seconds": _startup_seconds, "model": model_info}
+    return {
+        "status": "ready",
+        "startup_seconds": _startup_seconds,
+        "model": model_info,
+        "version": _APP_VERSION,
+        "build_time": _BUILD_TIME,
+    }
 
 
 @app.post("/v1/embeddings")
