@@ -2,7 +2,7 @@
 # 用法:
 #   .\deployment\scripts\push-workflow.ps1 [-Env test|prod] [-DryRun]
 #
-# OSS 凭据优先级: .env → 环境变量 → K8s Secret
+# 凭据从 .env_mb_test / .env_mb_pr 读取，优先级: env-file → 环境变量 → K8s Secret
 
 param(
     [ValidateSet("test", "prod")]
@@ -13,7 +13,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ROOT = $PSScriptRoot | Split-Path -Parent | Split-Path -Parent
 $LOCAL = Join-Path $ROOT "config\workflows"
-$ENVFILE = Join-Path $ROOT ".env"
+$ENVFILE = Join-Path $ROOT ".env_mb_$Env"
 
 $NAMESPACE = if ($Env -eq "test") { "mb-test" } else { "mb-pr" }
 $OSS_BUCKET = "kf-workflow"
@@ -21,10 +21,10 @@ $OSS_PREFIX = if ($Env -eq "test") { "mb-test" } else { "mb-pr" }
 
 $OSSUtil = "C:\green\ossutil.exe"
 
-function Load-EnvFile {
+function Load-EnvFile($path) {
     $hash = @{}
-    if (Test-Path $ENVFILE) {
-        Get-Content $ENVFILE | ForEach-Object {
+    if (Test-Path $path) {
+        Get-Content $path | ForEach-Object {
             $line = $_.Trim()
             if ($line -and -not $line.StartsWith("#") -and $line -match '^\s*([^=]+)=(.*)') {
                 $hash[$Matches[1].Trim()] = $Matches[2].Trim()
@@ -34,7 +34,7 @@ function Load-EnvFile {
     return $hash
 }
 
-$envMap = Load-EnvFile
+$envMap = Load-EnvFile $ENVFILE
 
 function Get-Config($key) {
     if ($envMap.ContainsKey($key) -and $envMap[$key]) { return $envMap[$key] }
@@ -45,6 +45,7 @@ function Get-Config($key) {
 
 Write-Host "==> Push workflow config to OSS"
 Write-Host "    env:    $Env ($NAMESPACE)"
+Write-Host "    config: $ENVFILE"
 Write-Host "    local:  $LOCAL"
 Write-Host "    target: oss://${OSS_BUCKET}/${OSS_PREFIX}/"
 
@@ -58,7 +59,7 @@ if (-not (Test-Path $OSSUtil)) {
     exit 1
 }
 
-# Read OSS creds: .env → env var → K8s secret
+# Read OSS creds: env-file → env var → K8s secret
 $ak  = Get-Config "OSS_ACCESS_KEY_ID"
 $sk  = Get-Config "OSS_ACCESS_KEY_SECRET"
 $ep  = Get-Config "OSS_ENDPOINT"
@@ -73,7 +74,7 @@ if (-not $ak) {
 }
 
 if (-not $ak) {
-    Write-Host "ERROR: OSS_ACCESS_KEY_ID not set (.env / env / kf-secrets)" -ForegroundColor Red
+    Write-Host "ERROR: OSS_ACCESS_KEY_ID not set ($ENVFILE / env / kf-secrets)" -ForegroundColor Red
     exit 1
 }
 
