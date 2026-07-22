@@ -23,14 +23,13 @@ flowchart TB
 ```mermaid
 flowchart LR
     subgraph ACK["ACK K8s 集群 (mb-test / mb-pr)"]
-        User["用户"] --> Kong["Kong Ingress<br/>kf.dev.youbanban.com"]
-        Kong -->|/* SPA| OSS["OSS 静态网站<br/>kf-ui-mb-*.oss-cn-shanghai.aliyuncs.com"]
+        Kong["Kong Ingress<br/>kf.dev.youbanban.com"]
         Kong -->|/api/v1/*| API["kf-api :8000<br/>KF_MODE=full"]
         API --> Embed["kf-embed :8100"]
         API --> Qdrant["kf-qdrant :6334"]
     end
-    User --> CDN["阿里云 CDN<br/>回源 OSS"]
-    CDN --> OSS
+    User["用户"] --> Kong
+    Kong -->|/* SPA| OSS["OSS 静态网站<br/>kf-ui-mb-*.oss-cn-shanghai.aliyuncs.com"]
     API --> Redis_S["Redis"]
     API --> MySQL_S["MySQL RDS"]
     API --> PG_S["PG RDS"]
@@ -41,7 +40,7 @@ flowchart LR
 
 | 组件 | 技术栈 | 部署方式 | 状态 |
 |------|--------|----------|------|
-| Vue 3 SPA | Vue 3 + Vite + dagre.js | OSS 静态网站 + CDN，Kong Ingress 分流 | 主力 |
+| Vue 3 SPA | Vue 3 + Vite + dagre.js | OSS 静态网站，Kong Ingress 代理 | 主力 |
 | Streamlit 调试 GUI | Streamlit（`src/gui/app.py`） | 开发环境本地运行 | 遗留（已替换） |
 
 - 生产环境：Kong Ingress 将 `/*` 流量路由到 OSS 静态网站（ClusterIP Service + Endpoints + `preserve-host: false` + `response-transformer` 插件剥离 OSS 强下载头），`/api/v1/*` 路由到 kf-api。
@@ -187,7 +186,7 @@ embed (8100) + qdrant (6333/6334) + api (8000)
 - Redis：会话共享存储（多 Worker 一致性）
 - MySQL RDS：Metrics 主库
 - PostgreSQL RDS：分析数据库
-- 阿里云 OSS：配置文件（CSI PVC 挂载）+ SPA 静态文件（CDN 分发）
+- 阿里云 OSS：配置文件（CSI PVC 挂载）+ SPA 静态文件（Kong Ingress 代理）
 
 ---
 

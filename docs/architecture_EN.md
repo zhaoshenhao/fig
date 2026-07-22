@@ -23,14 +23,13 @@ flowchart TB
 ```mermaid
 flowchart LR
     subgraph ACK["ACK K8s Cluster (mb-test / mb-pr)"]
-        User["User"] --> Kong["Kong Ingress<br/>kf.dev.youbanban.com"]
-        Kong -->|/* SPA| OSS["OSS Static Website<br/>kf-ui-mb-*.oss-cn-shanghai.aliyuncs.com"]
+        Kong["Kong Ingress<br/>kf.dev.youbanban.com"]
         Kong -->|/api/v1/*| API["kf-api :8000<br/>KF_MODE=full"]
         API --> Embed["kf-embed :8100"]
         API --> Qdrant["kf-qdrant :6334"]
     end
-    User --> CDN["Alibaba CDN<br/>origin: OSS"]
-    CDN --> OSS
+    User["User"] --> Kong
+    Kong -->|/* SPA| OSS["OSS Static Website<br/>kf-ui-mb-*.oss-cn-shanghai.aliyuncs.com"]
     API --> Redis_S["Redis"]
     API --> MySQL_S["MySQL RDS"]
     API --> PG_S["PG RDS"]
@@ -41,7 +40,7 @@ flowchart LR
 
 | Component | Tech Stack | Deployment | Status |
 |-----------|-----------|------------|--------|
-| Vue 3 SPA | Vue 3 + Vite + dagre.js | OSS Static Website + CDN, Kong Ingress split | Primary |
+| Vue 3 SPA | Vue 3 + Vite + dagre.js | OSS Static Website, Kong Ingress proxy | Primary |
 | Streamlit Debug GUI | Streamlit (`src/gui/app.py`) | Local dev only | Legacy (replaced) |
 
 - Production: Kong Ingress routes `/*` to OSS static website (ClusterIP Service + Endpoints + `preserve-host: false` + `response-transformer` plugin to strip OSS force-download headers), `/api/v1/*` routes to kf-api.
@@ -187,7 +186,7 @@ Same Docker image (`Dockerfile`), `KF_MODE=full` serves all routes in a single D
 - Redis: shared session storage (multi-worker consistency)
 - MySQL RDS: primary metrics database
 - PostgreSQL RDS: analytics database
-- Alibaba Cloud OSS: configuration files (CSI PVC mount) + SPA static files (CDN delivery)
+- Alibaba Cloud OSS: configuration files (CSI PVC mount) + SPA static files (Kong Ingress proxy)
 
 ---
 

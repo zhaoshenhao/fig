@@ -667,8 +667,6 @@ Web 前端（Vue 3 + Vite）独立于 API 部署，通过 Kong Ingress 分流 OS
 | 构建 | `cd src/gui/ui && npm ci && npm run build` | 同左 |
 | 上传 | `ossutil cp -r dist/ oss://kf-ui-${NS}/ --update` | `aws s3 cp dist/ s3://kf-ui-${NS}/ --recursive` |
 | 部署 | 创建 ClusterIP Service `oss-webui` + Endpoints (指向 OSS IP) + Ingress `preserve-host: false` + `response-transformer` KongPlugin 剥离 OSS 强制下载头 | （同） |
-| CDN | 阿里云 CDN（回源 OSS，可选） | CloudFront（自动回源 S3） |
-| 缓存刷新 | `aliyun cdn RefreshObjectCaches` | `aws cloudfront create-invalidation` |
 
 **Kong 分流原理**：
 - Ingress 中 `/*` Prefix 路由 → `oss-webui` Service（ClusterIP + Endpoints 指向 OSS IP）

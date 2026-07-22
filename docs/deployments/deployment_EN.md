@@ -534,8 +534,6 @@ The web frontend (Vue 3 + Vite) is deployed independently from the API, served t
 | Build | `cd src/gui/ui && npm ci && npm run build` | Same |
 | Upload | `ossutil cp -r dist/ oss://kf-ui-${NS}/ --update` | `aws s3 cp dist/ s3://kf-ui-${NS}/ --recursive` |
 | Deploy | Create ClusterIP Service `oss-webui` + Endpoints (pointing to OSS IP) + Ingress `preserve-host: false` + `response-transformer` KongPlugin to strip OSS force-download headers | (same) |
-| CDN | Alibaba CDN (origin: OSS, optional) | CloudFront |
-| Cache bust | `aliyun cdn RefreshObjectCaches` | `aws cloudfront create-invalidation` |
 
 **Kong traffic split**:
 - Ingress `/*` Prefix route → `oss-webui` Service (ClusterIP + Endpoints pointing to OSS IP)
